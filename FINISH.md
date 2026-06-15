@@ -142,6 +142,54 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 
 ---
 
+---
+
+## Этап 1.6: Предметы и инвентарь (шаги 45–52) ✅
+
+### Шаг 45: `Item` и `ItemType`
+`src/game/combat/item.h` — `ItemType` (Weapon, Armor, Shield, PotionHeal, PotionMana, Key, Gold, Scroll, QuestItem), `ItemRarity` (Common…Legendary), `Item { name, type, rarity, value, bonus }`.
+
+### Шаг 46: `Inventory`
+`src/game/combat/inventory.h/.cpp` — `Add`, `Remove`, `Clear`, `Get`, `Size`, MAX_ITEMS=32.
+
+### Шаг 47: Интеграция инвентаря в Character
+`Character::inventory` — член `Inventory`.
+
+### Шаг 48: `ItemDrop` на полу
+`ItemDrop { Item item; GridPosition position }` — структура в `item.h`. `PlayState::m_itemDrops` — вектор дропов на полу.
+
+### Шаг 49: Подбирание предметов (Space + контекст)
+- Space контекстно-зависим: если монстр впереди → атака, иначе если есть предмет под ногами → подобрать.
+- `processPickup()` — поиск дропа на клетке игрока, добавление в инвентарь, сообщение в лог.
+
+### Шаг 50: `ItemRenderer` — рендер предметов на полу
+`src/game/combat/item_renderer.h/.cpp` — Y-биллборд (0.6×0.6), материал по типу предмета. Текстуры загружаются из `data/item_*.png` (5 скачаны из opengameart, остальные — цветные шахматные поля как fallback).
+
+Скачанные спрайты:
+- `item_potion_heal.png` — красная склянка
+- `item_key.png` — золотой ключ
+- `item_gold.png` — монета
+- `item_scroll.png` — свиток
+- `item_sword.png` — меч
+
+### Шаг 51: Инвентарь UI (ImGui, клавиша I)
+- `m_showInventory` — toggle по `I`.
+- `renderInventoryWindow()` — список предметов, кнопки "Use" (зелья/свитки) и "Drop" (создаёт ItemDrop на текущей клетке).
+
+### Шаг 52: Тест предметов
+- На старте спавнятся: Healing Potion (`{16,17}`) и Gold Coins (`{14,17}`).
+- Подойти → Space → предмет подобран, сообщение в логе.
+- `I` → инвентарь → Use (восстанавливает HP) / Drop (кладёт на пол).
+
+---
+
+### Исправления после тестирования
+- **Размер предметов** — биллборд уменьшен с `0.6×0.6` до `0.3×0.3` (`±0.15` вместо `±0.3`)
+- **Y-смещение предметов** — центр поднят с `y=0.1` до `y=0.15`, низ спрайта стоит на полу
+- **Pickup с соседней клетки** — `processPickup()` проверяет и свою клетку, и клетку перед собой (по направлению взгляда)
+
+---
+
 ## Ключевые отклонения от оригинального плана
 
 - **TileType → Cell** (hasFloor/hasCeiling/isWall, без enum)

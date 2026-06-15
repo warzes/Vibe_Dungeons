@@ -2,7 +2,7 @@
 
 A retro-style dungeon crawler RPG in the vein of *Eye of the Beholder*, built from scratch in C++26 with OpenGL 3.3 and SDL3.
 
-> **Current status**: grid-based movement, turn system, melee combat with monsters (billboard sprites), combat log, hero HUD.
+> **Current status**: grid-based movement, turn system, melee combat, items & inventory (pickup/use/drop), combat log, hero HUD.
 
 ---
 
@@ -19,12 +19,14 @@ A retro-style dungeon crawler RPG in the vein of *Eye of the Beholder*, built fr
 - **Combat Log**: colour-coded entries (hit, miss, critical, death), auto-scroll, clear
 - **Monster tooltip**: name, HP bar, AC when facing a monster
 - **Death/GameOver**: HP ≤ 0 → GameOver popup, all input locked
+- **Items & inventory**: 9 item types (weapons, armor, potions, keys, gold, etc.), pickup (Space), inventory UI (I), use/drop
+- **Item drops**: floor billboard sprites with per-type textures (downloaded + checkered fallbacks)
 - **Debug tools**: Tab toggles debug camera + ImGui panels (camera, turn system, dungeon info)
 - **Cross-platform**: `#ifdef __EMSCRIPTEN__` guards, no `filesystem`, no `thread` on Web
 - **Retro FBO**: low-resolution framebuffer (`GL_NEAREST`) with configurable resolution
 
 ### In Progress
-- Items & inventory (Phase 1.6)
+- Save/load system (Phase 1.7)
 
 ### Planned
 See [ROADMAP.MD](./ROADMAP.MD) for full development plan.
@@ -38,7 +40,8 @@ See [ROADMAP.MD](./ROADMAP.MD) for full development plan.
 | W / S | Move forward / backward |
 | A / D | Turn left / right (90°) |
 | Q / E | Strafe left / right |
-| Space | Melee attack (adjacent enemy) |
+| Space | Attack monster in front / pick up item on tile (context-sensitive) |
+| I | Toggle inventory |
 | Tab | Toggle debug mode / free camera |
 
 ---

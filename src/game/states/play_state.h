@@ -20,6 +20,8 @@
 #include "game/combat/monster_manager.h"
 #include "game/combat/monster_renderer.h"
 #include "game/combat/combat_system.h"
+#include "game/combat/item_renderer.h"
+#include "game/combat/item.h"
 #include "game/ui/combat_log.h"
 
 class GameStateMachine;
@@ -124,4 +126,21 @@ private:
 	MonsterRenderer m_monsterRenderer;
 	CombatSystem m_combatSystem;
 	CombatLog m_combatLog;
+
+	// Items
+	Texture* m_texItemHeal = nullptr;
+	Texture* m_texItemMana = nullptr;
+	Texture* m_texItemKey = nullptr;
+	Texture* m_texItemGold = nullptr;
+	Texture* m_texItemScroll = nullptr;
+	Texture* m_texItemSword = nullptr;
+	Texture* m_texItemArmor = nullptr;
+	Texture* m_texItemShield = nullptr;
+	Texture* m_texItemQuest = nullptr;
+	ItemRenderer m_itemRenderer;
+	std::vector<ItemDrop> m_itemDrops;
+	bool m_showInventory = false;
+
+	void processPickup() noexcept;
+	void renderInventoryWindow() noexcept;
 };

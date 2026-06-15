@@ -2,6 +2,7 @@
 
 #include "game/grid_position.h"
 #include "game/direction.h"
+#include "game/combat/inventory.h"
 
 struct Character final
 {
@@ -18,4 +19,5 @@ struct Character final
 	int32_t damageMax = 6;
 	GridPosition position;
 	Direction facing = Direction::North;
+	Inventory inventory;
 };

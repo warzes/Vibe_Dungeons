@@ -151,6 +151,89 @@ void PlayState::OnEnter() noexcept
 		}
 		Logger::Info("PlayState: monsters spawned");
 
+		// ---- Item textures ----
+		auto loadOrMakeTex = [&](const char* key, const char* file,
+			int r1, int g1, int b1, int r2, int g2, int b2) -> Texture*
+		{
+			Texture* tex = m_resources.LoadTexture(key, file, false);
+			if (!tex)
+			{
+				tex = m_resources.CreateCheckerboard(
+					(std::string(key) + "_cb").c_str(), 32, 4,
+					r1, g1, b1, 255, r2, g2, b2, 255);
+			}
+			return tex;
+		};
+
+		m_texItemHeal   = loadOrMakeTex("tex_item_heal",   "data/item_potion_heal.png", 255, 60, 60, 180, 0, 0);
+		m_texItemMana   = loadOrMakeTex("tex_item_mana",   "data/item_potion_mana.png", 60, 120, 255, 0, 40, 180);
+		m_texItemKey    = loadOrMakeTex("tex_item_key",    "data/item_key.png",          255, 215, 0, 180, 140, 0);
+		m_texItemGold   = loadOrMakeTex("tex_item_gold",   "data/item_gold.png",         255, 200, 50, 200, 140, 0);
+		m_texItemScroll = loadOrMakeTex("tex_item_scroll", "data/item_scroll.png",       240, 230, 200, 200, 180, 140);
+		m_texItemSword  = loadOrMakeTex("tex_item_sword",  "data/item_sword.png",        180, 180, 200, 100, 100, 130);
+		m_texItemArmor  = loadOrMakeTex("tex_item_armor",  "data/item_armor.png",        120, 120, 140, 70, 70, 90);
+		m_texItemShield = loadOrMakeTex("tex_item_shield", "data/item_shield.png",       160, 120, 80, 110, 80, 50);
+		m_texItemQuest  = loadOrMakeTex("tex_item_quest",  "data/item_quest.png",        180, 60, 200, 120, 20, 140);
+
+		if (!m_texItemHeal || !m_texItemKey || !m_texItemGold)
+		{
+			throw std::runtime_error("Failed to create item textures");
+		}
+
+		auto makeMat = [&](const char* key, Texture& tex) -> Material*
+		{
+			return m_resources.GetOrCreateMaterial(key, *m_dungeonShader, tex);
+		};
+
+		auto* matHeal   = makeMat("mat_item_heal",   *m_texItemHeal);
+		auto* matMana   = makeMat("mat_item_mana",   *m_texItemMana);
+		auto* matKey    = makeMat("mat_item_key",    *m_texItemKey);
+		auto* matGold   = makeMat("mat_item_gold",   *m_texItemGold);
+		auto* matScroll = makeMat("mat_item_scroll", *m_texItemScroll);
+		auto* matSword  = makeMat("mat_item_sword",  *m_texItemSword);
+		auto* matArmor  = makeMat("mat_item_armor",  *m_texItemArmor);
+		auto* matShield = makeMat("mat_item_shield", *m_texItemShield);
+		auto* matQuest  = makeMat("mat_item_quest",  *m_texItemQuest);
+
+		if (!matHeal || !matKey || !matGold)
+		{
+			throw std::runtime_error("Failed to create item materials");
+		}
+		Logger::Info("PlayState: item textures loaded");
+
+		// ---- Item renderer ----
+		m_itemRenderer.Init();
+		m_itemRenderer.SetMaterial(ItemType::PotionHeal,  *matHeal);
+		m_itemRenderer.SetMaterial(ItemType::PotionMana,  *matMana);
+		m_itemRenderer.SetMaterial(ItemType::Key,          *matKey);
+		m_itemRenderer.SetMaterial(ItemType::Gold,         *matGold);
+		m_itemRenderer.SetMaterial(ItemType::Scroll,       *matScroll);
+		m_itemRenderer.SetMaterial(ItemType::Weapon,       *matSword);
+		m_itemRenderer.SetMaterial(ItemType::Armor,        *matArmor);
+		m_itemRenderer.SetMaterial(ItemType::Shield,       *matShield);
+		m_itemRenderer.SetMaterial(ItemType::QuestItem,    *matQuest);
+
+		m_showInventory = false;
+
+		// ---- Spawn test item drops ----
+		{
+			ItemDrop healPotion;
+			healPotion.item.name = "Healing Potion";
+			healPotion.item.type = ItemType::PotionHeal;
+			healPotion.item.value = 10;
+			healPotion.position = {16, 17, 0};
+			m_itemDrops.push_back(std::move(healPotion));
+		}
+		{
+			ItemDrop gold;
+			gold.item.name = "Gold Coins";
+			gold.item.type = ItemType::Gold;
+			gold.item.value = 25;
+			gold.position = {14, 17, 0};
+			m_itemDrops.push_back(std::move(gold));
+		}
+		Logger::Info("PlayState: item drops spawned");
+
 		// ---- Input actions for grid movement ----
 		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
 		m_input.BindAction("GridMoveBackward", SDL_SCANCODE_S);
@@ -221,6 +304,11 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 			enterDebugMode();
 		}
 		m_showDebug = !m_showDebug;
+	}
+
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_I)
+	{
+		m_showInventory = !m_showInventory;
 	}
 
 	if (event.type == SDL_EVENT_WINDOW_RESIZED)
@@ -548,7 +636,20 @@ void PlayState::processAttack() noexcept
 		return;
 	}
 
-	performCombat();
+	// Context-sensitive: monster in front → attack; item on tile → pickup
+	Monster* target = m_monsterManager.FindInFront(
+		m_camera.GetGridPosition(),
+		m_camera.Facing()
+	);
+
+	if (target)
+	{
+		performCombat();
+	}
+	else
+	{
+		processPickup();
+	}
 }
 
 //=============================================================================
@@ -627,6 +728,140 @@ void PlayState::performCombat() noexcept
 
 //=============================================================================
 
+void PlayState::processPickup() noexcept
+{
+	GridPosition heroPos = m_camera.GetGridPosition();
+
+	glm::ivec2 fwdDelta = DirectionToVec(m_camera.Facing());
+	GridPosition frontPos(
+		heroPos.row + fwdDelta.x,
+		heroPos.col + fwdDelta.y,
+		heroPos.floor
+	);
+
+	// Check the player's own cell first, then the cell in front
+	GridPosition checkPositions[] = {heroPos, frontPos};
+
+	for (const GridPosition& checkPos : checkPositions)
+	{
+		for (auto it = m_itemDrops.begin(); it != m_itemDrops.end(); ++it)
+		{
+			if (it->position.row == checkPos.row
+				&& it->position.col == checkPos.col
+				&& it->position.floor == checkPos.floor)
+			{
+				if (m_character.inventory.Add(it->item))
+				{
+					std::string msg = "Picked up " + it->item.name + "!";
+					m_combatLog.Add(msg, glm::vec3(0.2f, 0.8f, 1.0f));
+					m_itemDrops.erase(it);
+					m_gameMode = GameMode::TurnWaiting;
+					return;
+				}
+				else
+				{
+					m_combatLog.Add("Inventory full!", glm::vec3(1.0f, 0.5f, 0.0f));
+					return;
+				}
+			}
+		}
+	}
+
+	m_combatLog.Add("Nothing to attack or pick up.", glm::vec3(0.6f));
+}
+
+//=============================================================================
+
+void PlayState::renderInventoryWindow() noexcept
+{
+	if (!m_showInventory)
+	{
+		return;
+	}
+
+	ImGui::SetNextWindowPos(ImVec2(
+		ImGui::GetMainViewport()->WorkSize.x * 0.5f - 150.0f,
+		ImGui::GetMainViewport()->WorkSize.y * 0.5f - 150.0f
+	), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
+
+	if (!ImGui::Begin("Inventory", &m_showInventory))
+	{
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("Items: %zu / %zu", m_character.inventory.Size(), Inventory::MAX_ITEMS);
+	ImGui::Separator();
+
+	if (m_character.inventory.Size() == 0)
+	{
+		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(empty)");
+	}
+	else
+	{
+		for (size_t i = 0; i < m_character.inventory.Size(); ++i)
+		{
+			const Item* item = m_character.inventory.Get(i);
+			if (!item)
+			{
+				continue;
+			}
+
+			ImGui::PushID(static_cast<int>(i));
+			ImGui::Text("%s", item->name.c_str());
+
+			if (item->type == ItemType::PotionHeal
+				|| item->type == ItemType::PotionMana
+				|| item->type == ItemType::Scroll)
+			{
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Use"))
+				{
+					if (item->type == ItemType::PotionHeal)
+					{
+						m_character.hp += item->value;
+						if (m_character.hp > m_character.maxHp)
+						{
+							m_character.hp = m_character.maxHp;
+						}
+						m_combatLog.Add(
+							"Used " + item->name + " (healed " + std::to_string(item->value) + " HP)!",
+							glm::vec3(0.2f, 1.0f, 0.2f));
+						m_character.inventory.Remove(i);
+					}
+					else if (item->type == ItemType::PotionMana)
+					{
+						m_combatLog.Add("Mana potions not yet implemented.",
+							glm::vec3(0.6f));
+					}
+					else if (item->type == ItemType::Scroll)
+					{
+						m_combatLog.Add("Scrolls not yet implemented.",
+							glm::vec3(0.6f));
+					}
+				}
+			}
+
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Drop"))
+			{
+				ItemDrop drop;
+				drop.item = *item;
+				drop.position = m_camera.GetGridPosition();
+				m_itemDrops.push_back(std::move(drop));
+				m_combatLog.Add("Dropped " + item->name + ".", glm::vec3(0.6f));
+				m_character.inventory.Remove(i);
+			}
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+
 void PlayState::RenderScene(Renderer& renderer) noexcept
 {
 	PROFILE_FUNCTION();
@@ -646,6 +881,8 @@ void PlayState::RenderScene(Renderer& renderer) noexcept
 
 	m_monsterRenderer.Submit(renderer, m_camera, m_monsterManager.All(),
 		*m_matMonsterSkeleton, *m_matMonsterSlime);
+
+	m_itemRenderer.Submit(renderer, m_camera, m_itemDrops);
 
 	m_debugRenderer.SetEnabled(m_showDebug);
 
@@ -758,6 +995,9 @@ void PlayState::Render() noexcept
 	}
 	ImGui::EndChild();
 	ImGui::End();
+
+	// ===== Inventory window (toggle with I) =====
+	renderInventoryWindow();
 
 	// ===== Debug windows (only when debug is on) =====
 
