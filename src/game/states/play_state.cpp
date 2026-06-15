@@ -230,74 +230,85 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 	}
 	else
 	{
-		// ---- Grid movement (only when not animating) ----
-		if (!m_camera.IsAnimating())
+		struct ActionDef
 		{
-			struct ActionDef
-			{
-				std::string_view name;
-				bool isTurn;
-			};
+			std::string_view name;
+			bool isTurn;
+		};
 
-			const ActionDef actionDefs[] = {
-				{"GridMoveForward",  false},
-				{"GridMoveBackward", false},
-				{"TurnLeft",         true },
-				{"TurnRight",        true },
-				{"StrafeLeft",       false},
-				{"StrafeRight",      false},
-			};
+		const ActionDef actionDefs[] = {
+			{"GridMoveForward",  false},
+			{"GridMoveBackward", false},
+			{"TurnLeft",         true },
+			{"TurnRight",        true },
+			{"StrafeLeft",       false},
+			{"StrafeRight",      false},
+		};
 
-			auto getDelta = [&](std::string_view name) -> glm::ivec2
-			{
-				if (name == "GridMoveForward")  return  DirectionToVec(m_camera.Facing());
-				if (name == "GridMoveBackward") return -DirectionToVec(m_camera.Facing());
-				if (name == "StrafeLeft")       return  DirectionToVec(NextDirection(m_camera.Facing(), false));
-				/* StrafeRight */               return  DirectionToVec(NextDirection(m_camera.Facing(), true));
-			};
+		auto getDelta = [&](std::string_view name) -> glm::ivec2
+		{
+			if (name == "GridMoveForward")  return  DirectionToVec(m_camera.Facing());
+			if (name == "GridMoveBackward") return -DirectionToVec(m_camera.Facing());
+			if (name == "StrafeLeft")       return  DirectionToVec(NextDirection(m_camera.Facing(), false));
+			/* StrafeRight */               return  DirectionToVec(NextDirection(m_camera.Facing(), true));
+		};
 
-			auto doAction = [&](std::string_view name)
-			{
-				if (name == "GridMoveForward")  m_camera.MoveForward();
-				else if (name == "GridMoveBackward") m_camera.MoveBackward();
-				else if (name == "TurnLeft")    m_camera.TurnLeft();
-				else if (name == "TurnRight")   m_camera.TurnRight();
-				else if (name == "StrafeLeft")  m_camera.MoveLeft();
-				else                            m_camera.MoveRight();
-			};
+		auto doAction = [&](std::string_view name)
+		{
+			if (name == "GridMoveForward")  m_camera.MoveForward();
+			else if (name == "GridMoveBackward") m_camera.MoveBackward();
+			else if (name == "TurnLeft")    m_camera.TurnLeft();
+			else if (name == "TurnRight")   m_camera.TurnRight();
+			else if (name == "StrafeLeft")  m_camera.MoveLeft();
+			else                            m_camera.MoveRight();
+		};
 
-			auto isWalkable = [&](const ActionDef& a) -> bool
-			{
-				glm::ivec2 delta = getDelta(a.name);
-				GridPosition target(
-					m_camera.GetGridPosition().row + delta.x,
-					m_camera.GetGridPosition().col + delta.y,
-					m_camera.GetGridPosition().floor
-				);
-				return m_dungeon.IsWalkable(target);
-			};
+		auto isWalkable = [&](const ActionDef& a) -> bool
+		{
+			glm::ivec2 delta = getDelta(a.name);
+			GridPosition target(
+				m_camera.GetGridPosition().row + delta.x,
+				m_camera.GetGridPosition().col + delta.y,
+				m_camera.GetGridPosition().floor
+			);
+			return m_dungeon.IsWalkable(target);
+		};
 
-			// ---- Pass 1: edge-triggered actions (one step per press) ----
-			bool fired = false;
-			for (const auto& a : actionDefs)
+		// ---- Pass 1: edge-triggered actions (always processed) ----
+		for (const auto& a : actionDefs)
+		{
+			if (!m_input.IsActionPressed(a.name))
 			{
-				if (!m_input.IsActionPressed(a.name))
-				{
-					continue;
-				}
-				if (!a.isTurn && !isWalkable(a))
-				{
-					m_moveRepeatTimer = 0.0f;
-					break;
-				}
-				doAction(a.name);
+				continue;
+			}
+			if (m_camera.IsAnimating())
+			{
+				m_camera.SnapToGrid();
+			}
+			if (!a.isTurn && !isWalkable(a))
+			{
 				m_moveRepeatTimer = 0.0f;
-				fired = true;
 				break;
 			}
+			doAction(a.name);
+			m_moveRepeatTimer = 0.0f;
+			break;
+		}
 
-			// ---- Pass 2: held-action auto-repeat ----
-			if (!fired)
+		// ---- Pass 2: held-action auto-repeat (only when idle) ----
+		if (!m_camera.IsAnimating())
+		{
+			bool anyPressed = false;
+			for (const auto& a : actionDefs)
+			{
+				if (m_input.IsActionPressed(a.name))
+				{
+					anyPressed = true;
+					break;
+				}
+			}
+
+			if (!anyPressed)
 			{
 				const ActionDef* heldAction = nullptr;
 				for (const auto& a : actionDefs)
