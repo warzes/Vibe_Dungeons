@@ -10,13 +10,14 @@ using json = nlohmann::json;
 static void to_json(json& j, const PlayerConfig& c)
 {
 	j = json{
-		{"playerName",       c.playerName},
-		{"mouseSensitivity", c.mouseSensitivity},
-		{"soundVolume",      c.soundVolume},
-		{"resolutionWidth",  c.resolutionWidth},
-		{"resolutionHeight", c.resolutionHeight},
-		{"renderHeight",     c.renderHeight},
-		{"fullscreen",       c.fullscreen}
+		{"playerName",          c.playerName},
+		{"mouseSensitivity",    c.mouseSensitivity},
+		{"soundVolume",         c.soundVolume},
+		{"resolutionWidth",     c.resolutionWidth},
+		{"resolutionHeight",    c.resolutionHeight},
+		{"renderHeight",        c.renderHeight},
+		{"fullscreen",          c.fullscreen},
+		{"gridMoveRepeatDelay", c.gridMoveRepeatDelay}
 	};
 }
 
@@ -29,6 +30,7 @@ static void from_json(const json& j, PlayerConfig& c)
 	j.at("resolutionHeight").get_to(c.resolutionHeight);
 	j.at("renderHeight").get_to(c.renderHeight);
 	j.at("fullscreen").get_to(c.fullscreen);
+	j.at("gridMoveRepeatDelay").get_to(c.gridMoveRepeatDelay);
 }
 
 	static std::string configFilePath()
@@ -105,6 +107,21 @@ static void from_json(const json& j, PlayerConfig& c)
 		return 480;
 	}
 
+	float GetGridMoveRepeatDelayFromConfig() noexcept
+	{
+		auto maybeJson = readJsonFile(configFilePath());
+		if (maybeJson.has_value())
+		{
+			auto& j = *maybeJson;
+			if (j.contains("gridMoveRepeatDelay") && j["gridMoveRepeatDelay"].is_number_float())
+			{
+				float d = j["gridMoveRepeatDelay"].get<float>();
+				return d;
+			}
+		}
+		return 0.1f;
+	}
+
 // ── SettingsState ─────────────────────────────────────────────────────────
 
 SettingsState::SettingsState(GameStateMachine& machine) noexcept
@@ -158,6 +175,7 @@ void SettingsState::Render() noexcept
 
 	ImGui::SliderFloat("Mouse Sensitivity", &m_config.mouseSensitivity, 0.1f, 2.0f, "%.2f");
 	ImGui::SliderFloat("Sound Volume", &m_config.soundVolume, 0.0f, 1.0f, "%.2f");
+	ImGui::SliderFloat("Move Repeat Delay", &m_config.gridMoveRepeatDelay, 0.05f, 0.5f, "%.2f s");
 
 	int resW = m_config.resolutionWidth;
 	int resH = m_config.resolutionHeight;

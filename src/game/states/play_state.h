@@ -88,4 +88,7 @@ private:
 
 	bool m_initialized = false;
 	const Renderer* m_renderer = nullptr;
+
+	float m_moveRepeatDelay = 0.1f;
+	float m_moveRepeatTimer = 0.0f;
 };

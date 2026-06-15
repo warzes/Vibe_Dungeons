@@ -13,9 +13,11 @@ struct PlayerConfig
 	int32_t resolutionHeight = 720;
 	int32_t renderHeight = 480; //< retro FBO height; width = height * aspect
 	bool fullscreen = false;
+	float gridMoveRepeatDelay = 0.1f; //< seconds between auto-repeat steps
 };
 
 [[nodiscard]] int32_t GetRenderHeightFromConfig() noexcept;
+[[nodiscard]] float GetGridMoveRepeatDelayFromConfig() noexcept;
 
 class SettingsState final : public GameState
 {

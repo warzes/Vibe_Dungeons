@@ -8,6 +8,7 @@
 #include "core/logger.h"
 #include "core/exception.h"
 #include "engine/renderer/renderer.h"
+#include "game/states/settings_state.h"
 
 //=============================================================================
 
@@ -76,6 +77,9 @@ void PlayState::OnEnter() noexcept
 		m_dungeonRenderer.SetCeilingMaterial(m_matCeiling);
 		m_dungeonRenderer.SetNeedsRebuild(true);
 		Logger::Info("PlayState: dungeon generated");
+
+		// ---- Config ----
+		m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
 
 		// ---- Grid camera ----
 		m_camera.SetGridPosition({17, 17, 0}, Direction::North);
@@ -229,66 +233,97 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		// ---- Grid movement (only when not animating) ----
 		if (!m_camera.IsAnimating())
 		{
-			if (m_input.IsActionPressed("GridMoveForward"))
+			struct ActionDef
 			{
-				glm::ivec2 delta = DirectionToVec(m_camera.Facing());
+				std::string_view name;
+				bool isTurn;
+			};
+
+			const ActionDef actionDefs[] = {
+				{"GridMoveForward",  false},
+				{"GridMoveBackward", false},
+				{"TurnLeft",         true },
+				{"TurnRight",        true },
+				{"StrafeLeft",       false},
+				{"StrafeRight",      false},
+			};
+
+			auto getDelta = [&](std::string_view name) -> glm::ivec2
+			{
+				if (name == "GridMoveForward")  return  DirectionToVec(m_camera.Facing());
+				if (name == "GridMoveBackward") return -DirectionToVec(m_camera.Facing());
+				if (name == "StrafeLeft")       return  DirectionToVec(NextDirection(m_camera.Facing(), false));
+				/* StrafeRight */               return  DirectionToVec(NextDirection(m_camera.Facing(), true));
+			};
+
+			auto doAction = [&](std::string_view name)
+			{
+				if (name == "GridMoveForward")  m_camera.MoveForward();
+				else if (name == "GridMoveBackward") m_camera.MoveBackward();
+				else if (name == "TurnLeft")    m_camera.TurnLeft();
+				else if (name == "TurnRight")   m_camera.TurnRight();
+				else if (name == "StrafeLeft")  m_camera.MoveLeft();
+				else                            m_camera.MoveRight();
+			};
+
+			auto isWalkable = [&](const ActionDef& a) -> bool
+			{
+				glm::ivec2 delta = getDelta(a.name);
 				GridPosition target(
 					m_camera.GetGridPosition().row + delta.x,
 					m_camera.GetGridPosition().col + delta.y,
 					m_camera.GetGridPosition().floor
 				);
-				if (m_dungeon.IsWalkable(target))
+				return m_dungeon.IsWalkable(target);
+			};
+
+			// ---- Pass 1: edge-triggered actions (one step per press) ----
+			bool fired = false;
+			for (const auto& a : actionDefs)
+			{
+				if (!m_input.IsActionPressed(a.name))
 				{
-					m_camera.MoveForward();
+					continue;
 				}
-			}
-			else if (m_input.IsActionPressed("GridMoveBackward"))
-			{
-				glm::ivec2 delta = DirectionToVec(m_camera.Facing());
-				GridPosition target(
-					m_camera.GetGridPosition().row - delta.x,
-					m_camera.GetGridPosition().col - delta.y,
-					m_camera.GetGridPosition().floor
-				);
-				if (m_dungeon.IsWalkable(target))
+				if (!a.isTurn && !isWalkable(a))
 				{
-					m_camera.MoveBackward();
+					m_moveRepeatTimer = 0.0f;
+					break;
 				}
+				doAction(a.name);
+				m_moveRepeatTimer = 0.0f;
+				fired = true;
+				break;
 			}
-			else if (m_input.IsActionPressed("TurnLeft"))
+
+			// ---- Pass 2: held-action auto-repeat ----
+			if (!fired)
 			{
-				m_camera.TurnLeft();
-			}
-			else if (m_input.IsActionPressed("TurnRight"))
-			{
-				m_camera.TurnRight();
-			}
-			else if (m_input.IsActionPressed("StrafeLeft"))
-			{
-				Direction left = NextDirection(m_camera.Facing(), false);
-				glm::ivec2 delta = DirectionToVec(left);
-				GridPosition target(
-					m_camera.GetGridPosition().row + delta.x,
-					m_camera.GetGridPosition().col + delta.y,
-					m_camera.GetGridPosition().floor
-				);
-				if (m_dungeon.IsWalkable(target))
+				const ActionDef* heldAction = nullptr;
+				for (const auto& a : actionDefs)
 				{
-					m_camera.MoveLeft();
+					if (m_input.IsActionDown(a.name))
+					{
+						heldAction = &a;
+						break;
+					}
 				}
-			}
-			else if (m_input.IsActionPressed("StrafeRight"))
-			{
-				Direction right = NextDirection(m_camera.Facing(), true);
-				glm::ivec2 delta = DirectionToVec(right);
-				GridPosition target(
-					m_camera.GetGridPosition().row + delta.x,
-					m_camera.GetGridPosition().col + delta.y,
-					m_camera.GetGridPosition().floor
-				);
-				if (m_dungeon.IsWalkable(target))
+
+				if (heldAction)
 				{
-					m_camera.MoveRight();
+					m_moveRepeatTimer += static_cast<float>(dt.Seconds());
+					if (m_moveRepeatTimer >= m_moveRepeatDelay)
+					{
+						if (heldAction->isTurn || isWalkable(*heldAction))
+						{
+							doAction(heldAction->name);
+						}
+						m_moveRepeatTimer = 0.0f;
+					}
+				}
+				else
+				{
+					m_moveRepeatTimer = 0.0f;
 				}
 			}
 		}
