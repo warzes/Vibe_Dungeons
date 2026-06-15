@@ -18,7 +18,7 @@ public:
 		uint8_t r2, uint8_t g2, uint8_t b2, uint8_t a2
 	);
 
-	[[nodiscard]] bool LoadFromFile(std::string_view path);
+	[[nodiscard]] bool LoadFromFile(std::string_view path, bool useMipmap = true);
 	[[nodiscard]] bool LoadFromMemory(const void* data, size_t size);
 
 	void Bind(int32_t unit = 0) const noexcept;

@@ -34,7 +34,7 @@ public:
 		uint8_t r2, uint8_t g2, uint8_t b2, uint8_t a2
 	);
 
-	[[nodiscard]] Texture* LoadTexture(std::string_view key, std::string_view path);
+	[[nodiscard]] Texture* LoadTexture(std::string_view key, std::string_view path, bool useMipmap = true);
 
 	[[nodiscard]] Mesh* CreateMesh(
 		std::string_view key,

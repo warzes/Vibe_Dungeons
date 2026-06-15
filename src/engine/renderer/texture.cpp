@@ -105,7 +105,7 @@ void Texture::applyTextureParams(bool useMipmap) noexcept
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
-bool Texture::LoadFromFile(std::string_view path)
+bool Texture::LoadFromFile(std::string_view path, bool useMipmap)
 {
 	int32_t w = 0, h = 0, channels = 0;
 	stbi_uc* data = stbi_load(path.data(), &w, &h, &channels, 4);
@@ -125,7 +125,7 @@ bool Texture::LoadFromFile(std::string_view path)
 	glGenTextures(1, &m_texture);
 	glBindTexture(GL_TEXTURE_2D, m_texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	applyTextureParams(true);
+	applyTextureParams(useMipmap);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	stbi_image_free(data);

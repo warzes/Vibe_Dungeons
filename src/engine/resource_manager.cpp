@@ -21,7 +21,7 @@ Shader* ResourceManager::GetOrCreateShader(
 	return ptr;
 }
 
-Texture* ResourceManager::LoadTexture(std::string_view key, std::string_view path)
+Texture* ResourceManager::LoadTexture(std::string_view key, std::string_view path, bool useMipmap)
 {
 	std::string keyStr(key);
 	auto it = m_textures.find(keyStr);
@@ -31,7 +31,7 @@ Texture* ResourceManager::LoadTexture(std::string_view key, std::string_view pat
 	}
 
 	auto tex = std::make_unique<Texture>();
-	if (!tex->LoadFromFile(path))
+	if (!tex->LoadFromFile(path, useMipmap))
 	{
 		return nullptr;
 	}

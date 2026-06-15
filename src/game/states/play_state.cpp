@@ -49,9 +49,9 @@ void PlayState::OnEnter() noexcept
 		Logger::Info("PlayState: shader created");
 
 		// ---- Textures from files ----
-		m_texFloor = m_resources.LoadTexture("tex_dungeon_floor", "data/texture_08.png");
-		m_texWall = m_resources.LoadTexture("tex_dungeon_wall", "data/texture_10.png");
-		m_texCeiling = m_resources.LoadTexture("tex_dungeon_ceiling", "data/texture_11.png");
+		m_texFloor = m_resources.LoadTexture("tex_dungeon_floor", "data/texture_08.png", false);
+		m_texWall = m_resources.LoadTexture("tex_dungeon_wall", "data/texture_10.png", false);
+		m_texCeiling = m_resources.LoadTexture("tex_dungeon_ceiling", "data/texture_11.png", false);
 
 		if (!m_texFloor || !m_texWall || !m_texCeiling)
 		{

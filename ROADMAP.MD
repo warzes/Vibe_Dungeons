@@ -1,6 +1,6 @@
 # Roadmap: Dungeon Crawlers — от прототипа к Eye of Beholder
 
-> Основа: скелет 3D-движка на OpenGL 3.3 + SDL3 + ImGui, ~3500 строк
+> Основа: 3D-движок на OpenGL 3.3 + SDL3 + ImGui, ~5500 строк
 > Цель: партийная пошаговая RPG в ретро-стилистике (Eye of Beholder)
 > Графика: 3D-сцена (OpenGL 3.3 core) с текстурированными quad'ами, биллбордами, instancing
 > Ретро-стиль: низкое разрешение FBO (320×240) + nearest-neighbour фильтр
@@ -17,16 +17,58 @@
 
 ---
 
+##  Текущее состояние (realized vs roadmap)
+
+### Реализовано ✅
+- Этап 1.1 (шаги 1–10): **полностью** — GridPosition, Direction, Camera c grid-методами, Dungeon с Chunk/Cell, play state, проверка проходимости
+- Этап 1.2 (шаги 11–20): **полностью** — DungeonRenderer, шейдеры, текстуры из файлов, FBO, нормальная геометрия (исправлены winding/normals)
+- **Дополнительно** (не в оригинальном roadmap):
+  - Система чанков 35×35 (Chunk + Cell вместо LevelData + TileType)
+  - Strafe (MoveLeft/MoveRight) — Q/E
+  - Auto-repeat с настраиваемой задержкой (hold-to-repeat, `gridMoveRepeatDelay` в config)
+  - Множественные зажатые клавиши (edge-trigger прерывает анимацию)
+  - Debug-камера (Tab) с сохранением/восстановлением grid-позиции
+  - Исправление yaw-wrapping в Camera::UpdateAnimation
+
+### Изменения относительно оригинального плана
+- **TileType → Cell** (hasFloor/hasCeiling/isWall, без enum)
+- **LevelData → Chunk** (фиксированный размер 35×35, массив на стеке)
+- **Текстуры** — из файлов (data/texture_08/10/11.png), не процедурные
+- **Управление**: W/S — вперёд/назад, A/D — поворот, Q/E — стрейф (не как в оригинале)
+- **Тестовая комната**: комнаты + коридоры, а не одна клетка стены в центре
+
+### Не реализовано (следующие шаги)
+- Фаза 1.3: пошаговый режим, GameMode, очередь ходов
+- Фаза 1.4: персонаж, монстры, combat
+- Фаза 1.5: боевой UI, лог
+- Фаза 1.6: предметы и инвентарь
+- Фаза 1.7: сохранение/загрузка
+- Фаза 1.8: FOV, туман войны, мини-карта
+- Фаза 2: партия, продвинутый бой, магия, этажи, ретро-UI, звук
+
+---
+
+##  Текущие настройки (player_config.json)
+
+```json
+{
+  "gridMoveRepeatDelay": 0.1
+}
+```
+
+---
+
 # Фаза 1: Одногеройный roguelike-прототип (шаги 1–60)
 
-> Цель: играбельный прототип, где один герой ходит по подземелью, сражается с монстрами в пошаговом режиме (как классический roguelike), собирает предметы.
+> ✅ **Этап 1.1 (шаги 1–10) и Этап 1.2 (шаги 11–20) выполнены.**
+> ⏳ Текущая работа: Этап 1.3 (пошаговый режим).
 
-## Этап 1.1: Переход от FPS-камеры к грид-системе (шаги 1–10)
+## Этап 1.1: Переход от FPS-камеры к грид-системе (шаги 1–10) ✅
 
-### Шаг 1: Специальный `GridPosition`
+### Шаг 1: Специальный `GridPosition` ✅
 
 ```
-src/game/grid_position.h — новая структура
+src/game/grid_position.h — выполнено
 ```
 
 ```cpp
@@ -41,10 +83,10 @@ struct GridPosition final
 Создать POD-структуру с операторами сравнения `==`, `!=`, хешированием для `unordered_map`.
 Никакой логики — просто данные.
 
-### Шаг 2: `enum class Direction`
+### Шаг 2: `enum class Direction` ✅
 
 ```
-src/game/direction.h — новый файл
+src/game/direction.h — выполнено
 ```
 
 ```cpp
@@ -63,12 +105,10 @@ enum class Direction : uint8_t
 - `DirectionToVec(Direction d) → glm::ivec2` — смещение (row, col)
 - `DirectionToYaw(Direction d) → float` — угол в градусах для камеры
 
-Добавить `#include` в `stdafx.h`.
-
-### Шаг 3: Расширение `Camera` в `GridCamera`
+### Шаг 3: Расширение `Camera` в `GridCamera` ✅
 
 ```
-src/engine/renderer/camera.h — модификация
+src/engine/renderer/camera.h — выполнено
 ```
 
 Добавить в класс `Camera`:
@@ -85,245 +125,131 @@ src/engine/renderer/camera.h — модификация
 - `IsAnimating() → bool`
 - `GridPosition() const → GridPosition`
 - `Facing() const → Direction`
-- `TurnLeft() / TurnRight() / MoveForward() / MoveBackward()` — грид-движение
+- `TurnLeft() / TurnRight() / MoveForward() / MoveBackward() / MoveLeft() / MoveRight()` — грид-движение
 
 Константы:
 - `static constexpr float ANIMATION_DURATION = 0.2f` — длительность рывка
 - `static constexpr float GRID_UNIT = 1.0f` — размер клетки
 
-### Шаг 4: Lerp-анимация в `Camera::UpdateAnimation(float dt)`
+### Шаг 4: Lerp-анимация в `Camera::UpdateAnimation(float dt)` ✅
 
 ```
-src/engine/renderer/camera.cpp — новый метод
+src/engine/renderer/camera.cpp — выполнено
 ```
 
-```cpp
-void Camera::UpdateAnimation(float dt) noexcept;
-```
+Если `m_isAnimating`, инкрементировать `m_animationTimer`, lerp-ить `m_position` от старой к `m_targetPosition`, lerp-ить `m_yaw` от старого к `m_targetYaw` (с учётом 360° wrapping). По окончании вызвать `SnapToGrid()`.
 
-Если `m_isAnimating`, инкрементировать `m_animationTimer`, lerp-ить `m_position` от старой к `m_targetPosition`, lerp-ить `m_yaw` от старого к `m_targetYaw`. По окончании вызвать `SnapToGrid()` — установить точные значения, выключить флаг.
+### Шаг 5: Вращение 90° за шаг ✅
 
-Вызывать из `PlayState::Update()` перед чтением позиции камеры.
+`TurnLeft()` / `TurnRight()` — выполнено.
 
-### Шаг 5: Вращение 90° за шаг
+### Шаг 6: Движение на 1 клетку ✅
 
-`TurnLeft()`:
-1. Сохранить текущий `m_yaw` как стартовый
-2. `m_gridFacing = NextDirection(m_gridFacing, false)`
-3. `m_targetYaw = DirectionToYaw(m_gridFacing)`
-4. `m_animationTimer = 0, m_isAnimating = true`
+`MoveForward()` / `MoveBackward()` / `MoveLeft()` / `MoveRight()` — выполнено. Добавлен strafe (Q/E).
 
-`TurnRight()` — аналогично с `true`.
-
-### Шаг 6: Движение на 1 клетку
-
-`MoveForward()`:
-1. Вычислить `glm::ivec2 delta = DirectionToVec(m_gridFacing)`
-2. Новая `GridPosition target(m_gridPosition.row + delta.x, m_gridPosition.col + delta.y, m_gridPosition.floor)`
-3. Сохранить старую позицию
-4. `m_gridPosition = target`
-5. `m_targetPosition = GridToWorld(target)`
-6. `m_animationTimer = 0, m_isAnimating = true`
-
-`MoveBackward()` — аналогично с `-delta`.
-
-`GridToWorld(GridPosition p) → glm::vec3` — конвертация: `x = p.col * GRID_UNIT, z = p.row * GRID_UNIT`.
-
-### Шаг 7: Отключение FPS-управления в `PlayState`
+### Шаг 7: Отключение FPS-управления в `PlayState` ✅
 
 ```
-src/game/states/play_state.cpp — модификация
+src/game/states/play_state.cpp — модифицировано
 ```
 
-- Удалить биндинги `MoveForward`/`MoveBackward`/`MoveLeft`/`MoveRight`/`MoveUp`/`MoveDown`
-- Заменить на биндинги: `GridMoveForward` (W), `GridMoveBackward` (S), `TurnLeft` (A), `TurnRight` (D)
-- `Update()` вызывает не `m_camera.MoveForward()` а `m_camera.MoveForward()` (новый grid-метод) и `m_camera.UpdateAnimation(dt)`
-- Удалить mouse-look (на этом этапе камера смотрит строго по направлению)
+- WASD заменены на сеточное управление
+- W/S — вперёд/назад, A/D — поворот, Q/E — стрейф
+- Mouse-look отключён (только в debug-режиме по Tab)
 
-### Шаг 8: Удаление кубов из `PlayState::OnEnter()`
-
-```
-src/game/states/play_state.cpp — очистка
-```
-
-- Убрать генерацию сетки кубов
-- Убрать `NUM_MATERIALS`, `m_materials[]`, `m_cubes`, `m_debugSphere`
-- Убрать коллизионную логику из `FixedUpdate`
-- Оставить только `m_camera`, `m_shader`, `m_cube` (как тестовый меш)
-- Добавить тестовый пол — один большой quad (4 вершины) через `Mesh::Create()`
-
-### Шаг 9: Добавление `DungeonTile` и `Dungeon` класса (каркас)
+### Шаг 8: Удаление кубов из `PlayState::OnEnter()` ✅
 
 ```
-src/game/dungeon/tile.h — новый модуль
-src/game/dungeon/dungeon.h — новый модуль
+src/game/states/play_state.cpp — очищено
 ```
 
-```cpp
-enum class TileType : uint8_t
-{
-    Void, Floor, Wall, DoorClosed, DoorOpen
-};
-
-struct Tile final
-{
-    TileType type = TileType::Void;
-};
-
-struct LevelData final
-{
-    std::vector<std::vector<Tile>> tiles; // [row][col]
-    int32_t width = 0;
-    int32_t height = 0;
-};
-
-class Dungeon final
-{
-public:
-    void GenerateTestRoom(); // комната 8×8 с Floor и Wall по краям
-    [[nodiscard]] const LevelData& CurrentLevel() const noexcept;
-    [[nodiscard]] bool IsWalkable(GridPosition pos) const noexcept;
-    [[nodiscard]] TileType GetTile(GridPosition pos) const noexcept;
-private:
-    std::vector<LevelData> m_levels;
-    int32_t m_currentFloor = 0;
-};
-```
-
-`GenerateTestRoom()`: создать LevelData 8×8, все клетки Floor, края — Wall.
-
-### Шаг 10: Интеграция `Dungeon` в `PlayState` и проверка проходимости
+### Шаг 9: Добавление `Cell` и `Chunk` (каркас Dungeon) ✅
 
 ```
-src/game/states/play_state.h/.cpp — модификация
+src/game/dungeon/chunk.h — выполнено
+src/game/dungeon/dungeon.h — выполнено
 ```
 
-- Добавить `Dungeon m_dungeon` как член `PlayState`
-- В `OnEnter()` вызвать `m_dungeon.GenerateTestRoom()`
-- Перед `MoveForward()` проверять `m_dungeon.IsWalkable(targetPos)`
-- Если стена — не двигаться (без анимации)
-- Если `Void` — не двигаться (или падение, пока не реализовано)
+**Отклонение от roadmap**: вместо `enum class TileType / LevelData` используется:
+- `Cell { hasFloor, hasCeiling, isWall }` — флаги, не enum
+- `Chunk` — `std::array<Cell, 1225>` (35×35) на стеке, не `vector<vector<Tile>>`
+- `GenerateTestRoom()`: комнаты + коридоры + пилоны, не просто 8×8
+
+### Шаг 10: Интеграция `Dungeon` в `PlayState` и проверка проходимости ✅
+
+```
+src/game/states/play_state.h/.cpp — выполнено
+```
+
+- `Dungeon m_dungeon` как член `PlayState`
+- В `OnEnter()` вызвать `GenerateTestRoom()`
+- Перед движением проверять `m_dungeon.IsWalkable(targetPos)`
 
 ---
 
-## Этап 1.2: Рендер подземелья (шаги 11–20)
+## Этап 1.2: Рендер подземелья (шаги 11–20) ✅
 
-### Шаг 11: Генератор геометрии пола
+### Шаг 11: Генератор геометрии пола ✅
 
 ```
-src/game/dungeon/dungeon_renderer.h — новый модуль
+src/game/dungeon/dungeon_renderer.h — выполнено
 ```
 
 Структура `DungeonGeometry`: хранит векторы `Vertex` и `uint32_t` indices для:
-- Всех тайлов пола (один batch)
-- Всех тайлов стен (один batch)
-- Потолка (один batch)
+- Всех клеток пола (один batch) — квады на y=0, нормаль (0,1,0), CCW winding
+- Всех стен (один batch) — 4 грани на клетку стены, нормали наружу
+- Потолка (один batch) — квады на y=1, нормаль (0,-1,0), CCW winding
 
-Метод `BuildFloorGeometry(const LevelData& level)`:
-- Для каждого `Floor` создать quad на высоте `y=0` размером 1×1
-- Текстурные координаты: (0,0)-(1,1) на клетку
-- Вернуть векторы Vertex/indices
+**Исправлено**: winding и нормали перепроверены — пол смотрит вверх, потолок вниз, стены наружу.
 
-### Шаг 12: Генератор геометрии стен
+### Шаг 12: Генератор геометрии стен ✅
 
-`BuildWallGeometry(const LevelData& level)`:
-- Для каждой стены определить, какие стороны видимы
-- Если клетка `Wall` и соседняя `Floor` — генерировать quad стены на границе
-- Стена высотой 1.0 (y=0..1)
-- Нормали: наружу от стены
-- Текстурные координаты: (0,0)-(1,1) для каждой грани
+`BuildWallGeometry()`: для каждой стены проверяет соседние клетки, рисует грань только если сосед — проходимая клетка (или граница чанка). Высота стены 1.0 (y=0..1).
 
-### Шаг 13: `DungeonRenderer` — класс для управления геометрией
+### Шаг 13: `DungeonRenderer` — класс для управления геометрией ✅
 
 ```
-src/game/dungeon/dungeon_renderer.h/.cpp
+src/game/dungeon/dungeon_renderer.h/.cpp — выполнено
 ```
 
-```cpp
-class DungeonRenderer final
-{
-public:
-    void Build(const Dungeon& dungeon);
-    void Submit(Renderer& renderer, const glm::mat4& viewProj);
+### Шаг 14: Шейдеры для dungeon ✅
 
-private:
-    Mesh m_floorMesh;
-    Mesh m_wallMesh;
-    Mesh m_ceilingMesh;
-    Material* m_floorMaterial = nullptr;
-    Material* m_wallMaterial = nullptr;
-    Material* m_ceilingMaterial = nullptr;
-};
-```
+Созданы шейдеры `DUNGEON_VERT_SRC` / `DUNGEON_FRAG_SRC` (строковые константы):
+- Вершинный: позиция + нормаль + текстурные координаты, UBO `ViewProjection`
+- Фрагментный: текстура × ambient (0.3) + directional light (0.7)
 
-При `Build()` заново создавать меши из сгенерированной геометрии.
-При `Submit()` вызывать `renderer.Submit()` для каждого меша.
+### Шаг 15: Текстуры для подземелья ✅
 
-### Шаг 14: Шейдеры для dungeon
+**Отклонение от roadmap**: текстуры загружаются из файлов, не процедурные:
+- `data/texture_08.png` — пол
+- `data/texture_10.png` — стена
+- `data/texture_11.png` — потолок
 
-Создать шейдеры `dungeon.vert` / `dungeon.frag` (строковые константы в коде):
-- Вершинный: позиция + нормаль + текстурные координаты, UBO `ViewProjection`, модель
-- Фрагментный: текстура × простое ambient-освещение (нормаль·свет = 0.5 + 0.5)
+### Шаг 16: Материалы dungeon ✅
 
-Добавить uniform `uAmbientLight` (float).
+`mat_dungeon_floor`, `mat_dungeon_wall`, `mat_dungeon_ceiling` — созданы.
 
-### Шаг 15: Текстуры для подземелья (процедурные)
-
-Через `ResourceManager::CreateCheckerboard()`:
-- `tex_dungeon_floor` — 64×64, 8 клеток, серо-коричневые тона
-- `tex_dungeon_wall` — 64×64, 8 клеток, серый камень
-- `tex_dungeon_ceiling` — 64×64, 8 клеток, тёмно-серый
-
-Позже заменить на рукописные пиксель-арт текстуры.
-
-### Шаг 16: Материалы dungeon
+### Шаг 17: Подключение DungeonRenderer в PlayState ✅
 
 ```
-PlayState::OnEnter() — расширение
+PlayState — рендер сцены — выполнено
 ```
 
-Создать материалы:
-- `mat_dungeon_floor` = (dungeonShader, tex_dungeon_floor)
-- `mat_dungeon_wall` = (dungeonShader, tex_dungeon_wall)
-- `mat_dungeon_ceiling` = (dungeonShader, tex_dungeon_ceiling)
+### Шаг 18: FBO с ретро-разрешением ✅
 
-### Шаг 17: Подключение DungeonRenderer в PlayState
+Убедиться, что FBO создаётся с `GL_NEAREST`. — проверено.
 
-```
-PlayState — рендер сцены
-```
+### Шаг 19: Позиционирование камеры по гриду ✅
 
-В `RenderScene()`:
-1. `m_dungeonRenderer.Build(m_dungeon)` — если изменилась карта
-2. `renderer.BeginFrame()`
-3. `m_dungeonRenderer.Submit(renderer)`
-4. `renderer.EndFrame()`
+При старте: `m_camera.SetGridPosition({17, 17, 0}, Direction::North)`.
+Камера на высоте `y=0.5`.
 
-Пока не оптимизируем — перестраиваем геометрию каждый кадр.
+### Шаг 20: Визуальная проверка ✅
 
-### Шаг 18: FBO с ретро-разрешением
-
-Уже есть в `m_renderHeight` (settings). Убедиться, что FBO создаётся 320×240 (или 480×320) с `GL_NEAREST` фильтром.
-Текущий код: `CreateCheckerboard` уже использует `GL_NEAREST`.
-
-Проверить `framebuffer.cpp`: фильтр на color texture — `GL_NEAREST`. Если нет — исправить.
-
-### Шаг 19: Позиционирование камеры по гриду
-
-При старте игры:
-- `m_camera.SetGridPosition({1, 1, 0}, Direction::North)`
-- `m_camera.SnapToGrid()`
-
-Камера находится на высоте `y=0.5` (середина клетки, уровень глаз).
-
-### Шаг 20: Визуальная проверка
-
-Запустить игру, проверить:
-- Клетки пола видны снизу
-- Стены по краям видны
-- Камера движется рывками по клеткам
-- Поворот на 90° за шаг
-- Ретро-фильтр (пикселизация) через FBO
+- Нормали/виндинг исправлены — пол/потолок/стены видны с правильной стороны
+- Камера движется рывками с lerp-анимацией
+- Поворот на 90° с учётом 360°-wrapping
+- Ретро-фильтр через FBO
 
 ---
 
@@ -358,7 +284,7 @@ GameMode m_gameMode = GameMode::Exploring;
 
 Правила:
 - `Exploring`: игрок может двигаться (WASD). После каждого MOVEMENT или TURN — перейти в `TurnWaiting`
-- `TurnWaiting`: заблокировать ввод. Через 0.1s (или по кнопке действия) — перейти в `Exploring`
+- `TurnWaiting`: заблокировать ввод. Через gridMoveRepeatDelay (или по кнопке действия) — перейти в `Exploring`
 - В будущем здесь будет проверка: если монстр рядом → его ход
 
 ### Шаг 23: Блокировка ввода во время анимации
