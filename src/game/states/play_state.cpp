@@ -86,6 +86,8 @@ void PlayState::OnEnter() noexcept
 		m_input.BindAction("GridMoveBackward", SDL_SCANCODE_S);
 		m_input.BindAction("TurnLeft",         SDL_SCANCODE_A);
 		m_input.BindAction("TurnRight",        SDL_SCANCODE_D);
+		m_input.BindAction("StrafeLeft",       SDL_SCANCODE_Q);
+		m_input.BindAction("StrafeRight",      SDL_SCANCODE_E);
 
 		// ---- Perspective ----
 		m_camera.SetPerspective(60.0f,
@@ -261,6 +263,34 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 			{
 				m_camera.TurnRight();
 			}
+			else if (m_input.IsActionPressed("StrafeLeft"))
+			{
+				Direction left = NextDirection(m_camera.Facing(), false);
+				glm::ivec2 delta = DirectionToVec(left);
+				GridPosition target(
+					m_camera.GetGridPosition().row + delta.x,
+					m_camera.GetGridPosition().col + delta.y,
+					m_camera.GetGridPosition().floor
+				);
+				if (m_dungeon.IsWalkable(target))
+				{
+					m_camera.MoveLeft();
+				}
+			}
+			else if (m_input.IsActionPressed("StrafeRight"))
+			{
+				Direction right = NextDirection(m_camera.Facing(), true);
+				glm::ivec2 delta = DirectionToVec(right);
+				GridPosition target(
+					m_camera.GetGridPosition().row + delta.x,
+					m_camera.GetGridPosition().col + delta.y,
+					m_camera.GetGridPosition().floor
+				);
+				if (m_dungeon.IsWalkable(target))
+				{
+					m_camera.MoveRight();
+				}
+			}
 		}
 	}
 
@@ -326,6 +356,7 @@ void PlayState::Render() noexcept
 	ImGui::Text("Controls (grid mode):");
 	ImGui::Text("  W/S - Move Forward/Backward");
 	ImGui::Text("  A/D - Turn Left/Right");
+	ImGui::Text("  Q/E - Strafe Left/Right");
 	ImGui::Separator();
 	ImGui::Text("Tab: Toggle debug mode [%s]", m_showDebug ? "ON" : "OFF");
 

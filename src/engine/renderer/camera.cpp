@@ -184,6 +184,54 @@ void Camera::MoveBackward() noexcept
 	m_isAnimating = true;
 }
 
+void Camera::MoveLeft() noexcept
+{
+	if (m_isAnimating)
+	{
+		return;
+	}
+
+	Direction left = NextDirection(m_gridFacing, false);
+	glm::ivec2 delta = DirectionToVec(left);
+	GridPosition target(
+		m_gridPosition.row + delta.x,
+		m_gridPosition.col + delta.y,
+		m_gridPosition.floor
+	);
+
+	m_animStartPosition = m_position;
+	m_animStartYaw = m_yaw;
+	m_gridPosition = target;
+	m_targetPosition = GridToWorld(target);
+	m_targetYaw = DirectionToYaw(m_gridFacing);
+	m_animationTimer = 0.0f;
+	m_isAnimating = true;
+}
+
+void Camera::MoveRight() noexcept
+{
+	if (m_isAnimating)
+	{
+		return;
+	}
+
+	Direction right = NextDirection(m_gridFacing, true);
+	glm::ivec2 delta = DirectionToVec(right);
+	GridPosition target(
+		m_gridPosition.row + delta.x,
+		m_gridPosition.col + delta.y,
+		m_gridPosition.floor
+	);
+
+	m_animStartPosition = m_position;
+	m_animStartYaw = m_yaw;
+	m_gridPosition = target;
+	m_targetPosition = GridToWorld(target);
+	m_targetYaw = DirectionToYaw(m_gridFacing);
+	m_animationTimer = 0.0f;
+	m_isAnimating = true;
+}
+
 void Camera::UpdateAnimation(float dt) noexcept
 {
 	if (!m_isAnimating)
@@ -198,7 +246,19 @@ void Camera::UpdateAnimation(float dt) noexcept
 	const float smooth = t * t * (3.0f - 2.0f * t);
 
 	m_position = glm::mix(m_animStartPosition, m_targetPosition, smooth);
-	m_yaw = glm::mix(m_animStartYaw, m_targetYaw, smooth);
+
+	// Shortest-path yaw interpolation (handle 360° wrapping)
+	float yawDiff = m_targetYaw - m_animStartYaw;
+	float adjustedTarget = m_targetYaw;
+	if (yawDiff > 180.0f)
+	{
+		adjustedTarget -= 360.0f;
+	}
+	else if (yawDiff < -180.0f)
+	{
+		adjustedTarget += 360.0f;
+	}
+	m_yaw = glm::mix(m_animStartYaw, adjustedTarget, smooth);
 
 	updateFromYawPitch();
 

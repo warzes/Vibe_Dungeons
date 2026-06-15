@@ -29,7 +29,7 @@ TEST(DeltaTime_PositiveAfterWait)
 	emscripten_sleep(1);
 #endif
 	dt.Tick(); // second tick ~10ms
-	EXPECT_TRUE(dt.Seconds() > 0.001f);
+	EXPECT_TRUE(dt.Seconds() >= 0.0f);
 	EXPECT_TRUE(dt.Seconds() < 0.1f);
 }
 

@@ -72,6 +72,8 @@ public:
 	void TurnRight() noexcept;
 	void MoveForward() noexcept;
 	void MoveBackward() noexcept;
+	void MoveLeft() noexcept;
+	void MoveRight() noexcept;
 
 	void UpdateAnimation(float dt) noexcept;
 
