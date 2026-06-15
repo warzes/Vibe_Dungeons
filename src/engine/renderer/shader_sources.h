@@ -243,6 +243,7 @@ void main()
 	float ambient = 0.3;
 	float lighting = ambient + (1.0 - ambient) * diff;
 	vec4 texColor = texture(uTexture, vTexCoord);
+	if (texColor.a < 0.01) discard;
 	fragColor = vec4(texColor.rgb * lighting, texColor.a);
 }
 )";
@@ -294,6 +295,7 @@ void main()
 	float ambient = 0.3;
 	float lighting = ambient + (1.0 - ambient) * diff;
 	vec4 texColor = texture(uTexture, vTexCoord);
+	if (texColor.a < 0.01) discard;
 	fragColor = vec4(texColor.rgb * lighting, texColor.a);
 }
 )";

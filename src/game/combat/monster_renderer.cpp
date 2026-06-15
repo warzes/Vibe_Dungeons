@@ -16,19 +16,19 @@ void MonsterRenderer::Init()
 	}
 
 	std::array<Vertex, 4> verts;
-	verts[0].position = glm::vec3(-0.5f, 0.0f, 0.0f);
+	verts[0].position = glm::vec3(-0.5f, -0.5f, 0.0f);
 	verts[0].normal   = glm::vec3(0.0f, 0.0f, 1.0f);
 	verts[0].texCoord = glm::vec2(0.0f, 1.0f);
 
-	verts[1].position = glm::vec3(0.5f, 0.0f, 0.0f);
+	verts[1].position = glm::vec3(0.5f, -0.5f, 0.0f);
 	verts[1].normal   = glm::vec3(0.0f, 0.0f, 1.0f);
 	verts[1].texCoord = glm::vec2(1.0f, 1.0f);
 
-	verts[2].position = glm::vec3(-0.5f, 1.0f, 0.0f);
+	verts[2].position = glm::vec3(-0.5f, 0.5f, 0.0f);
 	verts[2].normal   = glm::vec3(0.0f, 0.0f, 1.0f);
 	verts[2].texCoord = glm::vec2(0.0f, 0.0f);
 
-	verts[3].position = glm::vec3(0.5f, 1.0f, 0.0f);
+	verts[3].position = glm::vec3(0.5f, 0.5f, 0.0f);
 	verts[3].normal   = glm::vec3(0.0f, 0.0f, 1.0f);
 	verts[3].texCoord = glm::vec2(1.0f, 0.0f);
 

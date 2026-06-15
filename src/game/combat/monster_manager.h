@@ -14,6 +14,7 @@ public:
 	void RemoveDead();
 
 	[[nodiscard]] Monster* At(GridPosition pos);
+	[[nodiscard]] const Monster* At(GridPosition pos) const;
 
 	[[nodiscard]] const std::vector<Monster>& All() const noexcept
 	{

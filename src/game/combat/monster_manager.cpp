@@ -37,6 +37,21 @@ Monster* MonsterManager::At(GridPosition pos)
 	return nullptr;
 }
 
+const Monster* MonsterManager::At(GridPosition pos) const
+{
+	for (const auto& m : m_monsters)
+	{
+		if (m.alive
+			&& m.position.row == pos.row
+			&& m.position.col == pos.col
+			&& m.position.floor == pos.floor)
+		{
+			return &m;
+		}
+	}
+	return nullptr;
+}
+
 Monster* MonsterManager::FindInFront(GridPosition playerPos, Direction playerFacing)
 {
 	glm::ivec2 delta = DirectionToVec(playerFacing);

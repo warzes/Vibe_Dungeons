@@ -360,7 +360,16 @@ bool PlayState::isWalkableAction(std::string_view name) const noexcept
 		m_camera.GetGridPosition().col + delta.y,
 		m_camera.GetGridPosition().floor
 	);
-	return m_dungeon.IsWalkable(target);
+	if (!m_dungeon.IsWalkable(target))
+	{
+		return false;
+	}
+	// Block movement if a monster occupies the target cell
+	if (m_monsterManager.At(target) != nullptr)
+	{
+		return false;
+	}
+	return true;
 }
 
 //=============================================================================
@@ -668,80 +677,32 @@ void PlayState::Render() noexcept
 		return;
 	}
 
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 ws = viewport->WorkSize;
+
+	// ===== Left panel: controls + HUD =====
+
+	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(260, 140), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Dungeon Crawler");
 	const int32_t chunkSize = m_dungeon.ChunkSize();
 	ImGui::Text("Chunk: %dx%d", chunkSize, chunkSize);
 	ImGui::Separator();
-	ImGui::Text("Controls (grid mode):");
-	ImGui::Text("  W/S - Move Forward/Backward");
-	ImGui::Text("  A/D - Turn Left/Right");
-	ImGui::Text("  Q/E - Strafe Left/Right");
-	ImGui::Text("  Space - Attack");
+	ImGui::Text("W/S \tMove Fwd/Back");
+	ImGui::Text("A/D \tTurn L/R");
+	ImGui::Text("Q/E \tStrafe L/R");
+	ImGui::Text("Space\tAttack");
 	ImGui::Separator();
-	ImGui::Text("Tab: Toggle debug mode [%s]", m_showDebug ? "ON" : "OFF");
-
+	ImGui::Text("Tab: Debug [%s]", m_showDebug ? "ON" : "OFF");
 	if (ImGui::Button("Back to Menu"))
 	{
 		m_machine.ReplaceState("MainMenu");
 	}
 	ImGui::End();
 
-	// Game mode
-	ImGui::Begin("Turn System");
-	auto modeName = [](GameMode m) -> const char*
-	{
-		switch (m)
-		{
-			case GameMode::Exploring:     return "Exploring";
-			case GameMode::TurnWaiting:   return "TurnWaiting";
-			case GameMode::TurnAnimating: return "TurnAnimating";
-			case GameMode::CombatTurn:    return "CombatTurn";
-			case GameMode::GameOver:      return "GameOver";
-		}
-		return "Unknown";
-	};
-	ImGui::Text("Game Mode: %s", modeName(m_gameMode));
-	ImGui::Text("Turn Queue Actor: %d", m_turnQueue.CurrentActor());
-	ImGui::Text("Is Player Turn:  %s", m_turnQueue.IsPlayerTurn() ? "yes" : "no");
-	ImGui::Text("Move Repeat Delay: %.3f s", m_moveRepeatDelay);
-	ImGui::End();
-
-	// Camera debug
-	ImGui::Begin("Camera Debug");
-	const glm::vec3 pos = m_camera.Position();
-	const glm::vec3 fwd = m_camera.Forward();
-	ImGui::Text("Position:  %.2f, %.2f, %.2f", pos.x, pos.y, pos.z);
-	ImGui::Text("Forward:   %.2f, %.2f, %.2f", fwd.x, fwd.y, fwd.z);
-	ImGui::Text("Grid pos:  [%d, %d, %d]",
-		m_camera.GetGridPosition().row,
-		m_camera.GetGridPosition().col,
-		m_camera.GetGridPosition().floor);
-	ImGui::Text("Facing:    %s",
-		m_camera.Facing() == Direction::North ? "North" :
-		m_camera.Facing() == Direction::East  ? "East"  :
-		m_camera.Facing() == Direction::South ? "South" : "West");
-	ImGui::Text("Animating: %s", m_camera.IsAnimating() ? "yes" : "no");
-	ImGui::Separator();
-	if (m_renderer != nullptr)
-	{
-		ImGui::Text("Meshes drawn: %d / %d", m_renderer->DrawnMeshes(), m_renderer->TotalMeshes());
-	}
-	else
-	{
-		ImGui::Text("Meshes drawn: N/A");
-	}
-	ImGui::End();
-
-	// Grid position info
-	ImGui::Begin("Dungeon Info");
-	const GridPosition gp = m_camera.GetGridPosition();
-	const Cell& cell = m_dungeon.GetCell(gp);
-	ImGui::Text("Wall:  %s", cell.isWall ? "yes" : "no");
-	ImGui::Text("Floor: %s", cell.hasFloor ? "yes" : "no");
-	ImGui::Text("Walkable: %s", cell.IsWalkable() ? "yes" : "no");
-	ImGui::End();
-
 	// ---- Hero HUD ----
+	ImGui::SetNextWindowPos(ImVec2(0, 150), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(260, 110), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Hero");
 	const float hpFrac = static_cast<float>(m_character.hp) / static_cast<float>(m_character.maxHp);
 	ImGui::Text("%s", m_character.name.c_str());
@@ -749,9 +710,7 @@ void PlayState::Render() noexcept
 		(std::to_string(m_character.hp) + " / " + std::to_string(m_character.maxHp)).c_str());
 	ImGui::Text("AC: %d", m_character.ac);
 	ImGui::Text("Attack Bonus: %+d", m_character.atkBonus);
-	ImGui::Text("Damage: %dd%d",
-		m_character.damageMin,
-		m_character.damageMax);
+	ImGui::Text("Damage: %dd%d", m_character.damageMin, m_character.damageMax);
 	ImGui::End();
 
 	// ---- Monster in front ----
@@ -760,6 +719,8 @@ void PlayState::Render() noexcept
 			m_camera.GetGridPosition(), m_camera.Facing());
 		if (front)
 		{
+			ImGui::SetNextWindowPos(ImVec2(0, 270), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+			ImGui::SetNextWindowSize(ImVec2(260, 90), ImGuiCond_FirstUseEver);
 			ImGui::Begin("Monster Ahead");
 			ImGui::Text("%s", front->name.c_str());
 			const float mHpFrac = static_cast<float>(front->hp) / static_cast<float>(front->maxHp);
@@ -770,30 +731,92 @@ void PlayState::Render() noexcept
 		}
 	}
 
-	// ---- Combat Log ----
+	// ===== Right panel: combat log =====
+
+	ImGui::SetNextWindowPos(ImVec2(ws.x - 300, 0), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(300, ws.y), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Combat Log");
+	if (ImGui::Button("Clear"))
 	{
-		ImGui::Begin("Combat Log");
-		if (ImGui::Button("Clear"))
+		m_combatLog.Clear();
+	}
+	ImGui::Separator();
+	const float logHeight = ImGui::GetContentRegionAvail().y;
+	if (ImGui::BeginChild("LogEntries", ImVec2(0.0f, logHeight), true))
+	{
+		for (const LogEntry& entry : m_combatLog.Entries())
 		{
-			m_combatLog.Clear();
+			ImGui::TextColored(
+				ImVec4(entry.color.r, entry.color.g, entry.color.b, 1.0f),
+				"%s", entry.text.c_str()
+			);
 		}
-		ImGui::Separator();
-		const float logHeight = ImGui::GetContentRegionAvail().y;
-		if (ImGui::BeginChild("LogEntries", ImVec2(0.0f, logHeight), true))
+		if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
 		{
-			for (const LogEntry& entry : m_combatLog.Entries())
-			{
-				ImGui::TextColored(
-					ImVec4(entry.color.r, entry.color.g, entry.color.b, 1.0f),
-					"%s", entry.text.c_str()
-				);
-			}
-			if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
-			{
-				ImGui::SetScrollHereY(1.0f);
-			}
+			ImGui::SetScrollHereY(1.0f);
 		}
-		ImGui::EndChild();
+	}
+	ImGui::EndChild();
+	ImGui::End();
+
+	// ===== Debug windows (only when debug is on) =====
+
+	if (m_showDebug)
+	{
+		// Game mode
+		ImGui::SetNextWindowPos(ImVec2(0, 370), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2(260, 110), ImGuiCond_FirstUseEver);
+		ImGui::Begin("Turn System");
+		auto modeName = [](GameMode m) -> const char*
+		{
+			switch (m)
+			{
+				case GameMode::Exploring:     return "Exploring";
+				case GameMode::TurnWaiting:   return "TurnWaiting";
+				case GameMode::TurnAnimating: return "TurnAnimating";
+				case GameMode::CombatTurn:    return "CombatTurn";
+				case GameMode::GameOver:      return "GameOver";
+			}
+			return "Unknown";
+		};
+		ImGui::Text("Game Mode: %s", modeName(m_gameMode));
+		ImGui::Text("Turn Queue: %d", m_turnQueue.CurrentActor());
+		ImGui::Text("Player Turn: %s", m_turnQueue.IsPlayerTurn() ? "yes" : "no");
+		ImGui::Text("Repeat Delay: %.3f s", m_moveRepeatDelay);
+		ImGui::End();
+
+		// Camera debug
+		ImGui::SetNextWindowPos(ImVec2(0, 490), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2(260, 160), ImGuiCond_FirstUseEver);
+		ImGui::Begin("Camera Debug");
+		const glm::vec3 camPos = m_camera.Position();
+		const glm::vec3 fwd = m_camera.Forward();
+		ImGui::Text("Pos: %.2f, %.2f, %.2f", camPos.x, camPos.y, camPos.z);
+		ImGui::Text("Forward: %.2f, %.2f, %.2f", fwd.x, fwd.y, fwd.z);
+		ImGui::Text("Grid: [%d, %d, %d]",
+			m_camera.GetGridPosition().row,
+			m_camera.GetGridPosition().col,
+			m_camera.GetGridPosition().floor);
+		ImGui::Text("Facing: %s",
+			m_camera.Facing() == Direction::North ? "North" :
+			m_camera.Facing() == Direction::East  ? "East"  :
+			m_camera.Facing() == Direction::South ? "South" : "West");
+		ImGui::Text("Animating: %s", m_camera.IsAnimating() ? "yes" : "no");
+		if (m_renderer != nullptr)
+		{
+			ImGui::Text("Meshes: %d / %d", m_renderer->DrawnMeshes(), m_renderer->TotalMeshes());
+		}
+		ImGui::End();
+
+		// Grid position info
+		ImGui::SetNextWindowPos(ImVec2(0, 660), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2(260, 90), ImGuiCond_FirstUseEver);
+		ImGui::Begin("Dungeon Info");
+		const GridPosition gp = m_camera.GetGridPosition();
+		const Cell& cell = m_dungeon.GetCell(gp);
+		ImGui::Text("Wall: %s", cell.isWall ? "yes" : "no");
+		ImGui::Text("Floor: %s", cell.hasFloor ? "yes" : "no");
+		ImGui::Text("Walkable: %s", cell.IsWalkable() ? "yes" : "no");
 		ImGui::End();
 	}
 
