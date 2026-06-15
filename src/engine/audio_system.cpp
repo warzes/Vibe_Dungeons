@@ -22,10 +22,12 @@ AudioSystem::~AudioSystem() noexcept
 {
 	if (m_musicStream)
 	{
+		SDL_ClearAudioStream(m_musicStream);
 		SDL_DestroyAudioStream(m_musicStream);
 	}
 	if (m_sfxStream)
 	{
+		SDL_ClearAudioStream(m_sfxStream);
 		SDL_DestroyAudioStream(m_sfxStream);
 	}
 	SDL_QuitSubSystem(SDL_INIT_AUDIO);

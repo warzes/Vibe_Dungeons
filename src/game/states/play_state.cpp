@@ -139,6 +139,11 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 {
 	PROFILE_FUNCTION();
 
+	if (!m_initialized)
+	{
+		return;
+	}
+
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_TAB)
 	{
 		if (m_showDebug)
