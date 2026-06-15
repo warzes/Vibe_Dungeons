@@ -7,70 +7,9 @@
 #include "engine/renderer/shader_sources.h"
 #include "core/logger.h"
 #include "core/exception.h"
-#include "core/collision.h"
 #include "engine/renderer/renderer.h"
 
-// ── Cube vertex data ──────────────────────────────────────────────────────
-// Each face: 4 vertices in BL->BR->TR->TL order when viewed from outside.
-// Indices: 0,1,2, 0,2,3 -> CCW for all faces.
-static constexpr float CUBE_VERTICES[] = {
-	// back face (z=-0.5)  -- looking from -z: x-right, y-up
-	-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f,
-	// front face (z=+0.5) -- looking from +z: x-flipped, y-up
-	 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f,
-	// left face (x=-0.5)  -- looking from -x: z-flipped, y-up
-	-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-	-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	// right face (x=+0.5) -- looking from +x: z-right, y-up
-	 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f,
-	// bottom face (y=-0.5) -- looking from -y: x-flipped, z-up
-	 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-	// top face (y=+0.5)   -- looking from +y: x-right, z-up
-	-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f,
-};
-
-static constexpr uint32_t CUBE_INDICES[] = {
-	0,2,1, 0,3,2,
-	4,6,5, 4,7,6,
-	8,10,9, 8,11,10,
-	12,14,13, 12,15,14,
-	16,18,17, 16,19,18,
-	20,22,21, 20,23,22,
-};
-
-// ── Shader sources (shader_sources.h) ─────────────────────────────────────
-// Instance model matrix at locations 3-6 (divisor=1) for instancing.
-
-// ── Helpers ───────────────────────────────────────────────────────────────
-
-static glm::mat4 makeModel(
-	const glm::vec3& position,
-	float angleDeg,
-	const glm::vec3& axis
-) noexcept
-{
-	glm::mat4 m = glm::translate(glm::mat4(1.0f), position);
-	return glm::rotate(m, glm::radians(angleDeg), axis);
-}
-
-// ── PlayState implementation ──────────────────────────────────────────────
+//=============================================================================
 
 PlayState::PlayState(
 	GameStateMachine& machine,
@@ -86,127 +25,89 @@ PlayState::PlayState(
 
 PlayState::~PlayState() noexcept = default;
 
+//=============================================================================
+
 void PlayState::OnEnter() noexcept
 {
-	// Reset all state from previous session
-	m_input.ResetState();
-	m_collidingCubes = 0;
-	m_renderer = nullptr;
-	m_debugSphere = Sphere{glm::vec3(0.0f), 2.5f};
-
-	m_debugRenderer.Init();
-
 	try
 	{
-		// Reset camera to initial position/rotation
-		m_camera.SetPosition(glm::vec3(5.0f, 4.0f, 6.0f));
-		m_camera.SetRotation(-90.0f, 0.0f);
-		m_camera.UpdateViewMatrix();
+		Logger::Info("PlayState::OnEnter begin");
+		m_input.ResetState();
+		m_renderer = nullptr;
+		m_showDebug = false;
 
-		// Register input actions
-		m_input.BindAction("MoveForward",  SDL_SCANCODE_W);
-		m_input.BindAction("MoveBackward", SDL_SCANCODE_S);
-		m_input.BindAction("MoveLeft",     SDL_SCANCODE_A);
-		m_input.BindAction("MoveRight",    SDL_SCANCODE_D);
-		m_input.BindAction("MoveUp",       SDL_SCANCODE_SPACE);
-		m_input.BindAction("MoveDown",     SDL_SCANCODE_LSHIFT);
+		m_debugRenderer.Init();
+		Logger::Info("PlayState: debug renderer initialized");
 
-		std::vector<Vertex> vertices;
-		std::vector<uint32_t> indices;
-
-		constexpr size_t FLOATS_PER_VERTEX = 8;
-		const size_t vertexCount = sizeof(CUBE_VERTICES) / (FLOATS_PER_VERTEX * sizeof(float));
-
-		for (size_t i = 0; i < vertexCount; ++i)
+		// ---- Shaders ----
+		m_dungeonShader = m_resources.GetOrCreateShader("dungeon", DUNGEON_VERT_SRC, DUNGEON_FRAG_SRC);
+		if (!m_dungeonShader)
 		{
-			Vertex v{};
-			v.position = glm::vec3(
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 0],
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 1],
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 2]
-			);
-			v.normal = glm::vec3(
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 3],
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 4],
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 5]
-			);
-			v.texCoord = glm::vec2(
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 6],
-				CUBE_VERTICES[i * FLOATS_PER_VERTEX + 7]
-			);
-			vertices.push_back(v);
+			throw std::runtime_error("Failed to create dungeon shader");
 		}
+		Logger::Info("PlayState: shader created");
 
-		indices.assign(std::begin(CUBE_INDICES), std::end(CUBE_INDICES));
+		// ---- Textures from files ----
+		m_texFloor = m_resources.LoadTexture("tex_dungeon_floor", "data/texture_08.png");
+		m_texWall = m_resources.LoadTexture("tex_dungeon_wall", "data/texture_10.png");
+		m_texCeiling = m_resources.LoadTexture("tex_dungeon_ceiling", "data/texture_11.png");
 
-		m_shader = m_resources.GetOrCreateShader("cube", CUBE_VERT_SRC, CUBE_FRAG_SRC);
-		assert(m_shader != nullptr && "Failed to create cube shader");
-		m_cube = m_resources.CreateMesh("cube", vertices, indices);
-		assert(m_cube != nullptr && "Failed to create cube mesh");
-
-		// Multiple colored checkerboard materials
-		auto* texWhite = m_resources.CreateCheckerboard("tex_white", 256, 8, 255, 255, 255, 255, 50, 50, 50, 255);
-		auto* texRed   = m_resources.CreateCheckerboard("tex_red",   256, 8, 220, 60, 60, 255, 120, 20, 20, 255);
-		auto* texBlue  = m_resources.CreateCheckerboard("tex_blue",  256, 8, 60, 120, 220, 255, 20, 40, 120, 255);
-		auto* texGreen = m_resources.CreateCheckerboard("tex_green", 256, 8, 60, 200, 80, 255, 20, 100, 40, 255);
-
-		assert(texWhite != nullptr && texRed != nullptr && texBlue != nullptr && texGreen != nullptr
-			&& "Failed to create checkerboard textures");
-
-		m_materials[0] = m_resources.GetOrCreateMaterial("mat_white", *m_shader, *texWhite);
-		m_materials[1] = m_resources.GetOrCreateMaterial("mat_red",   *m_shader, *texRed);
-		m_materials[2] = m_resources.GetOrCreateMaterial("mat_blue",  *m_shader, *texBlue);
-		m_materials[3] = m_resources.GetOrCreateMaterial("mat_green", *m_shader, *texGreen);
-
-		for (int32_t i = 0; i < NUM_MATERIALS; ++i)
+		if (!m_texFloor || !m_texWall || !m_texCeiling)
 		{
-			assert(m_materials[i] != nullptr && "Failed to create material");
+			throw std::runtime_error("Failed to load dungeon textures");
 		}
+		Logger::Info("PlayState: textures loaded");
 
-		// Build cube grid with per-cube rotation data
-		m_cubes.clear();
+		// ---- Materials ----
+		m_matFloor = m_resources.GetOrCreateMaterial("mat_dungeon_floor", *m_dungeonShader, *m_texFloor);
+		m_matWall = m_resources.GetOrCreateMaterial("mat_dungeon_wall", *m_dungeonShader, *m_texWall);
+		m_matCeiling = m_resources.GetOrCreateMaterial("mat_dungeon_ceiling", *m_dungeonShader, *m_texCeiling);
 
-		constexpr int32_t GRID = 3;
-		constexpr float SPACING = 2.5f;
-		m_cubes.reserve(static_cast<size_t>((2 * GRID + 1) * (2 * GRID + 1)));
-
-		for (int32_t x = -GRID; x <= GRID; ++x)
+		if (!m_matFloor || !m_matWall || !m_matCeiling)
 		{
-			for (int32_t z = -GRID; z <= GRID; ++z)
-			{
-				const int32_t matIndex = ((x + GRID) + (z + GRID) * (2 * GRID + 1)) % NUM_MATERIALS;
-
-				CubeData cube{};
-				cube.transform.SetPosition(glm::vec3(
-					static_cast<float>(x) * SPACING,
-					0.0f,
-					static_cast<float>(z) * SPACING
-				));
-				cube.rotationAxis = glm::normalize(glm::vec3(
-					static_cast<float>(x) * 0.3f + 0.5f,
-					1.0f,
-					static_cast<float>(z) * 0.3f + 0.7f
-				));
-				cube.angle = static_cast<float>(x * 10 + z * 7);
-				cube.speed = 15.0f + static_cast<float>(std::abs(x) * 3 + std::abs(z) * 5);
-				cube.materialIndex = matIndex;
-				m_cubes.push_back(cube);
-			}
+			throw std::runtime_error("Failed to create dungeon materials");
 		}
+		Logger::Info("PlayState: materials created");
 
+		// ---- Dungeon setup ----
+		m_dungeon.GenerateTestRoom();
+		m_dungeonRenderer.SetFloorMaterial(m_matFloor);
+		m_dungeonRenderer.SetWallMaterial(m_matWall);
+		m_dungeonRenderer.SetCeilingMaterial(m_matCeiling);
+		m_dungeonRenderer.SetNeedsRebuild(true);
+		Logger::Info("PlayState: dungeon generated");
+
+		// ---- Grid camera ----
+		m_camera.SetGridPosition({17, 17, 0}, Direction::North);
+		m_camera.SnapToGrid();
+
+		// ---- Input actions for grid movement ----
+		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
+		m_input.BindAction("GridMoveBackward", SDL_SCANCODE_S);
+		m_input.BindAction("TurnLeft",         SDL_SCANCODE_A);
+		m_input.BindAction("TurnRight",        SDL_SCANCODE_D);
+
+		// ---- Perspective ----
 		m_camera.SetPerspective(60.0f,
 			static_cast<float>(m_window.Width()) / static_cast<float>(m_window.Height()),
 			0.1f, 100.0f);
 
 		m_initialized = true;
-		Logger::Info("PlayState initialized successfully");
+		Logger::Info("PlayState (Dungeon Crawler) initialized");
 	}
 	catch (const std::exception& e)
 	{
 		Logger::Error(std::string("PlayState init failed: ") + e.what());
 		m_initialized = false;
 	}
+	catch (...)
+	{
+		Logger::Error("PlayState init failed with unknown exception");
+		m_initialized = false;
+	}
 }
+
+//=============================================================================
 
 void PlayState::OnExit() noexcept
 {
@@ -225,12 +126,22 @@ void PlayState::OnResume() noexcept
 	SDL_ShowCursor();
 }
 
+//=============================================================================
+
 void PlayState::HandleEvent(const SDL_Event& event) noexcept
 {
 	PROFILE_FUNCTION();
 
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_TAB)
 	{
+		if (m_showDebug)
+		{
+			exitDebugMode();
+		}
+		else
+		{
+			enterDebugMode();
+		}
 		m_showDebug = !m_showDebug;
 	}
 
@@ -245,58 +156,121 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 	}
 }
 
+//=============================================================================
+
+void PlayState::enterDebugMode() noexcept
+{
+	// Save current grid camera state before switching to free camera
+	m_savedCamera.position = m_camera.Position();
+	m_savedCamera.yaw = m_camera.Yaw();
+	m_savedCamera.pitch = m_camera.Pitch();
+	m_savedCamera.gridPos = m_camera.GetGridPosition();
+	m_savedCamera.facing = m_camera.Facing();
+	m_savedCamera.isAnimating = m_camera.IsAnimating();
+
+	m_input.SetMouseCaptured(true);
+}
+
+void PlayState::exitDebugMode() noexcept
+{
+	// Restore grid camera state
+	m_camera.SetPosition(m_savedCamera.position);
+	m_camera.SetRotation(m_savedCamera.yaw, m_savedCamera.pitch);
+	m_camera.SetGridPosition(m_savedCamera.gridPos, m_savedCamera.facing);
+
+	m_input.SetMouseCaptured(false);
+}
+
+//=============================================================================
+
 void PlayState::FixedUpdate(float fixedDt) noexcept
 {
 	PROFILE_FUNCTION();
-	assert(m_initialized && "PlayState::FixedUpdate called before init");
-
-	// Rotate all cubes (physics/animation step) and cache world matrices
-	for (auto& cube : m_cubes)
+	(void)fixedDt;
+	if (!m_initialized)
 	{
-		cube.angle += cube.speed * fixedDt;
-		cube.worldMatrix = makeModel(cube.transform.GetPosition(), cube.angle, cube.rotationAxis);
-	}
-
-	// Collision detection: sphere vs each cube AABB
-	m_debugSphere.center = m_camera.Position();
-	m_debugSphere.radius = 2.5f;
-
-	m_collidingCubes = 0;
-	const AABB cubeLocalAABB = m_cube->LocalAABB();
-	for (const auto& cube : m_cubes)
-	{
-		const AABB worldAABB = cubeLocalAABB.Transform(cube.worldMatrix);
-		if (Collision::SphereVsAABB(m_debugSphere, worldAABB))
-		{
-			++m_collidingCubes;
-		}
+		return;
 	}
 }
+
+//=============================================================================
 
 void PlayState::Update(const DeltaTime& dt) noexcept
 {
 	PROFILE_FUNCTION();
-	assert(m_initialized && "PlayState::Update called before init");
-
-	// Camera movement via action mapping
-	const float speed = 3.0f * dt.Seconds();
-	if (m_input.IsActionDown("MoveForward"))  m_camera.MoveForward(speed);
-	if (m_input.IsActionDown("MoveBackward")) m_camera.MoveForward(-speed);
-	if (m_input.IsActionDown("MoveLeft"))     m_camera.MoveRight(-speed);
-	if (m_input.IsActionDown("MoveRight"))    m_camera.MoveRight(speed);
-	if (m_input.IsActionDown("MoveUp"))       m_camera.MoveUp(speed);
-	if (m_input.IsActionDown("MoveDown"))     m_camera.MoveUp(-speed);
-
-	if (m_input.IsMouseCaptured())
+	if (!m_initialized)
 	{
-		constexpr float mouseSensitivity = 0.15f;
-		const float yawDelta = m_input.MouseDeltaX() * mouseSensitivity;
-		const float pitchDelta = -m_input.MouseDeltaY() * mouseSensitivity;
-		m_camera.Rotate(yawDelta, pitchDelta);
+		return;
 	}
+
+	if (m_showDebug)
+	{
+		// ---- Debug / Free camera ----
+		const float speed = 3.0f * dt.Seconds();
+		if (m_input.IsKeyDown(SDL_SCANCODE_W)) m_camera.MoveForward(speed);
+		if (m_input.IsKeyDown(SDL_SCANCODE_S)) m_camera.MoveForward(-speed);
+		if (m_input.IsKeyDown(SDL_SCANCODE_A)) m_camera.MoveRight(-speed);
+		if (m_input.IsKeyDown(SDL_SCANCODE_D)) m_camera.MoveRight(speed);
+		if (m_input.IsKeyDown(SDL_SCANCODE_SPACE)) m_camera.MoveUp(speed);
+		if (m_input.IsKeyDown(SDL_SCANCODE_LSHIFT)) m_camera.MoveUp(-speed);
+
+		if (m_input.IsMouseCaptured())
+		{
+			constexpr float mouseSensitivity = 0.15f;
+			const float yawDelta = m_input.MouseDeltaX() * mouseSensitivity;
+			const float pitchDelta = -m_input.MouseDeltaY() * mouseSensitivity;
+			m_camera.Rotate(yawDelta, pitchDelta);
+		}
+	}
+	else
+	{
+		// ---- Grid movement (only when not animating) ----
+		if (!m_camera.IsAnimating())
+		{
+			if (m_input.IsActionPressed("GridMoveForward"))
+			{
+				glm::ivec2 delta = DirectionToVec(m_camera.Facing());
+				GridPosition target(
+					m_camera.GetGridPosition().row + delta.x,
+					m_camera.GetGridPosition().col + delta.y,
+					m_camera.GetGridPosition().floor
+				);
+				if (m_dungeon.IsWalkable(target))
+				{
+					m_camera.MoveForward();
+				}
+			}
+			else if (m_input.IsActionPressed("GridMoveBackward"))
+			{
+				glm::ivec2 delta = DirectionToVec(m_camera.Facing());
+				GridPosition target(
+					m_camera.GetGridPosition().row - delta.x,
+					m_camera.GetGridPosition().col - delta.y,
+					m_camera.GetGridPosition().floor
+				);
+				if (m_dungeon.IsWalkable(target))
+				{
+					m_camera.MoveBackward();
+				}
+			}
+			else if (m_input.IsActionPressed("TurnLeft"))
+			{
+				m_camera.TurnLeft();
+			}
+			else if (m_input.IsActionPressed("TurnRight"))
+			{
+				m_camera.TurnRight();
+			}
+		}
+	}
+
+	// ---- Camera animation ----
+	m_camera.UpdateAnimation(static_cast<float>(dt.Seconds()));
 
 	m_audio.Update();
 }
+
+//=============================================================================
 
 void PlayState::RenderScene(Renderer& renderer) noexcept
 {
@@ -308,35 +282,19 @@ void PlayState::RenderScene(Renderer& renderer) noexcept
 
 	m_renderer = &renderer;
 
+	// Rebuild dungeon geometry if changed
+	m_dungeonRenderer.Build(m_dungeon);
+
 	renderer.BeginFrame(m_camera.ViewMatrix(), m_camera.ProjectionMatrix());
 
-	for (const auto& cube : m_cubes)
-	{
-		assert(cube.materialIndex >= 0 && cube.materialIndex < NUM_MATERIALS
-			&& "Cube material index out of range");
-		renderer.Submit(*m_cube, *m_materials[cube.materialIndex], cube.worldMatrix);
-	}
+	m_dungeonRenderer.Submit(renderer);
 
 	m_debugRenderer.SetEnabled(m_showDebug);
 
-	if (m_showDebug)
-	{
-		for (const auto& cube : m_cubes)
-		{
-			m_debugRenderer.DrawMeshWireframe(
-				m_cube->GetVertices(),
-				m_cube->GetIndices(),
-				cube.worldMatrix,
-				glm::vec3(0.3f, 0.6f, 1.0f)
-			);
-			m_debugRenderer.DrawAABB(m_cube->LocalAABB(), cube.worldMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
-		}
-
-		m_debugRenderer.DrawSphere(m_debugSphere, glm::vec3(1.0f, 0.0f, 0.0f));
-	}
-
 	renderer.EndFrame();
 }
+
+//=============================================================================
 
 void PlayState::RenderOverlay(const glm::mat4& viewProj) noexcept
 {
@@ -349,6 +307,8 @@ void PlayState::RenderOverlay(const glm::mat4& viewProj) noexcept
 	}
 }
 
+//=============================================================================
+
 void PlayState::Render() noexcept
 {
 	if (!m_initialized)
@@ -359,14 +319,15 @@ void PlayState::Render() noexcept
 		return;
 	}
 
-	ImGui::Begin("Play State");
-	ImGui::Text("Instanced cube grid (%zu cubes)", m_cubes.size());
-	ImGui::Text("%d materials | Action mapping + instancing", NUM_MATERIALS);
-	ImGui::Text("Collisions (sphere vs cube): %d/%zu", m_collidingCubes, m_cubes.size());
+	ImGui::Begin("Dungeon Crawler");
+	const int32_t chunkSize = m_dungeon.ChunkSize();
+	ImGui::Text("Chunk: %dx%d", chunkSize, chunkSize);
 	ImGui::Separator();
-	ImGui::Text("Controls: W/A/S/D/Space/Shift");
-	ImGui::Text("Actions: MoveForward/Backward/Left/Right/Up/Down");
-	ImGui::Text("Tab: Toggle debug visualization [%s]", m_showDebug ? "ON" : "OFF");
+	ImGui::Text("Controls (grid mode):");
+	ImGui::Text("  W/S - Move Forward/Backward");
+	ImGui::Text("  A/D - Turn Left/Right");
+	ImGui::Separator();
+	ImGui::Text("Tab: Toggle debug mode [%s]", m_showDebug ? "ON" : "OFF");
 
 	if (ImGui::Button("Back to Menu"))
 	{
@@ -374,12 +335,21 @@ void PlayState::Render() noexcept
 	}
 	ImGui::End();
 
-	// Camera debug window
+	// Camera debug
 	ImGui::Begin("Camera Debug");
 	const glm::vec3 pos = m_camera.Position();
 	const glm::vec3 fwd = m_camera.Forward();
 	ImGui::Text("Position:  %.2f, %.2f, %.2f", pos.x, pos.y, pos.z);
 	ImGui::Text("Forward:   %.2f, %.2f, %.2f", fwd.x, fwd.y, fwd.z);
+	ImGui::Text("Grid pos:  [%d, %d, %d]",
+		m_camera.GetGridPosition().row,
+		m_camera.GetGridPosition().col,
+		m_camera.GetGridPosition().floor);
+	ImGui::Text("Facing:    %s",
+		m_camera.Facing() == Direction::North ? "North" :
+		m_camera.Facing() == Direction::East  ? "East"  :
+		m_camera.Facing() == Direction::South ? "South" : "West");
+	ImGui::Text("Animating: %s", m_camera.IsAnimating() ? "yes" : "no");
 	ImGui::Separator();
 	if (m_renderer != nullptr)
 	{
@@ -389,5 +359,14 @@ void PlayState::Render() noexcept
 	{
 		ImGui::Text("Meshes drawn: N/A");
 	}
+	ImGui::End();
+
+	// Grid position info
+	ImGui::Begin("Dungeon Info");
+	const GridPosition gp = m_camera.GetGridPosition();
+	const Cell& cell = m_dungeon.GetCell(gp);
+	ImGui::Text("Wall:  %s", cell.isWall ? "yes" : "no");
+	ImGui::Text("Floor: %s", cell.hasFloor ? "yes" : "no");
+	ImGui::Text("Walkable: %s", cell.IsWalkable() ? "yes" : "no");
 	ImGui::End();
 }

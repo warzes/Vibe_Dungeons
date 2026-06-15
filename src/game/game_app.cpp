@@ -92,7 +92,22 @@ void GameApp::Frame()
 	m_deltaTime.Tick();
 	processEvents();
 	if (!m_running) return;
-	update();
+	try
+	{
+		update();
+	}
+	catch (const std::exception& e)
+	{
+		Logger::Fatal(std::string("Unhandled exception in update: ") + e.what());
+		m_running = false;
+		return;
+	}
+	catch (...)
+	{
+		Logger::Fatal("Unhandled unknown exception in update");
+		m_running = false;
+		return;
+	}
 	render();
 
 	if constexpr (TARGET_FRAME_TIME > 0.0)

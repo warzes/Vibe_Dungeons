@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#include "game/grid_position.h"
+#include "game/direction.h"
+
 class Camera final
 {
 public:
@@ -60,9 +63,41 @@ public:
 
 	void UpdateViewMatrix() noexcept;
 
+	//===== Grid movement =====
+
+	void SetGridPosition(GridPosition pos, Direction facing) noexcept;
+	void SnapToGrid() noexcept;
+
+	void TurnLeft() noexcept;
+	void TurnRight() noexcept;
+	void MoveForward() noexcept;
+	void MoveBackward() noexcept;
+
+	void UpdateAnimation(float dt) noexcept;
+
+	[[nodiscard]] bool IsAnimating() const noexcept
+	{
+		return m_isAnimating;
+	}
+
+	[[nodiscard]] GridPosition GetGridPosition() const noexcept
+	{
+		return m_gridPosition;
+	}
+
+	[[nodiscard]] Direction Facing() const noexcept
+	{
+		return m_gridFacing;
+	}
+
+	[[nodiscard]] static glm::vec3 GridToWorld(GridPosition p) noexcept;
+
 	static constexpr float PITCH_MAX = 89.0f;
 	static constexpr float PITCH_MIN = -89.0f;
 	static constexpr glm::vec3 WORLD_UP = glm::vec3(0.0f, 1.0f, 0.0f);
+
+	static constexpr float ANIMATION_DURATION = 0.2f;
+	static constexpr float GRID_UNIT = 1.0f;
 
 private:
 	void updateFromYawPitch() noexcept;
@@ -81,4 +116,15 @@ private:
 
 	glm::mat4 m_view = glm::mat4(1.0f);
 	glm::mat4 m_projection = glm::mat4(1.0f);
+
+	//===== Grid state =====
+	GridPosition m_gridPosition;
+	Direction m_gridFacing = Direction::North;
+	glm::vec3 m_targetPosition{0.0f};
+	float m_targetYaw = -90.0f;
+	bool m_isAnimating = false;
+	float m_animationTimer = 0.0f;
+
+	glm::vec3 m_animStartPosition{0.0f};
+	float m_animStartYaw = -90.0f;
 };

@@ -189,6 +189,8 @@
     <ClCompile Include="engine\resource_manager.cpp" />
     <ClCompile Include="engine\window.cpp" />
     <ClCompile Include="game\game_app.cpp" />
+    <ClCompile Include="game\dungeon\dungeon.cpp" />
+    <ClCompile Include="game\dungeon\dungeon_renderer.cpp" />
     <ClCompile Include="game\states\main_menu_state.cpp" />
     <ClCompile Include="game\states\play_state.cpp" />
     <ClCompile Include="game\states\settings_state.cpp" />
@@ -239,6 +241,11 @@
     <ClInclude Include="engine\resource_manager.h" />
     <ClInclude Include="engine\window.h" />
     <ClInclude Include="game\game_app.h" />
+    <ClInclude Include="game\grid_position.h" />
+    <ClInclude Include="game\direction.h" />
+    <ClInclude Include="game\dungeon\chunk.h" />
+    <ClInclude Include="game\dungeon\dungeon.h" />
+    <ClInclude Include="game\dungeon\dungeon_renderer.h" />
     <ClInclude Include="game\states\main_menu_state.h" />
     <ClInclude Include="game\states\play_state.h" />
     <ClInclude Include="game\states\settings_state.h" />

@@ -190,3 +190,112 @@ void main()
 )";
 
 #endif
+
+//=============================================================================
+// Dungeon shaders (ambient + directional light)
+//=============================================================================
+
+#if defined(__EMSCRIPTEN__)
+
+static constexpr const char* DUNGEON_VERT_SRC = R"(#version 300 es
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+layout (location = 3) in vec4 aModelRow0;
+layout (location = 4) in vec4 aModelRow1;
+layout (location = 5) in vec4 aModelRow2;
+layout (location = 6) in vec4 aModelRow3;
+
+layout(std140) uniform ViewProjection
+{
+	mat4 uView;
+	mat4 uProjection;
+};
+
+out vec2 vTexCoord;
+out vec3 vNormal;
+out vec3 vFragPos;
+
+void main()
+{
+	mat4 model = mat4(aModelRow0, aModelRow1, aModelRow2, aModelRow3);
+	vec4 worldPos = model * vec4(aPos, 1.0);
+	gl_Position = uProjection * uView * worldPos;
+	vTexCoord = aTexCoord;
+	vNormal = normalize(mat3(transpose(inverse(model))) * aNormal);
+	vFragPos = vec3(worldPos);
+}
+)";
+
+static constexpr const char* DUNGEON_FRAG_SRC = R"(#version 300 es
+precision highp float;
+in vec2 vTexCoord;
+in vec3 vNormal;
+in vec3 vFragPos;
+out vec4 fragColor;
+
+uniform sampler2D uTexture;
+
+void main()
+{
+	vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
+	float diff = max(dot(vNormal, lightDir), 0.0);
+	float ambient = 0.3;
+	float lighting = ambient + (1.0 - ambient) * diff;
+	vec4 texColor = texture(uTexture, vTexCoord);
+	fragColor = vec4(texColor.rgb * lighting, texColor.a);
+}
+)";
+
+#else
+
+static constexpr const char* DUNGEON_VERT_SRC = R"(#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+layout (location = 3) in vec4 aModelRow0;
+layout (location = 4) in vec4 aModelRow1;
+layout (location = 5) in vec4 aModelRow2;
+layout (location = 6) in vec4 aModelRow3;
+
+layout(std140) uniform ViewProjection
+{
+	mat4 uView;
+	mat4 uProjection;
+};
+
+out vec2 vTexCoord;
+out vec3 vNormal;
+out vec3 vFragPos;
+
+void main()
+{
+	mat4 model = mat4(aModelRow0, aModelRow1, aModelRow2, aModelRow3);
+	vec4 worldPos = model * vec4(aPos, 1.0);
+	gl_Position = uProjection * uView * worldPos;
+	vTexCoord = aTexCoord;
+	vNormal = normalize(mat3(transpose(inverse(model))) * aNormal);
+	vFragPos = vec3(worldPos);
+}
+)";
+
+static constexpr const char* DUNGEON_FRAG_SRC = R"(#version 330 core
+in vec2 vTexCoord;
+in vec3 vNormal;
+in vec3 vFragPos;
+out vec4 fragColor;
+
+uniform sampler2D uTexture;
+
+void main()
+{
+	vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
+	float diff = max(dot(vNormal, lightDir), 0.0);
+	float ambient = 0.3;
+	float lighting = ambient + (1.0 - ambient) * diff;
+	vec4 texColor = texture(uTexture, vTexCoord);
+	fragColor = vec4(texColor.rgb * lighting, texColor.a);
+}
+)";
+
+#endif

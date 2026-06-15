@@ -9,9 +9,11 @@
 #include "engine/renderer/camera.h"
 #include "engine/renderer/debug_renderer.h"
 #include "engine/audio_system.h"
-#include "core/transform.h"
-#include "core/collision.h"
 #include "core/profiler.h"
+#include "game/grid_position.h"
+#include "game/direction.h"
+#include "game/dungeon/dungeon.h"
+#include "game/dungeon/dungeon_renderer.h"
 
 class GameStateMachine;
 class InputManager;
@@ -20,14 +22,14 @@ class DeltaTime;
 class Renderer;
 class ResourceManager;
 
-struct CubeData
+struct SavedCameraState
 {
-	Transform transform;
-	glm::vec3 rotationAxis;
-	float angle;
-	float speed;
-	int32_t materialIndex;
-	glm::mat4 worldMatrix = glm::mat4(1.0f);
+	glm::vec3 position;
+	float yaw;
+	float pitch;
+	GridPosition gridPos;
+	Direction facing = Direction::North;
+	bool isAnimating = false;
 };
 
 class PlayState final : public GameState
@@ -58,25 +60,32 @@ public:
 	}
 
 private:
+	void enterDebugMode() noexcept;
+	void exitDebugMode() noexcept;
+
 	GameStateMachine& m_machine;
 	const Window& m_window;
 	InputManager& m_input;
 	ResourceManager& m_resources;
 
-	Shader* m_shader = nullptr;
-	Mesh* m_cube = nullptr;
+	Shader* m_dungeonShader = nullptr;
+	Texture* m_texFloor = nullptr;
+	Texture* m_texWall = nullptr;
+	Texture* m_texCeiling = nullptr;
+	Material* m_matFloor = nullptr;
+	Material* m_matWall = nullptr;
+	Material* m_matCeiling = nullptr;
+
 	Camera m_camera;
+	Dungeon m_dungeon;
+	DungeonRenderer m_dungeonRenderer;
 	DebugRenderer m_debugRenderer;
 	AudioSystem m_audio;
 
-	static constexpr int32_t NUM_MATERIALS = 4;
-	Material* m_materials[NUM_MATERIALS]{};
-
-	std::vector<CubeData> m_cubes;
-	Sphere m_debugSphere;
+	// Debug camera
+	SavedCameraState m_savedCamera;
+	bool m_showDebug = false;
 
 	bool m_initialized = false;
-	bool m_showDebug = false;
 	const Renderer* m_renderer = nullptr;
-	int32_t m_collidingCubes = 0;
 };

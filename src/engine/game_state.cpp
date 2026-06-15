@@ -130,7 +130,16 @@ void GameStateMachine::applyPush(std::unique_ptr<GameState> state)
 		m_stack.back()->OnPause();
 	}
 	m_stack.push_back(std::move(state));
-	m_stack.back()->OnEnter();
+	try
+	{
+		m_stack.back()->OnEnter();
+	}
+	catch (...)
+	{
+		Logger::Error(std::string("State OnEnter threw: ") + m_stack.back()->GetName().data());
+		m_stack.pop_back();
+		return;
+	}
 	Logger::Info(std::string("State push: ") + m_stack.back()->GetName().data());
 }
 
@@ -159,6 +168,15 @@ void GameStateMachine::applyReplace(std::unique_ptr<GameState> state)
 		m_stack.pop_back();
 	}
 	m_stack.push_back(std::move(state));
-	m_stack.back()->OnEnter();
+	try
+	{
+		m_stack.back()->OnEnter();
+	}
+	catch (...)
+	{
+		Logger::Error(std::string("State OnEnter threw: ") + m_stack.back()->GetName().data());
+		m_stack.pop_back();
+		return;
+	}
 	Logger::Info(std::string("State replace with: ") + m_stack.back()->GetName().data());
 }

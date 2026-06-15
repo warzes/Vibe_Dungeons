@@ -78,3 +78,132 @@ void Camera::updateFromYawPitch() noexcept
 
 	UpdateViewMatrix();
 }
+
+//=============================================================================
+// Grid movement
+//=============================================================================
+
+glm::vec3 Camera::GridToWorld(GridPosition p) noexcept
+{
+	return glm::vec3(
+		static_cast<float>(p.col) * GRID_UNIT + GRID_UNIT * 0.5f,
+		0.5f,
+		static_cast<float>(p.row) * GRID_UNIT + GRID_UNIT * 0.5f
+	);
+}
+
+void Camera::SetGridPosition(GridPosition pos, Direction facing) noexcept
+{
+	m_gridPosition = pos;
+	m_gridFacing = facing;
+}
+
+void Camera::SnapToGrid() noexcept
+{
+	m_position = GridToWorld(m_gridPosition);
+	m_yaw = DirectionToYaw(m_gridFacing);
+	m_pitch = 0.0f;
+	m_isAnimating = false;
+	m_animationTimer = 0.0f;
+	updateFromYawPitch();
+}
+
+void Camera::TurnLeft() noexcept
+{
+	if (m_isAnimating)
+	{
+		return;
+	}
+
+	m_animStartYaw = m_yaw;
+	m_animStartPosition = m_position;
+	m_gridFacing = NextDirection(m_gridFacing, false);
+	m_targetYaw = DirectionToYaw(m_gridFacing);
+	m_animationTimer = 0.0f;
+	m_isAnimating = true;
+}
+
+void Camera::TurnRight() noexcept
+{
+	if (m_isAnimating)
+	{
+		return;
+	}
+
+	m_animStartYaw = m_yaw;
+	m_animStartPosition = m_position;
+	m_gridFacing = NextDirection(m_gridFacing, true);
+	m_targetYaw = DirectionToYaw(m_gridFacing);
+	m_animationTimer = 0.0f;
+	m_isAnimating = true;
+}
+
+void Camera::MoveForward() noexcept
+{
+	if (m_isAnimating)
+	{
+		return;
+	}
+
+	glm::ivec2 delta = DirectionToVec(m_gridFacing);
+	GridPosition target(
+		m_gridPosition.row + delta.x,
+		m_gridPosition.col + delta.y,
+		m_gridPosition.floor
+	);
+
+	m_animStartPosition = m_position;
+	m_animStartYaw = m_yaw;
+	m_gridPosition = target;
+	m_targetPosition = GridToWorld(target);
+	m_targetYaw = DirectionToYaw(m_gridFacing);
+	m_animationTimer = 0.0f;
+	m_isAnimating = true;
+}
+
+void Camera::MoveBackward() noexcept
+{
+	if (m_isAnimating)
+	{
+		return;
+	}
+
+	glm::ivec2 delta = DirectionToVec(m_gridFacing);
+	GridPosition target(
+		m_gridPosition.row - delta.x,
+		m_gridPosition.col - delta.y,
+		m_gridPosition.floor
+	);
+
+	m_animStartPosition = m_position;
+	m_animStartYaw = m_yaw;
+	m_gridPosition = target;
+	m_targetPosition = GridToWorld(target);
+	m_targetYaw = DirectionToYaw(m_gridFacing);
+	m_animationTimer = 0.0f;
+	m_isAnimating = true;
+}
+
+void Camera::UpdateAnimation(float dt) noexcept
+{
+	if (!m_isAnimating)
+	{
+		return;
+	}
+
+	m_animationTimer += dt;
+	const float t = std::min(m_animationTimer / ANIMATION_DURATION, 1.0f);
+
+	// Smooth step interpolation
+	const float smooth = t * t * (3.0f - 2.0f * t);
+
+	m_position = glm::mix(m_animStartPosition, m_targetPosition, smooth);
+	m_yaw = glm::mix(m_animStartYaw, m_targetYaw, smooth);
+
+	updateFromYawPitch();
+
+	if (t >= 1.0f)
+	{
+		SnapToGrid();
+	}
+}

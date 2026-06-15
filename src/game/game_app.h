@@ -58,4 +58,5 @@ private:
 	static constexpr double PHYSICS_DT = 1.0 / 60.0;
 
 	double m_accumulator = 0.0;
+
 };
