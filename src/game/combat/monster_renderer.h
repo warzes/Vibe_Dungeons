@@ -1,0 +1,27 @@
+#pragma once
+
+#include "engine/renderer/mesh.h"
+#include "engine/renderer/material.h"
+
+class Camera;
+class Renderer;
+
+class MonsterRenderer final
+{
+public:
+	~MonsterRenderer() noexcept;
+
+	void Init();
+
+	void Submit(
+		Renderer& renderer,
+		const Camera& camera,
+		const std::vector<class Monster>& monsters,
+		const Material& skeletonMat,
+		const Material& slimeMat
+	);
+
+private:
+	Mesh m_billboardMesh;
+	bool m_initialized = false;
+};

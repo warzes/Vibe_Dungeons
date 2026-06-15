@@ -16,6 +16,11 @@
 #include "game/dungeon/dungeon_renderer.h"
 #include "game/game_mode.h"
 #include "game/combat/turn_queue.h"
+#include "game/combat/character.h"
+#include "game/combat/monster_manager.h"
+#include "game/combat/monster_renderer.h"
+#include "game/combat/combat_system.h"
+#include "game/ui/combat_log.h"
 
 class GameStateMachine;
 class InputManager;
@@ -72,6 +77,9 @@ private:
 	[[nodiscard]] bool isWalkableAction(std::string_view name) const noexcept;
 	void doGridAction(std::string_view name) noexcept;
 
+	void processAttack() noexcept;
+	void performCombat() noexcept;
+
 	GameStateMachine& m_machine;
 	const Window& m_window;
 	InputManager& m_input;
@@ -104,4 +112,16 @@ private:
 
 	float m_moveRepeatDelay = 0.1f;
 	float m_moveRepeatTimer = 0.0f;
+
+	// Combat
+	Texture* m_texMonsterSkeleton = nullptr;
+	Texture* m_texMonsterSlime = nullptr;
+	Material* m_matMonsterSkeleton = nullptr;
+	Material* m_matMonsterSlime = nullptr;
+
+	Character m_character;
+	MonsterManager m_monsterManager;
+	MonsterRenderer m_monsterRenderer;
+	CombatSystem m_combatSystem;
+	CombatLog m_combatLog;
 };

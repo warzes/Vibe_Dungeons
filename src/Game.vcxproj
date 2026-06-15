@@ -189,6 +189,11 @@
     <ClCompile Include="engine\resource_manager.cpp" />
     <ClCompile Include="engine\window.cpp" />
     <ClCompile Include="game\game_app.cpp" />
+    <ClCompile Include="game\combat\combat_system.cpp" />
+    <ClCompile Include="game\combat\dice.cpp" />
+    <ClCompile Include="game\combat\monster_manager.cpp" />
+    <ClCompile Include="game\combat\monster_renderer.cpp" />
+    <ClCompile Include="game\ui\combat_log.cpp" />
     <ClCompile Include="game\dungeon\dungeon.cpp" />
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp" />
     <ClCompile Include="game\states\main_menu_state.cpp" />
@@ -243,6 +248,15 @@
     <ClInclude Include="game\game_app.h" />
     <ClInclude Include="game\grid_position.h" />
     <ClInclude Include="game\direction.h" />
+    <ClInclude Include="game\game_mode.h" />
+    <ClInclude Include="game\combat\character.h" />
+    <ClInclude Include="game\combat\monster.h" />
+    <ClInclude Include="game\combat\combat_system.h" />
+    <ClInclude Include="game\combat\dice.h" />
+    <ClInclude Include="game\combat\monster_manager.h" />
+    <ClInclude Include="game\combat\monster_renderer.h" />
+    <ClInclude Include="game\combat\turn_queue.h" />
+    <ClInclude Include="game\ui\combat_log.h" />
     <ClInclude Include="game\dungeon\chunk.h" />
     <ClInclude Include="game\dungeon\dungeon.h" />
     <ClInclude Include="game\dungeon\dungeon_renderer.h" />

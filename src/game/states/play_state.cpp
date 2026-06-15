@@ -86,6 +86,71 @@ void PlayState::OnEnter() noexcept
 		m_camera.SetGridPosition({17, 17, 0}, Direction::North);
 		m_camera.SnapToGrid();
 
+		// ---- Character ----
+		m_character = Character{};
+		m_character.name = "Hero";
+		m_character.hp = 20;
+		m_character.maxHp = 20;
+		m_character.ac = 12;
+		m_character.atkBonus = 2;
+		m_character.damageMin = 1;
+		m_character.damageMax = 6;
+		m_character.position = {17, 17, 0};
+		m_character.facing = Direction::North;
+		Logger::Info("PlayState: character created");
+
+		// ---- Monster textures ----
+		m_texMonsterSkeleton = m_resources.LoadTexture("tex_monster_skeleton", "data/skeleton.png", false);
+		m_texMonsterSlime = m_resources.LoadTexture("tex_monster_slime", "data/slime.png", false);
+
+		if (!m_texMonsterSkeleton || !m_texMonsterSlime)
+		{
+			throw std::runtime_error("Failed to load monster textures");
+		}
+
+		m_matMonsterSkeleton = m_resources.GetOrCreateMaterial("mat_monster_skeleton", *m_dungeonShader, *m_texMonsterSkeleton);
+		m_matMonsterSlime = m_resources.GetOrCreateMaterial("mat_monster_slime", *m_dungeonShader, *m_texMonsterSlime);
+
+		if (!m_matMonsterSkeleton || !m_matMonsterSlime)
+		{
+			throw std::runtime_error("Failed to create monster materials");
+		}
+		Logger::Info("PlayState: monster textures loaded");
+
+		// ---- Monster renderer ----
+		m_monsterRenderer.Init();
+
+		// ---- Spawn test monsters ----
+		{
+			Monster skelly;
+			skelly.name = "Skeleton";
+			skelly.type = MonsterType::Skeleton;
+			skelly.hp = 8;
+			skelly.maxHp = 8;
+			skelly.ac = 12;
+			skelly.atkBonus = 1;
+			skelly.damageMin = 1;
+			skelly.damageMax = 4;
+			skelly.position = {16, 17, 0};
+			skelly.facing = Direction::South;
+			m_monsterManager.Spawn(std::move(skelly));
+		}
+		{
+			Monster slime;
+			slime.name = "Slime";
+			slime.type = MonsterType::Slime;
+			slime.hp = 4;
+			slime.maxHp = 4;
+			slime.ac = 8;
+			slime.atkBonus = 0;
+			slime.damageMin = 1;
+			slime.damageMax = 3;
+			slime.position = {13, 17, 0};
+			slime.facing = Direction::South;
+			m_monsterManager.Spawn(std::move(slime));
+		}
+		Logger::Info("PlayState: monsters spawned");
+
 		// ---- Input actions for grid movement ----
 		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
 		m_input.BindAction("GridMoveBackward", SDL_SCANCODE_S);
@@ -93,6 +158,7 @@ void PlayState::OnEnter() noexcept
 		m_input.BindAction("TurnRight",        SDL_SCANCODE_D);
 		m_input.BindAction("StrafeLeft",       SDL_SCANCODE_Q);
 		m_input.BindAction("StrafeRight",      SDL_SCANCODE_E);
+		m_input.BindAction("Action_Attack",    SDL_SCANCODE_SPACE);
 
 		// ---- Perspective ----
 		m_camera.SetPerspective(60.0f,
@@ -215,6 +281,14 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		return;
 	}
 
+	if (m_gameMode == GameMode::GameOver)
+	{
+		// No input processing during GameOver
+		m_camera.UpdateAnimation(static_cast<float>(dt.Seconds()));
+		m_audio.Update();
+		return;
+	}
+
 	if (m_showDebug)
 	{
 		// ---- Debug / Free camera ----
@@ -239,6 +313,7 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		// Turn system — process states in order
 		processTurnWaiting();
 		processEdgeActions();
+		processAttack();
 		processHeldRepeat(dt);
 
 		// If animation finished while in TurnAnimating, go back to Exploring
@@ -453,6 +528,96 @@ void PlayState::processTurnWaiting() noexcept
 
 //=============================================================================
 
+void PlayState::processAttack() noexcept
+{
+	if (m_gameMode != GameMode::Exploring && m_gameMode != GameMode::TurnAnimating)
+	{
+		return;
+	}
+	if (!m_input.IsActionPressed("Action_Attack"))
+	{
+		return;
+	}
+
+	performCombat();
+}
+
+//=============================================================================
+
+void PlayState::performCombat() noexcept
+{
+	Monster* target = m_monsterManager.FindInFront(
+		m_camera.GetGridPosition(),
+		m_camera.Facing()
+	);
+
+	if (!target)
+	{
+		m_combatLog.Add("Nothing to attack.", glm::vec3(0.6f));
+		return;
+	}
+
+	// Player attacks
+	AttackResult playerResult = m_combatSystem.MeleeAttack(m_character, *target);
+
+	if (playerResult.critical)
+	{
+		m_combatLog.Add("Critical hit!", glm::vec3(1.0f, 0.2f, 0.2f));
+	}
+
+	if (playerResult.hit)
+	{
+		std::string msg = "Hero hits " + target->name + " for " +
+			std::to_string(playerResult.damage) + " damage!";
+		m_combatLog.Add(msg, glm::vec3(1.0f));
+	}
+	else
+	{
+		std::string msg = "Hero missed " + target->name + "!";
+		m_combatLog.Add(msg, glm::vec3(0.7f, 0.7f, 0.7f));
+	}
+
+	if (playerResult.killed)
+	{
+		std::string msg = target->name + " dies!";
+		m_combatLog.Add(msg, glm::vec3(0.2f, 1.0f, 0.2f));
+		m_monsterManager.RemoveDead();
+		m_gameMode = GameMode::TurnWaiting;
+		return;
+	}
+
+	// Monster counter-attacks
+	AttackResult monsterResult = m_combatSystem.MonsterMeleeAttack(*target, m_character);
+
+	if (monsterResult.critical)
+	{
+		m_combatLog.Add("Critical hit!", glm::vec3(1.0f, 0.2f, 0.2f));
+	}
+
+	if (monsterResult.hit)
+	{
+		std::string msg = target->name + " hits Hero for " +
+			std::to_string(monsterResult.damage) + " damage!";
+		m_combatLog.Add(msg, glm::vec3(1.0f, 0.8f, 0.2f));
+	}
+	else
+	{
+		std::string msg = target->name + " missed Hero!";
+		m_combatLog.Add(msg, glm::vec3(0.7f, 0.7f, 0.7f));
+	}
+
+	if (m_character.hp <= 0)
+	{
+		m_combatLog.Add("Hero has fallen!", glm::vec3(1.0f, 0.0f, 0.0f));
+		m_gameMode = GameMode::GameOver;
+		return;
+	}
+
+	m_gameMode = GameMode::TurnWaiting;
+}
+
+//=============================================================================
+
 void PlayState::RenderScene(Renderer& renderer) noexcept
 {
 	PROFILE_FUNCTION();
@@ -469,6 +634,9 @@ void PlayState::RenderScene(Renderer& renderer) noexcept
 	renderer.BeginFrame(m_camera.ViewMatrix(), m_camera.ProjectionMatrix());
 
 	m_dungeonRenderer.Submit(renderer);
+
+	m_monsterRenderer.Submit(renderer, m_camera, m_monsterManager.All(),
+		*m_matMonsterSkeleton, *m_matMonsterSlime);
 
 	m_debugRenderer.SetEnabled(m_showDebug);
 
@@ -508,6 +676,7 @@ void PlayState::Render() noexcept
 	ImGui::Text("  W/S - Move Forward/Backward");
 	ImGui::Text("  A/D - Turn Left/Right");
 	ImGui::Text("  Q/E - Strafe Left/Right");
+	ImGui::Text("  Space - Attack");
 	ImGui::Separator();
 	ImGui::Text("Tab: Toggle debug mode [%s]", m_showDebug ? "ON" : "OFF");
 
@@ -571,4 +740,80 @@ void PlayState::Render() noexcept
 	ImGui::Text("Floor: %s", cell.hasFloor ? "yes" : "no");
 	ImGui::Text("Walkable: %s", cell.IsWalkable() ? "yes" : "no");
 	ImGui::End();
+
+	// ---- Hero HUD ----
+	ImGui::Begin("Hero");
+	const float hpFrac = static_cast<float>(m_character.hp) / static_cast<float>(m_character.maxHp);
+	ImGui::Text("%s", m_character.name.c_str());
+	ImGui::ProgressBar(hpFrac, ImVec2(-1.0f, 0.0f),
+		(std::to_string(m_character.hp) + " / " + std::to_string(m_character.maxHp)).c_str());
+	ImGui::Text("AC: %d", m_character.ac);
+	ImGui::Text("Attack Bonus: %+d", m_character.atkBonus);
+	ImGui::Text("Damage: %dd%d",
+		m_character.damageMin,
+		m_character.damageMax);
+	ImGui::End();
+
+	// ---- Monster in front ----
+	{
+		Monster* front = m_monsterManager.FindInFront(
+			m_camera.GetGridPosition(), m_camera.Facing());
+		if (front)
+		{
+			ImGui::Begin("Monster Ahead");
+			ImGui::Text("%s", front->name.c_str());
+			const float mHpFrac = static_cast<float>(front->hp) / static_cast<float>(front->maxHp);
+			ImGui::ProgressBar(mHpFrac, ImVec2(-1.0f, 0.0f),
+				(std::to_string(front->hp) + " / " + std::to_string(front->maxHp)).c_str());
+			ImGui::Text("AC: %d", front->ac);
+			ImGui::End();
+		}
+	}
+
+	// ---- Combat Log ----
+	{
+		ImGui::Begin("Combat Log");
+		if (ImGui::Button("Clear"))
+		{
+			m_combatLog.Clear();
+		}
+		ImGui::Separator();
+		const float logHeight = ImGui::GetContentRegionAvail().y;
+		if (ImGui::BeginChild("LogEntries", ImVec2(0.0f, logHeight), true))
+		{
+			for (const LogEntry& entry : m_combatLog.Entries())
+			{
+				ImGui::TextColored(
+					ImVec4(entry.color.r, entry.color.g, entry.color.b, 1.0f),
+					"%s", entry.text.c_str()
+				);
+			}
+			if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+			{
+				ImGui::SetScrollHereY(1.0f);
+			}
+		}
+		ImGui::EndChild();
+		ImGui::End();
+	}
+
+	// ---- Game Over overlay ----
+	if (m_gameMode == GameMode::GameOver)
+	{
+		ImGui::OpenPopup("Game Over");
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		if (ImGui::BeginPopupModal("Game Over", nullptr,
+			ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
+		{
+			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
+				"Your hero has fallen!");
+			ImGui::Separator();
+			if (ImGui::Button("Back to Menu"))
+			{
+				m_machine.ReplaceState("MainMenu");
+			}
+			ImGui::EndPopup();
+		}
+	}
 }
