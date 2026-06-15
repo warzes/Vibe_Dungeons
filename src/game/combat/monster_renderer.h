@@ -2,6 +2,7 @@
 
 #include "engine/renderer/mesh.h"
 #include "engine/renderer/material.h"
+#include "game/combat/monster.h"
 
 class Camera;
 class Renderer;
@@ -16,7 +17,7 @@ public:
 	void Submit(
 		Renderer& renderer,
 		const Camera& camera,
-		const std::vector<class Monster>& monsters,
+		const std::vector<Monster>& monsters,
 		const Material& skeletonMat,
 		const Material& slimeMat
 	);

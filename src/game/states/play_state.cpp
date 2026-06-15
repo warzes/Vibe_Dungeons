@@ -879,8 +879,7 @@ void PlayState::RenderScene(Renderer& renderer) noexcept
 
 	m_dungeonRenderer.Submit(renderer);
 
-	m_monsterRenderer.Submit(renderer, m_camera, m_monsterManager.All(),
-		*m_matMonsterSkeleton, *m_matMonsterSlime);
+	m_monsterRenderer.Submit(renderer, m_camera, m_monsterManager.All(), *m_matMonsterSkeleton, *m_matMonsterSlime);
 
 	m_itemRenderer.Submit(renderer, m_camera, m_itemDrops);
 
