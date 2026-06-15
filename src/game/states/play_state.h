@@ -14,6 +14,8 @@
 #include "game/direction.h"
 #include "game/dungeon/dungeon.h"
 #include "game/dungeon/dungeon_renderer.h"
+#include "game/game_mode.h"
+#include "game/combat/turn_queue.h"
 
 class GameStateMachine;
 class InputManager;
@@ -63,6 +65,13 @@ private:
 	void enterDebugMode() noexcept;
 	void exitDebugMode() noexcept;
 
+	void processEdgeActions() noexcept;
+	void processHeldRepeat(const DeltaTime& dt) noexcept;
+	void processTurnWaiting() noexcept;
+	[[nodiscard]] bool isMovementAction(std::string_view name) const noexcept;
+	[[nodiscard]] bool isWalkableAction(std::string_view name) const noexcept;
+	void doGridAction(std::string_view name) noexcept;
+
 	GameStateMachine& m_machine;
 	const Window& m_window;
 	InputManager& m_input;
@@ -85,6 +94,10 @@ private:
 	// Debug camera
 	SavedCameraState m_savedCamera;
 	bool m_showDebug = false;
+
+	// Turn system
+	GameMode m_gameMode = GameMode::Exploring;
+	TurnQueue m_turnQueue;
 
 	bool m_initialized = false;
 	const Renderer* m_renderer = nullptr;

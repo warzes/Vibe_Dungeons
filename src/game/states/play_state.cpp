@@ -36,6 +36,7 @@ void PlayState::OnEnter() noexcept
 		m_input.ResetState();
 		m_renderer = nullptr;
 		m_showDebug = false;
+		m_gameMode = GameMode::Exploring;
 
 		m_debugRenderer.Init();
 		Logger::Info("PlayState: debug renderer initialized");
@@ -230,113 +231,15 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 	}
 	else
 	{
-		struct ActionDef
+		// Turn system — process states in order
+		processTurnWaiting();
+		processEdgeActions();
+		processHeldRepeat(dt);
+
+		// If animation finished while in TurnAnimating, go back to Exploring
+		if (m_gameMode == GameMode::TurnAnimating && !m_camera.IsAnimating())
 		{
-			std::string_view name;
-			bool isTurn;
-		};
-
-		const ActionDef actionDefs[] = {
-			{"GridMoveForward",  false},
-			{"GridMoveBackward", false},
-			{"TurnLeft",         true },
-			{"TurnRight",        true },
-			{"StrafeLeft",       false},
-			{"StrafeRight",      false},
-		};
-
-		auto getDelta = [&](std::string_view name) -> glm::ivec2
-		{
-			if (name == "GridMoveForward")  return  DirectionToVec(m_camera.Facing());
-			if (name == "GridMoveBackward") return -DirectionToVec(m_camera.Facing());
-			if (name == "StrafeLeft")       return  DirectionToVec(NextDirection(m_camera.Facing(), false));
-			/* StrafeRight */               return  DirectionToVec(NextDirection(m_camera.Facing(), true));
-		};
-
-		auto doAction = [&](std::string_view name)
-		{
-			if (name == "GridMoveForward")  m_camera.MoveForward();
-			else if (name == "GridMoveBackward") m_camera.MoveBackward();
-			else if (name == "TurnLeft")    m_camera.TurnLeft();
-			else if (name == "TurnRight")   m_camera.TurnRight();
-			else if (name == "StrafeLeft")  m_camera.MoveLeft();
-			else                            m_camera.MoveRight();
-		};
-
-		auto isWalkable = [&](const ActionDef& a) -> bool
-		{
-			glm::ivec2 delta = getDelta(a.name);
-			GridPosition target(
-				m_camera.GetGridPosition().row + delta.x,
-				m_camera.GetGridPosition().col + delta.y,
-				m_camera.GetGridPosition().floor
-			);
-			return m_dungeon.IsWalkable(target);
-		};
-
-		// ---- Pass 1: edge-triggered actions (always processed) ----
-		for (const auto& a : actionDefs)
-		{
-			if (!m_input.IsActionPressed(a.name))
-			{
-				continue;
-			}
-			if (m_camera.IsAnimating())
-			{
-				m_camera.SnapToGrid();
-			}
-			if (!a.isTurn && !isWalkable(a))
-			{
-				m_moveRepeatTimer = 0.0f;
-				break;
-			}
-			doAction(a.name);
-			m_moveRepeatTimer = 0.0f;
-			break;
-		}
-
-		// ---- Pass 2: held-action auto-repeat (only when idle) ----
-		if (!m_camera.IsAnimating())
-		{
-			bool anyPressed = false;
-			for (const auto& a : actionDefs)
-			{
-				if (m_input.IsActionPressed(a.name))
-				{
-					anyPressed = true;
-					break;
-				}
-			}
-
-			if (!anyPressed)
-			{
-				const ActionDef* heldAction = nullptr;
-				for (const auto& a : actionDefs)
-				{
-					if (m_input.IsActionDown(a.name))
-					{
-						heldAction = &a;
-						break;
-					}
-				}
-
-				if (heldAction)
-				{
-					m_moveRepeatTimer += static_cast<float>(dt.Seconds());
-					if (m_moveRepeatTimer >= m_moveRepeatDelay)
-					{
-						if (heldAction->isTurn || isWalkable(*heldAction))
-						{
-							doAction(heldAction->name);
-						}
-						m_moveRepeatTimer = 0.0f;
-					}
-				}
-				else
-				{
-					m_moveRepeatTimer = 0.0f;
-				}
-			}
+			m_gameMode = GameMode::Exploring;
 		}
 	}
 
@@ -344,6 +247,203 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 	m_camera.UpdateAnimation(static_cast<float>(dt.Seconds()));
 
 	m_audio.Update();
+}
+
+//=============================================================================
+
+bool PlayState::isMovementAction(std::string_view name) const noexcept
+{
+	return (name != "TurnLeft" && name != "TurnRight");
+}
+
+//=============================================================================
+
+bool PlayState::isWalkableAction(std::string_view name) const noexcept
+{
+	auto getDelta = [&]() -> glm::ivec2
+	{
+		if (name == "GridMoveForward")  return  DirectionToVec(m_camera.Facing());
+		if (name == "GridMoveBackward") return -DirectionToVec(m_camera.Facing());
+		if (name == "StrafeLeft")       return  DirectionToVec(NextDirection(m_camera.Facing(), false));
+		/* StrafeRight */               return  DirectionToVec(NextDirection(m_camera.Facing(), true));
+	};
+
+	// Rotation actions are always walkable
+	if (!isMovementAction(name))
+	{
+		return true;
+	}
+
+	glm::ivec2 delta = getDelta();
+	GridPosition target(
+		m_camera.GetGridPosition().row + delta.x,
+		m_camera.GetGridPosition().col + delta.y,
+		m_camera.GetGridPosition().floor
+	);
+	return m_dungeon.IsWalkable(target);
+}
+
+//=============================================================================
+
+void PlayState::doGridAction(std::string_view name) noexcept
+{
+	if (name == "GridMoveForward")  m_camera.MoveForward();
+	else if (name == "GridMoveBackward") m_camera.MoveBackward();
+	else if (name == "TurnLeft")    m_camera.TurnLeft();
+	else if (name == "TurnRight")   m_camera.TurnRight();
+	else if (name == "StrafeLeft")  m_camera.MoveLeft();
+	else                            m_camera.MoveRight();
+}
+
+//=============================================================================
+
+void PlayState::processEdgeActions() noexcept
+{
+	// Edge-triggered actions are processed during Exploring and TurnAnimating.
+	// TurnWaiting processes instantly (same frame), so this runs in Exploring
+	// the next frame. TurnWaiting itself blocks new input.
+	if (m_gameMode != GameMode::Exploring && m_gameMode != GameMode::TurnAnimating)
+	{
+		return;
+	}
+
+	static constexpr std::string_view ACTION_NAMES[] =
+	{
+		"GridMoveForward",
+		"GridMoveBackward",
+		"TurnLeft",
+		"TurnRight",
+		"StrafeLeft",
+		"StrafeRight"
+	};
+
+	for (std::string_view name : ACTION_NAMES)
+	{
+		if (!m_input.IsActionPressed(name))
+		{
+			continue;
+		}
+
+		// If camera is animating, cancel current animation
+		if (m_camera.IsAnimating())
+		{
+			m_camera.SnapToGrid();
+		}
+
+		bool movement = isMovementAction(name);
+
+		// Movement actions: check walkability
+		if (movement && !isWalkableAction(name))
+		{
+			m_moveRepeatTimer = 0.0f;
+			break;
+		}
+
+		doGridAction(name);
+		m_moveRepeatTimer = 0.0f;
+
+		// Movement actions consume a turn
+		if (movement)
+		{
+			m_gameMode = GameMode::TurnWaiting;
+		}
+
+		break;
+	}
+}
+
+//=============================================================================
+
+void PlayState::processHeldRepeat(const DeltaTime& dt) noexcept
+{
+	// Auto-repeat only during Exploring, when camera is idle
+	if (m_gameMode != GameMode::Exploring)
+	{
+		return;
+	}
+	if (m_camera.IsAnimating())
+	{
+		return;
+	}
+
+	static constexpr std::string_view ACTION_NAMES[] =
+	{
+		"GridMoveForward",
+		"GridMoveBackward",
+		"TurnLeft",
+		"TurnRight",
+		"StrafeLeft",
+		"StrafeRight"
+	};
+
+	// If any key is freshly pressed (edge), skip repeat this frame
+	for (std::string_view name : ACTION_NAMES)
+	{
+		if (m_input.IsActionPressed(name))
+		{
+			return;
+		}
+	}
+
+	// Find a held key
+	std::string_view heldAction;
+	for (std::string_view name : ACTION_NAMES)
+	{
+		if (m_input.IsActionDown(name))
+		{
+			heldAction = name;
+			break;
+		}
+	}
+
+	if (heldAction.empty())
+	{
+		m_moveRepeatTimer = 0.0f;
+		return;
+	}
+
+	m_moveRepeatTimer += static_cast<float>(dt.Seconds());
+	if (m_moveRepeatTimer >= m_moveRepeatDelay)
+	{
+		bool movement = isMovementAction(heldAction);
+
+		// Check walkability for movement actions
+		if (!movement || isWalkableAction(heldAction))
+		{
+			doGridAction(heldAction);
+
+			if (movement)
+			{
+				m_gameMode = GameMode::TurnWaiting;
+			}
+		}
+		m_moveRepeatTimer = 0.0f;
+	}
+}
+
+//=============================================================================
+
+void PlayState::processTurnWaiting() noexcept
+{
+	if (m_gameMode != GameMode::TurnWaiting)
+	{
+		return;
+	}
+
+	// Advance turn queue (no-op with only player)
+	m_turnQueue.Advance();
+
+	// Future: process enemy actions here
+
+	// Transition to Exploring or TurnAnimating depending on camera state
+	if (m_camera.IsAnimating())
+	{
+		m_gameMode = GameMode::TurnAnimating;
+	}
+	else
+	{
+		m_gameMode = GameMode::Exploring;
+	}
 }
 
 //=============================================================================
@@ -410,6 +510,26 @@ void PlayState::Render() noexcept
 	{
 		m_machine.ReplaceState("MainMenu");
 	}
+	ImGui::End();
+
+	// Game mode
+	ImGui::Begin("Turn System");
+	auto modeName = [](GameMode m) -> const char*
+	{
+		switch (m)
+		{
+			case GameMode::Exploring:     return "Exploring";
+			case GameMode::TurnWaiting:   return "TurnWaiting";
+			case GameMode::TurnAnimating: return "TurnAnimating";
+			case GameMode::CombatTurn:    return "CombatTurn";
+			case GameMode::GameOver:      return "GameOver";
+		}
+		return "Unknown";
+	};
+	ImGui::Text("Game Mode: %s", modeName(m_gameMode));
+	ImGui::Text("Turn Queue Actor: %d", m_turnQueue.CurrentActor());
+	ImGui::Text("Is Player Turn:  %s", m_turnQueue.IsPlayerTurn() ? "yes" : "no");
+	ImGui::Text("Move Repeat Delay: %.3f s", m_moveRepeatDelay);
 	ImGui::End();
 
 	// Camera debug

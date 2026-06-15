@@ -22,6 +22,7 @@
 ### Реализовано ✅
 - Этап 1.1 (шаги 1–10): **полностью** — GridPosition, Direction, Camera c grid-методами, Dungeon с Chunk/Cell, play state, проверка проходимости
 - Этап 1.2 (шаги 11–20): **полностью** — DungeonRenderer, шейдеры, текстуры из файлов, FBO, нормальная геометрия (исправлены winding/normals)
+- Этап 1.3 (шаги 21–28): **полностью** — GameMode, TurnQueue, TurnWaiting/Exploring/TurnAnimating, ввод по GameMode, ActionType
 - **Дополнительно** (не в оригинальном roadmap):
   - Система чанков 35×35 (Chunk + Cell вместо LevelData + TileType)
   - Strafe (MoveLeft/MoveRight) — Q/E
@@ -37,8 +38,11 @@
 - **Управление**: W/S — вперёд/назад, A/D — поворот, Q/E — стрейф (не как в оригинале)
 - **Тестовая комната**: комнаты + коридоры, а не одна клетка стены в центре
 
+### Ключевое отклонение в шагах 21–28
+- **TurnWaiting не блокирует ввод на 0.1s**. В оригинале был искусственный таймер. В реализации: `TurnWaiting` обрабатывается мгновенно (Advance очереди, enemy actions), затем сразу переход в `TurnAnimating` или `Exploring`. Единственное блокирование — `TurnAnimating`, где edge-triggered всё равно пробивает.
+- **Поворот не потребляет ход** — A/D не триггерит TurnWaiting
+
 ### Не реализовано (следующие шаги)
-- Фаза 1.3: пошаговый режим, GameMode, очередь ходов
 - Фаза 1.4: персонаж, монстры, combat
 - Фаза 1.5: боевой UI, лог
 - Фаза 1.6: предметы и инвентарь
@@ -60,8 +64,8 @@
 
 # Фаза 1: Одногеройный roguelike-прототип (шаги 1–60)
 
-> ✅ **Этап 1.1 (шаги 1–10) и Этап 1.2 (шаги 11–20) выполнены.**
-> ⏳ Текущая работа: Этап 1.3 (пошаговый режим).
+> ✅ **Этапы 1.1–1.3 (шаги 1–28) выполнены.**
+> ⏳ Текущая работа: Этап 1.4 (персонаж и монстры).
 
 ## Этап 1.1: Переход от FPS-камеры к грид-системе (шаги 1–10) ✅
 
@@ -253,90 +257,95 @@ PlayState — рендер сцены — выполнено
 
 ---
 
-## Этап 1.3: Пошаговый режим и ввод (шаги 21–28)
+## Этап 1.3: Пошаговый режим и ввод (шаги 21–28) ✅
 
-### Шаг 21: `enum class GameMode`
+### Шаг 21: `enum class GameMode` ✅
 
 ```
-src/game/game_mode.h — новый файл
+src/game/game_mode.h — выполнено
 ```
 
 ```cpp
 enum class GameMode : uint8_t
 {
     Exploring,  // свободное перемещение
-    TurnWaiting, // ждём действия игрока
+    TurnWaiting, // ждём действия игрока → обрабатывается мгновенно
     TurnAnimating, // проигрывается анимация
     CombatTurn,   // боевой ход
     GameOver
 };
 ```
 
-### Шаг 22: Конечный автомат ходов в `PlayState`
+### Шаг 22: Конечный автомат ходов в `PlayState` ✅
 
 ```
-PlayState — добавление
+PlayState — добавлено
 ```
 
 ```cpp
 GameMode m_gameMode = GameMode::Exploring;
 ```
 
-Правила:
-- `Exploring`: игрок может двигаться (WASD). После каждого MOVEMENT или TURN — перейти в `TurnWaiting`
-- `TurnWaiting`: заблокировать ввод. Через gridMoveRepeatDelay (или по кнопке действия) — перейти в `Exploring`
-- В будущем здесь будет проверка: если монстр рядом → его ход
+Правила (адаптированы под auto-repeat):
+- `Exploring`: игрок может двигаться (WASD/QE) и auto-repeat активен
+- После MOVEMENT (W/S, Q/E) → `TurnWaiting`. После TURN (A/D) → остаётся `Exploring`
+- `TurnWaiting`: обрабатывается **мгновенно** (Advance очереди), переходит в `TurnAnimating` если камера анимируется, иначе в `Exploring`
+- В будущем: в `TurnWaiting` будут действовать монстры
 
-### Шаг 23: Блокировка ввода во время анимации
+### Шаг 23: Блокировка ввода ✅
 
 ```
-PlayState::HandleEvent / Update
+PlayState::Update — выполнено
 ```
 
-Если `m_camera.IsAnimating()` или `m_gameMode != Exploring` — не обрабатывать WASD.
-Добавить `m_queuedAction` — если игрок нажал клавишу во время анимации, выполнить после.
+**Отклонение**: не используется `m_queuedAction`. Вместо этого:
+- `TurnWaiting` обрабатывается мгновенно (0 задержки)
+- Edge-triggered (новое нажатие) разрешён во время `Exploring` и `TurnAnimating`
+- Held-repeat разрешён только во время `Exploring`
+- При edge-нажатии во время анимации → SnapToGrid() отменяет тек. анимацию
 
-### Шаг 24: Индикатор режима (debug-ImGui)
+### Шаг 24: Индикатор режима (debug-ImGui) ✅
 
 В `PlayState::Render()`:
-- Показывать текущий `GameMode`
-- Показывать GridPosition и Direction
-- Показывать "Press SPACE to end turn"
+- Текущий `GameMode` и номер актора в очереди
+- GridPosition и Direction (было ранее)
+- Move Repeat Delay
 
-### Шаг 25: Тест пошаговости
+### Шаг 25: Поворот — не шаг ✅
 
-Запустить, убедиться: после каждого шага (W/S/A/D) ввод блокируется на 0.1s.
-Поворот — тоже шаг.
+Актуальное поведение: после A/D (поворот) gameMode остаётся `Exploring`. Только W/S/Q/E (движение) потребляет ход.
 
-### Шаг 26: `TurnQueue` — очередь ходов
+### Шаг 26: `TurnQueue` — очередь ходов ✅
 
 ```
-src/game/combat/turn_queue.h — новый модуль
+src/game/combat/turn_queue.h — выполнено
 ```
 
 ```cpp
 class TurnQueue final
 {
 public:
-    void Advance(); // следующий ход
+    void Advance();
     [[nodiscard]] bool IsPlayerTurn() const noexcept;
-    void SetPlayerTurn(bool b) noexcept;
+    [[nodiscard]] int32_t CurrentActor() const noexcept;
+    void SetActorCount(int32_t count) noexcept;
 private:
-    int32_t m_currentActor = 0; // 0 = player
+    int32_t m_currentActor = 0;
+    int32_t m_actorCount = 1;
 };
 ```
 
-Пока один actor — игрок. Для будущего расширения.
+Пока один actor — игрок. Advance() при m_actorCount == 1 всегда возвращает на игрока.
 
-### Шаг 27: Состояние `TurnAnimating` после фиксации
+### Шаг 27: TurnAnimating ✅
 
-После `Advance()`: установить `m_gameMode = TurnAnimating` на время `ANIMATION_DURATION`.
-По окончании анимации (в `Update()`) — проверить `m_camera.IsAnimating()`, если нет — вернуться к `Exploring`.
+После Advance(): если камера анимируется → `TurnAnimating`. По окончании анимации → `Exploring`.
+Edge-triggered нажатие во время `TurnAnimating` отменяет анимацию и выполняет новое действие.
 
-### Шаг 28: Подготовка к бою — `ActionType`
+### Шаг 28: ActionType ✅
 
 ```
-src/game/combat/action.h — новый файл
+src/game/combat/action.h — выполнено
 ```
 
 ```cpp
@@ -346,12 +355,14 @@ enum class ActionType : uint8_t
     MoveBackward,
     TurnLeft,
     TurnRight,
+    StrafeLeft,
+    StrafeRight,
     MeleeAttack,
     Wait
 };
 ```
 
-Пока используются только Move/Turn, остальные заготовлены.
+Пока не используется — только через строковые имена в PlayState.
 
 ---
 
