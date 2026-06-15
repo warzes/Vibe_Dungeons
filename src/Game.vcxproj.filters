@@ -1,0 +1,273 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="3rdparty\glad\gl.c">
+      <Filter>3rdparty\glad</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\imgui\imgui.cpp">
+      <Filter>3rdparty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\imgui\imgui_draw.cpp">
+      <Filter>3rdparty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\imgui\imgui_impl_opengl3.cpp">
+      <Filter>3rdparty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\imgui\imgui_impl_sdl3.cpp">
+      <Filter>3rdparty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\imgui\imgui_stdlib.cpp">
+      <Filter>3rdparty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\imgui\imgui_tables.cpp">
+      <Filter>3rdparty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\imgui\imgui_widgets.cpp">
+      <Filter>3rdparty\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="core\logger.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\profiler.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\audio_system.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\delta_time.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\game_state.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\gl_context.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\input_manager.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\resource_manager.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\window.cpp">
+      <Filter>engine</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\debug_renderer.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\framebuffer.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\frustum.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\material.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\mesh.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\renderer.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\shader.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\texture.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\camera.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="game\game_app.cpp">
+      <Filter>game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\states\play_state.cpp">
+      <Filter>game\states</Filter>
+    </ClCompile>
+    <ClCompile Include="game\states\settings_state.cpp">
+      <Filter>game\states</Filter>
+    </ClCompile>
+    <ClCompile Include="game\states\main_menu_state.cpp">
+      <Filter>game\states</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="3rdparty\tiny_obj_loader\tiny_obj_loader.cpp">
+      <Filter>3rdparty\tiny_obj_loader</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\cgltf\cgltf.cpp">
+      <Filter>3rdparty\cgltf</Filter>
+    </ClCompile>
+    <ClCompile Include="3rdparty\stb\stb.cpp">
+      <Filter>3rdparty\stb</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="3rdparty\glad\gl.h">
+      <Filter>3rdparty\glad</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imconfig.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imgui.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imgui_impl_opengl3.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imgui_impl_opengl3_loader.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imgui_impl_sdl3.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imgui_internal.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imgui_stdlib.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imstb_rectpack.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imstb_textedit.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\imgui\imstb_truetype.h">
+      <Filter>3rdparty\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="core\event_bus.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\exception.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\logger.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\profiler.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\scoped_sdl.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\transform.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\collision.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\audio_system.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\delta_time.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\game_state.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\gl_context.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\input_manager.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\resource_manager.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\window.h">
+      <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\debug_renderer.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\framebuffer.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\frustum.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\material.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\mesh.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\renderer.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\shader.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\texture.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\camera.h">
+      <Filter>engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="game\game_app.h">
+      <Filter>game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\states\main_menu_state.h">
+      <Filter>game\states</Filter>
+    </ClInclude>
+    <ClInclude Include="game\states\play_state.h">
+      <Filter>game\states</Filter>
+    </ClInclude>
+    <ClInclude Include="game\states\settings_state.h">
+      <Filter>game\states</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="3rdparty\tiny_obj_loader\tiny_obj_loader.h">
+      <Filter>3rdparty\tiny_obj_loader</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\cgltf\cgltf.h">
+      <Filter>3rdparty\cgltf</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\stb\stb_image.h">
+      <Filter>3rdparty\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="3rdparty\stb\stb_vorbis.h">
+      <Filter>3rdparty\stb</Filter>
+    </ClInclude>
+    <ClInclude Include="core\aabb.h">
+      <Filter>core</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{c500e3bd-c3dd-4d52-bdaf-695b6596884f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine">
+      <UniqueIdentifier>{ad46a4ca-c253-4aff-8115-a7c3be390664}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="engine\renderer">
+      <UniqueIdentifier>{5a3066dc-c1bd-411c-9111-d5729e4982f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game">
+      <UniqueIdentifier>{6075e8e9-cac0-4f23-99b0-e5f455bb248b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\states">
+      <UniqueIdentifier>{662d7544-cfa9-4c5c-9e9f-25ba237fbe7c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty">
+      <UniqueIdentifier>{d51ce186-638f-4781-8ed6-5f3a01881238}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\glad">
+      <UniqueIdentifier>{64a348b3-a905-4718-85e9-de3dc809b6a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\imgui">
+      <UniqueIdentifier>{ed6c334a-6e8c-4bde-90a6-ddba22af93e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\stb">
+      <UniqueIdentifier>{9f8e7d6c-5b4a-3c2d-1f0e-8a7b6c5d4e3f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\tiny_obj_loader">
+      <UniqueIdentifier>{ea012567-8d4d-47a1-93ab-8cb00a7b15e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="3rdparty\cgltf">
+      <UniqueIdentifier>{3c655b0e-e8a4-4296-9f9a-b83960028f9b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
