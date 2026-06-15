@@ -3,7 +3,6 @@
 /src/*.gch
 /bin/*.exe
 /bin/*.pdb
-/bin/SDL3.dll
 *.user
 /bin/test_results.log
 /bin/web/index.html
