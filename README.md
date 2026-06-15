@@ -2,7 +2,7 @@
 
 A retro-style dungeon crawler RPG in the vein of *Eye of the Beholder*, built from scratch in C++26 with OpenGL 3.3 and SDL3.
 
-> **Current status**: 3D engine skeleton with grid-based movement, procedural dungeon rendering, turn-based roguelike combat prototype.
+> **Current status**: grid-based movement, turn system, melee combat with monsters (billboard sprites), combat log, hero HUD.
 
 ---
 
@@ -10,52 +10,24 @@ A retro-style dungeon crawler RPG in the vein of *Eye of the Beholder*, built fr
 
 ### Implemented
 - **3D renderer**: OpenGL 3.3 core profile, instancing, frustum culling, UBO for view/projection
-- **Grid-based movement**: snap-to-grid camera with lerp animation (0.2s per step), 90° turns
-- **Dungeon**: procedural tile grid with walls, floor, ceiling rendered as instanced meshes
-- **Turn-based exploration**: player moves one cell per turn, input blocked during animation
-- **Combat**: melee attack (E key), d20-based hit formula, damage range, critical hits
-- **Monsters**: billboard-sprites, stationary/patrol/aggressive AI, death handling
-- **Party system**: up to 6 characters, formations (line/double-line/single)
-- **Character stats**: HP, AC, STR/DEX/CON/INT/WIS/CHA, equipment, inventory
-- **Items**: weapon/armor/shield/potion/scroll/key, pick up (G), use, drop
-- **Spells**: Magic Missile, Heal, Light, Shield — mana-based, from spellbook or scroll
-- **Levels**: multi-floor dungeon with stairs, locked doors, secret walls, traps
-- **FOV**: raycasting-based field-of-view, fog of war (unseen / explored / visible)
-- **Retro FBO**: low-resolution framebuffer (320×240) with nearest-neighbour upscale
-- **Combat log**: colored message log (hit, miss, critical, death, spell)
-- **HUD**: HP bars, AC, minimap, compass, party portraits
-- **Save/Load**: JSON serialization via nlohmann (F5 save, F9 load)
-- **Settings**: mouse sensitivity, sound volume, render resolution, fullscreen toggle
-- **Audio**: OGG/WAV playback via SDL3 audio streams, ambient + SFX channels
-- **Debug tools**: Profiler (timings), wireframe overlay, camera debug, ImGui panels
+- **Grid camera**: snap-to-grid with lerp animation (0.2s per step), 90° turns, strafe
+- **Dungeon**: procedural grid with walls/floor/ceiling rendered as instanced meshes (textures from files)
+- **Turn-based system**: `Exploring` → `TurnWaiting` → `TurnAnimating`, edge-triggered input
+- **Combat**: melee attack (Space), d20+atkBonus vs AC, critical hits, monster counter-attack
+- **Monsters**: billboard sprites (skeleton, slime), station ay AI (placeholder), block player movement
+- **Hero HUD**: HP bar, AC, attack bonus, damage dice
+- **Combat Log**: colour-coded entries (hit, miss, critical, death), auto-scroll, clear
+- **Monster tooltip**: name, HP bar, AC when facing a monster
+- **Death/GameOver**: HP ≤ 0 → GameOver popup, all input locked
+- **Debug tools**: Tab toggles debug camera + ImGui panels (camera, turn system, dungeon info)
 - **Cross-platform**: `#ifdef __EMSCRIPTEN__` guards, no `filesystem`, no `thread` on Web
+- **Retro FBO**: low-resolution framebuffer (`GL_NEAREST`) with configurable resolution
+
+### In Progress
+- Items & inventory (Phase 1.6)
 
 ### Planned
-See [ROADMAP.MD](./ROADMAP.MD) for the full 120-step development plan.
-
----
-
-## Build
-
-### Prerequisites
-- **g++ (MinGW)**: C++26 support
-- **SDL3**: included in `src/3rdparty/SDL3/`
-- **OpenGL 3.3**: compatible GPU and drivers
-
-### Windows (MinGW)
-```
-build.bat
-```
-The script compiles the precompiled header, all source files, links against SDL3 and OpenGL, and copies `SDL3.dll` to `bin/`.
-
-### Windows (MSVC)
-Open `src/Game.slnx` in Visual Studio 2022+ and build.
-
-### Web (Emscripten) — not yet set up
-See ROADMAP for WASM build target.
-
-### Output
-The executable is placed in `bin/dungeon_crawlers.exe`.
+See [ROADMAP.MD](./ROADMAP.MD) for full development plan.
 
 ---
 
@@ -63,19 +35,11 @@ The executable is placed in `bin/dungeon_crawlers.exe`.
 
 | Key | Action |
 |-----|--------|
-| W / S | Move forward / backward (grid step) |
+| W / S | Move forward / backward |
 | A / D | Turn left / right (90°) |
-| E | Melee attack (adjacent enemy) |
-| G | Pick up item from floor |
-| I | Open inventory |
-| F | Search (secret doors, traps) |
-| R | Rest (heal HP/MP) |
-| Tab | Toggle minimap / debug overlay |
-| F5 | Quick save |
-| F9 | Quick load |
-| C | Character stats screen |
-| Space | End turn / continue dialog |
-| Escape | Release mouse / quit |
+| Q / E | Strafe left / right |
+| Space | Melee attack (adjacent enemy) |
+| Tab | Toggle debug mode / free camera |
 
 ---
 
@@ -93,7 +57,7 @@ src/
 │   ├── scoped_sdl.h         # RAII SDL_Init/Quit
 │   └── transform.h          # Hierarchy transform with dirty flag
 ├── engine/                  # Engine layer
-│   ├── audio_system.h/.cpp  # WAV/OGG playback, music + SFX streams
+│   ├── audio_system.h/.cpp  # WAV/OGG playback (skeleton)
 │   ├── delta_time.h/.cpp    # Variable timestep
 │   ├── game_state.h/.cpp    # State machine (push/pop/replace)
 │   ├── gl_context.h/.cpp    # OpenGL context + glad loader
@@ -104,41 +68,37 @@ src/
 │       ├── camera.h/.cpp    # Grid camera with lerp animation
 │       ├── debug_renderer.h/.cpp # Line/shape debug overlay
 │       ├── framebuffer.h/.cpp    # FBO with depth attachment
-│       ├── frustum.h/.cpp   # View-frustum culling (6 planes)
+│       ├── frustum.h/.cpp   # View-frustum culling
 │       ├── material.h/.cpp  # Shader + texture binding
 │       ├── mesh.h/.cpp      # Vertex/index buffers, OBJ/GLTF loader
 │       ├── renderer.h/.cpp  # Instanced batched renderer
 │       ├── shader.h/.cpp    # GLSL compile/link/uniform cache
-│       └── texture.h/.cpp   # 2D textures, checkerboard, STB image
+│       └── texture.h/.cpp   # 2D textures, STB image loader
 ├── game/                    # Game logic
 │   ├── game_app.h/.cpp      # Main loop, FBO pipeline, ImGui init
+│   ├── game_mode.h          # GameMode enum
+│   ├── grid_position.h      # GridPosition struct
+│   ├── direction.h          # Direction enum + helpers
 │   ├── combat/              # Combat & RPG systems
-│   │   ├── action.h         # Action types enum
-│   │   ├── character.h      # Hero stats, inventory, equipment
+│   │   ├── action.h         # ActionType enum
+│   │   ├── character.h      # Hero stats
 │   │   ├── combat_system.h/.cpp # Attack resolution, dice rolls
-│   │   ├── dice.h           # d20/d6 random rolls
-│   │   ├── inventory.h/.cpp # Item container
-│   │   ├── item.h           # Item types, modifiers
+│   │   ├── dice.h/.cpp      # d20/d6 random rolls
 │   │   ├── monster.h        # Monster stats + AI type
-│   │   ├── monster_manager.h/.cpp # Spawn/despawn/update
+│   │   ├── monster_manager.h/.cpp # Spawn/despawn/lookup
 │   │   ├── monster_renderer.h/.cpp # Billboard sprite renderer
-│   │   ├── party.h/.cpp     # Party management, formations
-│   │   ├── spell.h          # Spell definitions
-│   │   └── turn_queue.h/.cpp # Initiative-ordered turn queue
+│   │   └── turn_queue.h     # Turn queue
 │   ├── dungeon/             # Dungeon & level systems
-│   │   ├── dungeon.h/.cpp   # Tile grid, level data, walkability
-│   │   ├── dungeon_renderer.h/.cpp # Wall/floor/ceiling geometry
-│   │   ├── tile.h           # TileType, Tile struct
-│   │   ├── trap.h           # Trap definitions
-│   │   └── trigger.h        # Event triggers
-│   ├── states/              # Game states (screens)
-│   │   ├── main_menu_state.h/.cpp # Main menu (Start/Settings/Exit)
-│   │   ├── play_state.h/.cpp      # Main gameplay state
-│   │   └── settings_state.h/.cpp  # Settings with JSON config
-│   └── ui/                  # Retro UI layer
-│       ├── bitmap_font.h/.cpp     # Bitmap font rendering
-│       ├── combat_log.h/.cpp      # Colored combat log
-│       └── hud.h/.cpp             # HP bars, minimap, compass
+│   │   ├── chunk.h          # Cell + Chunk (35×35 grid)
+│   │   ├── dungeon.h/.cpp   # Dungeon grid, walkability
+│   │   ├── dungeon_renderer.h/.cpp # Geometry generation + rendering
+│   │   └── tile.h           # TileType enum (unused, Cell used instead)
+│   ├── states/              # Game states
+│   │   ├── main_menu_state.h/.cpp
+│   │   ├── play_state.h/.cpp      # Main gameplay
+│   │   └── settings_state.h/.cpp  # Settings + JSON config
+│   └── ui/                  # UI layer
+│       └── combat_log.h/.cpp      # Coloured combat log
 ├── 3rdparty/                # Third-party libraries
 │   ├── cgltf/               # GLTF mesh loader
 │   ├── glad/                # OpenGL loader
@@ -146,9 +106,9 @@ src/
 │   ├── imgui/               # Dear ImGui (debug UI)
 │   ├── nlohmann/            # JSON library
 │   ├── SDL3/                # SDL3 runtime + headers
-│   ├── stb/                 # stb_image, stb_vorbis, stb_truetype
+│   ├── stb/                 # stb_image, stb_vorbis
 │   └── tiny_obj_loader/     # OBJ mesh loader
-├── stdafx.h                 # Precompiled header + all includes
+├── stdafx.h                 # Precompiled header
 ├── stdafx.cpp               # PCH creator
 ├── main.cpp                 # Entry point
 ├── Game.slnx                # Visual Studio solution
@@ -157,42 +117,48 @@ src/
 
 ---
 
+## Build
+
+### Prerequisites
+- **g++ (MinGW)**: C++26 support
+- **SDL3**: included in `src/3rdparty/SDL3/`
+- **OpenGL 3.3**: compatible GPU
+
+### Windows (MinGW)
+```
+build.bat
+```
+
+### Windows (MSVC)
+Open `src/Game.slnx` in Visual Studio 2022+ and build.
+
+### Output
+`bin/dungeon_crawlers.exe`
+
+---
+
 ## Dependencies
 
-All third-party libraries are included in the repository under `src/3rdparty/`:
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| [SDL3](https://github.com/libsdl-org/SDL) | 3.2.x | Window, input, audio |
-| [glad](https://github.com/Dav1dde/glad) | — | OpenGL 3.3 loader |
-| [GLM](https://github.com/g-truc/glm) | 1.0.1 | Math (vectors, matrices, quaternions) |
-| [Dear ImGui](https://github.com/ocornut/imgui) | 1.92 | Debug UI panels |
-| [nlohmann/json](https://github.com/nlohmann/json) | 3.11 | JSON serialization |
-| [stb](https://github.com/nothings/stb) | latest | Image loading, OGG decoding, font baking |
-| [cgltf](https://github.com/jkuhlmann/cgltf) | latest | GLTF mesh loading |
-| [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) | latest | OBJ mesh loading |
+All in `src/3rdparty/`:
+- SDL3, glad, GLM, Dear ImGui, nlohmann/json, stb, cgltf, tinyobjloader
 
 ---
 
 ## Code Style
 
-See [AGENTS.md](./AGENTS.md) for full coding conventions. Key rules:
-- C++26, `final` classes, `[[nodiscard]]`, Concepts, `std::span`/`std::string_view`
-- Allman braces, tabs for indentation
-- `PascalCase` for types/methods, `camelCase` for private members with `m_` prefix
-- `#pragma once`, no trailing return types, no `typedef`, no ECS
-- Cross-platform: `#ifdef __EMSCRIPTEN__` guards, no `filesystem`, no `thread` on Web
+See [AGENTS.md](./AGENTS.md).
 
 ---
 
 ## Documentation
 
-- [ROADMAP.MD](./ROADMAP.MD) — 120-step development plan
-- [AUDIT.MD](./AUDIT.MD) — current issues, optimization, and code audit
-- [AGENTS.MD](./AGENTS.MD) — coding conventions and toolchain rules
+- [FINISH.md](./FINISH.md) — completed steps (1–44)
+- [ROADMAP.md](./ROADMAP.md) — future tasks
+- [AUDIT.md](./AUDIT.md) — code audit and known issues
+- [AGENTS.md](./AGENTS.md) — coding conventions
 
 ---
 
 ## License
 
-MIT License — see repository root for details.
+MIT
