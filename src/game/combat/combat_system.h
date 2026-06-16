@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
 #include "game/combat/character.h"
 #include "game/combat/monster.h"
 #include "game/data/skill_manager.h"

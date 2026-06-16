@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 class TurnQueue final
 {
 public:

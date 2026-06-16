@@ -2,7 +2,6 @@
 
 #include "engine/renderer/mesh.h"
 #include "game/combat/item.h"
-#include <array>
 
 class Camera;
 class Renderer;

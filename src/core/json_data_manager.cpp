@@ -2,8 +2,6 @@
 #include "core/json_data_manager.h"
 #include "core/logger.h"
 #include "core/exception.h"
-#include <cstdio>
-#include <cstring>
 
 JsonDataManager& JsonDataManager::Instance()
 {

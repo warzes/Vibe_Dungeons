@@ -61,6 +61,10 @@
 #include <vector>
 #include <atomic>
 #include <source_location>
+#include <random>
+
+#include <typeindex>
+#include <typeinfo>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_keyboard.h>

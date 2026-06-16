@@ -4,7 +4,6 @@
 #include "game/direction.h"
 #include "game/combat/inventory.h"
 #include "game/data/skill_manager.h"
-#include <array>
 
 struct Character final
 {

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <unordered_map>
 #include "engine/renderer/mesh.h"
 #include "engine/renderer/material.h"
 #include "game/combat/monster.h"

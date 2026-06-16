@@ -1,8 +1,6 @@
 #include "stdafx.h"
 #include "game/combat/dice.h"
 
-#include <random>
-
 static std::mt19937& rng()
 {
 	static thread_local std::mt19937 s_rng(std::random_device{}());

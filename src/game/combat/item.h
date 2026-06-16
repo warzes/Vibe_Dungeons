@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
 #include "game/grid_position.h"
 
 enum class ItemType : uint8_t

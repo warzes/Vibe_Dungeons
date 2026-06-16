@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vector>
 #include "game/combat/monster.h"
 #include "game/dungeon/dungeon.h"
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vector>
 #include "game/combat/item.h"
 
 class Inventory final

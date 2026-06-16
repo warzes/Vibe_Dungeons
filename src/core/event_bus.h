@@ -1,11 +1,5 @@
 ﻿#pragma once
 
-#include <typeindex>
-#include <typeinfo>
-#include <unordered_map>
-#include <functional>
-#include <vector>
-
 class EventBase
 {
 public:

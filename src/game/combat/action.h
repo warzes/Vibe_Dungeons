@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 enum class ActionType : uint8_t
 {
 	MoveForward,

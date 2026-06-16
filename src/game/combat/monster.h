@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
 #include "game/grid_position.h"
 #include "game/direction.h"
 
