@@ -1,11 +1,7 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
-struct Character;
-class Monster;
+#include "game/combat/character.h"
+#include "game/combat/monster.h"
 
 struct ExperienceSystem final
 {

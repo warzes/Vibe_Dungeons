@@ -964,7 +964,13 @@ void PlayState::SaveGame(const char* path) noexcept
 
 		std::string dumped = j.dump(2);
 
-		FILE* fp = fopen(path, "wb");
+		FILE* fp = nullptr;
+#if defined(_MSC_VER)
+		auto errn = fopen_s(&fp, path, "wb");
+		if (errn) return;
+#else
+		fp = fopen(path, "rb");
+#endif
 		if (!fp)
 		{
 			m_combatLog.Add("Save failed: cannot open file.", glm::vec3(1.0f, 0.3f, 0.0f));
@@ -988,7 +994,13 @@ void PlayState::LoadGame(const char* path) noexcept
 {
 	try
 	{
-		FILE* fp = fopen(path, "rb");
+		FILE* fp = nullptr;
+#if defined(_MSC_VER)
+		auto errn = fopen_s(&fp, path, "rb");
+		if (errn) return;
+#else
+		fp = fopen(path, "rb");
+#endif
 		if (!fp)
 		{
 			m_combatLog.Add("Load failed: file not found.", glm::vec3(1.0f, 0.3f, 0.0f));
@@ -1249,8 +1261,14 @@ void PlayState::renderOptionsWindow() noexcept
 
 	// Load current config to populate fields
 	{
-		FILE* fp = fopen("player_config.json", "rb");
+		FILE* fp = nullptr;
+#if defined(_MSC_VER)
+		auto errn = fopen_s(&fp, "player_config.json", "rb");
+		if (errn && fp)
+#else
+		fp = fopen("player_config.json", "rb");
 		if (fp)
+#endif
 		{
 			fseek(fp, 0, SEEK_END);
 			long len = ftell(fp);
@@ -1285,7 +1303,13 @@ void PlayState::renderOptionsWindow() noexcept
 	{
 		// Read current full config, update only our fields
 		json j;
-		FILE* fp = fopen("player_config.json", "rb");
+		FILE* fp = nullptr;
+#if defined(_MSC_VER)
+		auto errn = fopen_s(&fp, "player_config.json", "rb");
+		if (errn && fp)
+#else
+		fp = fopen("player_config.json", "rb");
+#endif
 		if (fp)
 		{
 			fseek(fp, 0, SEEK_END);
@@ -1305,8 +1329,13 @@ void PlayState::renderOptionsWindow() noexcept
 		j["renderHeight"] = rh;
 
 		std::string dumped = j.dump(2);
+#if defined(_MSC_VER)
+		errn = fopen_s(&fp, "player_config.json", "wb");
+		if (errn && fp)
+#else
 		fp = fopen("player_config.json", "wb");
 		if (fp)
+#endif
 		{
 			fwrite(dumped.data(), 1, dumped.size(), fp);
 			fclose(fp);

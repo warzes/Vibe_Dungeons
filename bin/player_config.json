@@ -1,8 +1,8 @@
 {
   "fullscreen": false,
+  "gridMoveRepeatDelay": 0.009999999776482582,
   "mouseSensitivity": 0.5,
   "playerName": "Player1",
-  "gridMoveRepeatDelay": 0.01,
   "renderHeight": 320,
   "resolutionHeight": 720,
   "resolutionWidth": 1280,

@@ -56,11 +56,14 @@ bool JsonDataManager::LoadAll(const char* dataDir)
 
 bool JsonDataManager::loadFile(const char* path, json& out, const char* rootKey)
 {
-	FILE* fp = fopen(path, "rb");
-	if (!fp)
-	{
-		return false;
-	}
+	FILE* fp = nullptr;
+#if defined(_MSC_VER)
+	auto errn = fopen_s(&fp, path, "rb");
+	if (errn) return false;
+#else
+	fp = fopen(path, "rb");
+#endif
+	if (!fp) return false;
 
 	fseek(fp, 0, SEEK_END);
 	long size = ftell(fp);

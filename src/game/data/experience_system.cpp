@@ -1,10 +1,9 @@
 #include "stdafx.h"
 #include "game/data/experience_system.h"
-#include "game/combat/character.h"
-#include "game/combat/monster.h"
 #include "core/json_data_manager.h"
 #include "game/combat/dice.h"
 #include "game/data/skill_manager.h"
+#include "game/combat/monster.h"
 
 void ExperienceSystem::AwardKill(Character& character, const Monster& monster)
 {
