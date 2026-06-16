@@ -3,9 +3,13 @@
 #include "game/grid_position.h"
 #include "game/direction.h"
 #include "game/combat/inventory.h"
+#include "game/data/skill_manager.h"
+#include <array>
 
 struct Character final
 {
+	static constexpr int32_t NUM_ACTION_SLOTS = 9;
+
 	std::string name = "Hero";
 	std::string charClass = "barbarian";
 	int32_t level = 1;
@@ -27,4 +31,8 @@ struct Character final
 	GridPosition position;
 	Direction facing = Direction::North;
 	Inventory inventory;
+
+	std::vector<std::string> unlockedSkills;
+	std::array<ActionSlot, NUM_ACTION_SLOTS> actionSlots{};
+	std::vector<std::string> learnedSpells;
 };

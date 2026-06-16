@@ -154,4 +154,13 @@ private:
 	// Level-up
 	bool m_pendingLevelUp = false;
 	bool m_showLevelUp = false;
+
+	// Skills & hotbar
+	bool m_showSkills = false;
+
+	void renderHotbar() noexcept;
+	void renderSkillsWindow() noexcept;
+	void processActionSlot(int32_t slotIndex) noexcept;
+	void applyRegen() noexcept;
+	void useAbility(const std::string& abilityId) noexcept;
 };

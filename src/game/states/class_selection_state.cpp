@@ -5,6 +5,7 @@
 #include "engine/input_manager.h"
 #include "core/json_data_manager.h"
 #include "game/data/item_factory.h"
+#include "game/data/experience_system.h"
 #include <imgui/imgui.h>
 
 Character ClassSelectionState::s_pendingCharacter;
@@ -143,6 +144,29 @@ Character ClassSelectionState::CreateCharacter(const std::string& classId)
 			c.inventory.Add(std::move(item));
 		}
 	}
+
+	// Starting abilities
+	if (data.contains("startingAbilities"))
+	{
+		int32_t slotIdx = 0;
+		for (const auto& abId : data["startingAbilities"])
+		{
+			std::string sid = abId.get<std::string>();
+			c.unlockedSkills.push_back(sid);
+			if (slotIdx < Character::NUM_ACTION_SLOTS)
+			{
+				c.actionSlots[slotIdx].type = "ability";
+				c.actionSlots[slotIdx].id = sid;
+				c.actionSlots[slotIdx].cooldownRemaining = 0;
+				++slotIdx;
+			}
+		}
+	}
+
+	// Apply passive skills
+	ExperienceSystem::ApplyPassiveSkills(c);
+	c.hp = c.maxHp;
+	c.mp = c.maxMp;
 
 	return c;
 }

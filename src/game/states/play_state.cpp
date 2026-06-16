@@ -14,6 +14,7 @@
 #include "game/data/monster_factory.h"
 #include "game/data/item_factory.h"
 #include "game/data/experience_system.h"
+#include "game/data/skill_manager.h"
 #include "game/states/class_selection_state.h"
 
 //=============================================================================
@@ -323,6 +324,22 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_I)
 	{
 		m_showInventory = !m_showInventory;
+	}
+
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_K)
+	{
+		m_showSkills = !m_showSkills;
+	}
+
+	// Hotbar 1-9
+	if (event.type == SDL_EVENT_KEY_DOWN)
+	{
+		SDL_Keycode k = event.key.key;
+		if (k >= SDLK_1 && k <= SDLK_9)
+		{
+			int32_t slot = static_cast<int32_t>(k - SDLK_1);
+			processActionSlot(slot);
+		}
 	}
 
 	if (event.type == SDL_EVENT_KEY_DOWN)
@@ -656,6 +673,9 @@ void PlayState::processTurnWaiting() noexcept
 
 	// Advance turn queue (no-op with only player)
 	m_turnQueue.Advance();
+
+	// Class regen: applied at start of each player turn
+	applyRegen();
 
 	// Future: process enemy actions here
 
@@ -1462,6 +1482,12 @@ void PlayState::Render() noexcept
 	// ===== Options window (toggle with F2) =====
 	renderOptionsWindow();
 
+	// ===== Hotbar (always visible) =====
+	renderHotbar();
+
+	// ===== Skills window (toggle with K) =====
+	renderSkillsWindow();
+
 	// ===== Debug windows (only when debug is on) =====
 
 	if (m_showDebug)
@@ -1544,6 +1570,9 @@ void PlayState::Render() noexcept
 				m_character.str += 2;
 				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
 				m_character.hp = m_character.maxHp;
+				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.level);
+				ExperienceSystem::ApplyPassiveSkills(m_character);
+				m_character.hp = m_character.maxHp;
 				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
 				m_showLevelUp = false;
 				m_combatLog.Add("Level up! STR increased!", glm::vec3(0.2f, 1.0f, 0.2f));
@@ -1557,6 +1586,9 @@ void PlayState::Render() noexcept
 				m_character.dex += 2;
 				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
 				m_character.hp = m_character.maxHp;
+				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.level);
+				ExperienceSystem::ApplyPassiveSkills(m_character);
+				m_character.hp = m_character.maxHp;
 				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
 				m_showLevelUp = false;
 				m_combatLog.Add("Level up! DEX increased!", glm::vec3(0.2f, 1.0f, 0.2f));
@@ -1569,6 +1601,9 @@ void PlayState::Render() noexcept
 				m_character.atkBonus += 1;
 				m_character.con += 2;
 				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
+				m_character.hp = m_character.maxHp;
+				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.level);
+				ExperienceSystem::ApplyPassiveSkills(m_character);
 				m_character.hp = m_character.maxHp;
 				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
 				m_showLevelUp = false;
@@ -1602,6 +1637,408 @@ void PlayState::Render() noexcept
 				m_machine.ReplaceState("MainMenu");
 			}
 			ImGui::EndPopup();
+		}
+	}
+}
+
+//=============================================================================
+void PlayState::renderHotbar() noexcept
+{
+	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always, ImVec2(0, 0));
+	ImGui::SetNextWindowBgAlpha(0.0f);
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+
+	int32_t windowW = static_cast<int32_t>(m_window.Width());
+	ImGui::SetNextWindowSize(ImVec2(static_cast<float>(windowW), 0), ImGuiCond_Always);
+
+	ImGui::Begin("Hotbar", nullptr,
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoSavedSettings);
+
+	float slotW = 48.0f;
+	float slotH = 48.0f;
+	float gap = 4.0f;
+	float totalW = Character::NUM_ACTION_SLOTS * (slotW + gap) - gap;
+	ImGui::SetCursorPosX((static_cast<float>(windowW) - totalW) * 0.5f);
+	ImGui::SetCursorPosY(static_cast<float>(m_window.Height()) - slotH - 8.0f);
+
+	for (int32_t i = 0; i < Character::NUM_ACTION_SLOTS; ++i)
+	{
+		const auto& slot = m_character.actionSlots[i];
+
+		ImGui::BeginGroup();
+		ImVec2 cursor = ImGui::GetCursorScreenPos();
+
+		// Background
+		ImU32 bgCol = IM_COL32(40, 40, 40, 200);
+		if (!slot.id.empty())
+		{
+			bgCol = IM_COL32(50, 50, 80, 220);
+		}
+		ImGui::GetWindowDrawList()->AddRectFilled(cursor,
+			ImVec2(cursor.x + slotW, cursor.y + slotH), bgCol, 4.0f);
+		ImGui::GetWindowDrawList()->AddRect(cursor,
+			ImVec2(cursor.x + slotW, cursor.y + slotH),
+			IM_COL32(100, 100, 120, 255), 4.0f);
+
+		// Key label
+		char keyLabel[4];
+		std::snprintf(keyLabel, sizeof(keyLabel), "%d", i + 1);
+		ImGui::GetWindowDrawList()->AddText(
+			ImVec2(cursor.x + 3.0f, cursor.y + 2.0f),
+			IM_COL32(180, 180, 200, 255), keyLabel);
+
+		// Skill name
+		if (!slot.id.empty())
+		{
+			Skill s = SkillManager::GetSkill(slot.id);
+			std::string label = s.name.substr(0, 6);
+
+			// Cooldown overlay
+			if (slot.cooldownRemaining > 0)
+			{
+				ImGui::GetWindowDrawList()->AddRectFilled(
+					cursor, ImVec2(cursor.x + slotW, cursor.y + slotH),
+					IM_COL32(0, 0, 0, 160), 4.0f);
+				char cdText[8];
+				std::snprintf(cdText, sizeof(cdText), "%d", slot.cooldownRemaining);
+				ImVec2 textSz = ImGui::CalcTextSize(cdText);
+				ImGui::GetWindowDrawList()->AddText(
+					ImVec2(cursor.x + (slotW - textSz.x) * 0.5f,
+						cursor.y + (slotH - textSz.y) * 0.5f),
+					IM_COL32(255, 100, 100, 255), cdText);
+			}
+			else
+			{
+				ImVec2 textSz = ImGui::CalcTextSize(label.c_str());
+				ImGui::GetWindowDrawList()->AddText(
+					ImVec2(cursor.x + (slotW - textSz.x) * 0.5f,
+						cursor.y + slotH - textSz.y - 4.0f),
+					IM_COL32(200, 200, 220, 255), label.c_str());
+			}
+		}
+
+		ImGui::Dummy(ImVec2(slotW, slotH));
+		ImGui::EndGroup();
+
+		if (i < Character::NUM_ACTION_SLOTS - 1)
+		{
+			ImGui::SameLine(0.0f, gap);
+		}
+	}
+
+	ImGui::End();
+	ImGui::PopStyleColor();
+}
+
+//=============================================================================
+void PlayState::renderSkillsWindow() noexcept
+{
+	if (!m_showSkills)
+	{
+		return;
+	}
+
+	ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Skills (K)", &m_showSkills);
+
+	std::vector<Skill> allSkills = SkillManager::GetSkillsForClass(m_character.charClass);
+
+	// Split into passive and active
+	ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "Active Skills");
+	ImGui::Separator();
+
+	for (const auto& s : allSkills)
+	{
+		if (s.passive)
+		{
+			continue;
+		}
+
+		bool unlocked = false;
+		for (const auto& us : m_character.unlockedSkills)
+		{
+			if (us == s.id)
+			{
+				unlocked = true;
+				break;
+			}
+		}
+
+		bool available = s.levelReq <= m_character.level;
+
+		if (!available)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
+		}
+		else if (!unlocked)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+		}
+		else
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+		}
+
+		ImGui::Text("%s (Lvl %d)", s.name.c_str(), s.levelReq);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text("%s", s.description.c_str());
+			ImGui::Text("MP: %d  Cooldown: %d", s.mpCost, s.cooldown);
+			ImGui::Text("Range: %d  Type: %s", s.range, s.type.c_str());
+			ImGui::EndTooltip();
+		}
+		ImGui::PopStyleColor();
+	}
+
+	ImGui::Dummy(ImVec2(0.0f, 8.0f));
+	ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Passive Skills");
+	ImGui::Separator();
+
+	for (const auto& s : allSkills)
+	{
+		if (!s.passive)
+		{
+			continue;
+		}
+
+		bool owned = s.levelReq <= m_character.level;
+		if (!owned)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
+		}
+		else
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 1.0f, 0.8f, 1.0f));
+		}
+
+		ImGui::Text("%s (Lvl %d)", s.name.c_str(), s.levelReq);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text("%s", s.description.c_str());
+			if (s.hpBonus > 0) ImGui::Text("+%d HP", s.hpBonus);
+			if (s.mpBonus > 0) ImGui::Text("+%d MP", s.mpBonus);
+			if (s.atkBonus > 0) ImGui::Text("+%d ATK", s.atkBonus);
+			if (s.acBonus > 0) ImGui::Text("+%d AC", s.acBonus);
+			if (s.damageBonus > 0) ImGui::Text("+%d Damage", s.damageBonus);
+			ImGui::EndTooltip();
+		}
+		ImGui::PopStyleColor();
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+void PlayState::processActionSlot(int32_t slotIndex) noexcept
+{
+	if (slotIndex < 0 || slotIndex >= Character::NUM_ACTION_SLOTS)
+	{
+		return;
+	}
+
+	auto& slot = m_character.actionSlots[slotIndex];
+	if (slot.id.empty())
+	{
+		return;
+	}
+
+	if (slot.cooldownRemaining > 0)
+	{
+		m_combatLog.Add("Ability on cooldown.", glm::vec3(0.8f, 0.4f, 0.4f));
+		return;
+	}
+
+	useAbility(slot.id);
+
+	// Set cooldown
+	Skill s = SkillManager::GetSkill(slot.id);
+	slot.cooldownRemaining = s.cooldown;
+}
+
+//=============================================================================
+void PlayState::useAbility(const std::string& abilityId) noexcept
+{
+	if (m_gameMode != GameMode::Exploring && m_gameMode != GameMode::TurnWaiting)
+	{
+		return;
+	}
+
+	Skill skill = SkillManager::GetSkill(abilityId);
+	if (skill.id.empty())
+	{
+		m_combatLog.Add("Unknown ability!", glm::vec3(1.0f, 0.2f, 0.2f));
+		return;
+	}
+
+	// Check MP
+	if (skill.mpCost > m_character.mp)
+	{
+		m_combatLog.Add("Not enough MP!", glm::vec3(0.8f, 0.4f, 0.8f));
+		return;
+	}
+
+	if (skill.type == "self" || skill.type == "heal")
+	{
+		// Self-targeted ability
+		m_character.mp -= skill.mpCost;
+		AttackResult result = m_combatSystem.UseAbility(m_character, nullptr, skill);
+		if (result.damage < 0)
+		{
+			m_combatLog.Add(skill.name + " restored " + std::to_string(-result.damage) + " HP.",
+				glm::vec3(0.2f, 1.0f, 0.2f));
+		}
+		m_gameMode = GameMode::TurnWaiting;
+		return;
+	}
+
+	if (skill.type == "melee")
+	{
+		// Find monster in front
+		glm::ivec2 fwd = DirectionToVec(m_character.facing);
+		GridPosition targetPos = {
+			m_character.position.row + fwd.x,
+			m_character.position.col + fwd.y,
+			m_character.position.floor
+		};
+
+		Monster* target = m_monsterManager.At(targetPos);
+		if (!target || !target->alive)
+		{
+			m_combatLog.Add("No enemy in front!", glm::vec3(0.8f, 0.4f, 0.2f));
+			return;
+		}
+
+		m_character.mp -= skill.mpCost;
+
+		bool behind = (DirectionToTarget(target->position, m_character.position) == Opposite(target->facing));
+		AttackResult result = m_combatSystem.UseAbility(m_character, target, skill, behind);
+
+		if (result.hit)
+		{
+			std::string msg = skill.name + " hits " + target->name + " for " +
+				std::to_string(result.damage) + " damage!";
+			glm::vec3 color = result.critical ? glm::vec3(1.0f, 0.2f, 0.2f) : glm::vec3(1.0f, 1.0f, 0.2f);
+			m_combatLog.Add(msg, color);
+		}
+		else
+		{
+			m_combatLog.Add(skill.name + " missed!", glm::vec3(0.6f, 0.6f, 0.6f));
+		}
+
+		if (result.killed)
+		{
+			m_combatLog.Add(target->name + " dies!", glm::vec3(0.2f, 1.0f, 0.2f));
+			ExperienceSystem::AwardKill(m_character, *target);
+			m_combatLog.Add("Gained " + std::to_string(target->xpReward) + " XP.",
+				glm::vec3(0.3f, 0.6f, 1.0f));
+			m_monsterManager.RemoveDead();
+			m_pendingLevelUp = ExperienceSystem::CheckLevelUp(m_character);
+		}
+
+		m_gameMode = GameMode::TurnWaiting;
+		return;
+	}
+
+	if (skill.type == "movement")
+	{
+		// Teleport: move to target position
+		glm::ivec2 fwd = DirectionToVec(m_character.facing);
+		GridPosition targetPos = {
+			m_character.position.row + fwd.x * skill.range,
+			m_character.position.col + fwd.y * skill.range,
+			m_character.position.floor
+		};
+
+		if (m_dungeon.IsWalkable(targetPos) && !m_monsterManager.At(targetPos))
+		{
+			m_character.mp -= skill.mpCost;
+			m_character.position = targetPos;
+			doGridAction("MoveForward");
+			m_combatLog.Add(skill.name + " activated!", glm::vec3(0.6f, 0.3f, 1.0f));
+		}
+		else
+		{
+			m_combatLog.Add("Cannot shadow step there!", glm::vec3(0.8f, 0.4f, 0.2f));
+		}
+		return;
+	}
+
+	// Ranged / AoE — placeholder for future targeting system
+	if (skill.type == "ranged" || skill.type == "aoe")
+	{
+		// Simple forward-target for now
+		glm::ivec2 fwd = DirectionToVec(m_character.facing);
+		GridPosition targetPos = {
+			m_character.position.row + fwd.x,
+			m_character.position.col + fwd.y,
+			m_character.position.floor
+		};
+
+		Monster* target = m_monsterManager.At(targetPos);
+		if (!target || !target->alive)
+		{
+			m_combatLog.Add("No valid target!", glm::vec3(0.8f, 0.4f, 0.2f));
+			return;
+		}
+
+		m_character.mp -= skill.mpCost;
+		bool behind = (DirectionToTarget(target->position, m_character.position) == Opposite(target->facing));
+		AttackResult result = m_combatSystem.UseAbility(m_character, target, skill, behind);
+
+		if (result.hit)
+		{
+			std::string msg = skill.name + " hits " + target->name + " for " +
+				std::to_string(result.damage) + " damage!";
+			m_combatLog.Add(msg, glm::vec3(1.0f, 0.6f, 0.2f));
+		}
+		else
+		{
+			m_combatLog.Add(skill.name + " missed!", glm::vec3(0.6f, 0.6f, 0.6f));
+		}
+
+		if (result.killed)
+		{
+			m_combatLog.Add(target->name + " dies!", glm::vec3(0.2f, 1.0f, 0.2f));
+			ExperienceSystem::AwardKill(m_character, *target);
+			m_monsterManager.RemoveDead();
+			m_pendingLevelUp = ExperienceSystem::CheckLevelUp(m_character);
+		}
+
+		m_gameMode = GameMode::TurnWaiting;
+		return;
+	}
+
+	m_combatLog.Add("Cannot use that ability here.", glm::vec3(0.8f, 0.4f, 0.2f));
+}
+
+//=============================================================================
+void PlayState::applyRegen() noexcept
+{
+	const json& classData = JsonDataManager::Instance().GetClassData(m_character.charClass);
+	int32_t hpRegen = classData.value("regenHpPerTurn", 0);
+	int32_t mpRegen = classData.value("regenMpPerTurn", 0);
+
+	if (hpRegen > 0)
+	{
+		m_character.hp += hpRegen;
+		if (m_character.hp > m_character.maxHp)
+		{
+			m_character.hp = m_character.maxHp;
+		}
+	}
+
+	if (mpRegen > 0)
+	{
+		m_character.mp += mpRegen;
+		if (m_character.mp > m_character.maxMp)
+		{
+			m_character.mp = m_character.maxMp;
 		}
 	}
 }

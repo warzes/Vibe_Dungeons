@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 struct Character;
 class Monster;
@@ -12,4 +13,9 @@ struct ExperienceSystem final
 	static bool CheckLevelUp(const Character& character);
 	static int32_t XpForLevel(int32_t level);
 	static int32_t HpGainForLevel(const std::string& charClass);
+
+	static std::vector<std::string> GrantSkillsForLevel(
+		Character& character, int32_t newLevel);
+
+	static void ApplyPassiveSkills(Character& character);
 };

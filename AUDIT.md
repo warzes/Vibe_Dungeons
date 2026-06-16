@@ -1,23 +1,15 @@
 # Аудит кода
 
 > Дата: 2026-06-16 (актуализация)
-> Состояние кодбазы: грид-based dungeon crawler с turn-based боем, предметами и инвентарём
+> Состояние кодбазы: грид-based dungeon crawler с turn-based боем, предметами, инвентарём, JSON data layer, классовой системой (5 классов), XP/уровнями, системой умений (hotbar, skills window)
 > Цель проекта: партийная пошаговая RPG в стиле Eye of Beholder (ретро)
-> Сборка: g++ (MinGW) через `build.bat`, MSVC через `src/Game.slnx`
-> Строк кода (проект): ~6 000 (без 3rdparty)
-> Выполнено: шаги 1–52 (см. FINISH.md)
+> Сборка: g++ (MinGW) через `build.bat`, MSVC через `src/Game.slnx`, Emscripten через `build_web.bat`
+> Строк кода (проект): ~8 500 (без 3rdparty)
+> Выполнено: шаги 1–55 (см. FINISH.md)
 
 ---
 
 ##  Найденные проблемы
-
-### Критические
-
-| # | Файл | Проблема |
-|---|------|----------|
-| 2 | `core/event_bus.h` | **Нет `Unsubscribe()`** — AUDIT.md стр. 208 ошибочно утверждает обратное. Нельзя отписать конкретный колбэк, только полный `Clear()` |
-| 3 | `src/game/states/settings_state.cpp` | Использует `std::ifstream`/`std::ofstream` — запрещено AGENTS.md для WASM. Нужен `fopen`/`fread` |
-| 4 | `build.bat` | Нет флагов `-include src/stdafx.h` в единицах трансляции вне PCH-режима (работает только за счёт того, что каждая единица включает stdafx.h первой строкой — хрупко) |
 
 ### Средней тяжести
 
@@ -38,10 +30,7 @@
 | 12 | `engine/audio_system.cpp:77-108` | `LoadWAV`: потенциальное узкое место — конвертация S16→F32 в цикле. Лучше использовать SDL-шный `SDL_ConvertAudioSamples()` |
 | 13 | `engine/renderer/texture.cpp:91-121` | `LoadFromFile/LoadFromMemory`: дублирование кода настройки текстурных параметров. Вынести в `applyParams()` |
 | 14 | `core/profiler.cpp:26-27` | Есть `std::ranges::find_if`, но используются C-style касты для `m_sampleIndex[depth]` |
-| 15 | `game/states/play_state.cpp` | Жёстко зашитые константы `NUM_MATERIALS=4`, `GRID=3`, `SPACING=2.5f` — не для production |
 | 16 | `engine/delta_time.cpp:4` | Пустое тело конструктора — можно `= default` |
-| 17 | `src/Game.vcxproj` | Нет `core/scoped_sdl.h` в списке ClInclude? Есть на строке 224. Ок. Но `engine/renderer/aabb.h` (стр. 230) — не существует |
-| 18 | `build.bat` | Не включает `imgui_stdlib.cpp`, хотя vcxproj (стр. 139) — включает |
 
 ---
 
@@ -60,12 +49,6 @@
 ### Аудио
 - **Load**: кэшировать декодированные WAV/OGG чтобы не перезагружать при каждом `Play()`
 - **Streaming**: для музыки >1 мин — потоковое декодирование, а не в память
-
-### Сборка
-- **PCH**: `build.bat` использует `-include src/stdafx.h` — хорошо, но замерять время сборки, т.к. GCH может быть медленнее на mingw
-- **MSVC**: включить `/MP` (MultiProcessor Compilation) — уже есть (стр. 65 vcxproj: `MultiProcessorCompilation`)
-- **Unity builds**: объединить мелкие .cpp в группы для ускорения (опционально)
-
 ---
 
 ##  Узкие места
@@ -90,11 +73,6 @@ void ResourceManager::CleanupUnused() noexcept
 - `event_bus.h` (подписка/публикация)
 - `settings_state.cpp` (сериализация JSON туда-обратно)
 
-### 4. WASM-сборка
-- В `build.bat` нет цели для emscripten
-- `std::ifstream/ofstream` в `settings_state.cpp` не скомпилируется под WASM
-- Нет проверки, что шейдеры `#version 300 es` корректны в WebGL2
-
 ### 5. Отсутствие ассетов
 100% графики — процедурная (checkerboard). Нет моделей, текстур, звуков. Для EoB-стиля нужны:
 - Текстурный атлас dungeon-стен (16×16 пикселей в ретро-стиле)
@@ -104,77 +82,18 @@ void ResourceManager::CleanupUnused() noexcept
 
 ---
 
-##  Развитие возможностей (под EoB)
-
-### Приоритет: что добавить в движок сейчас
-
-```cpp
-// 1. Dungeon system (новый модуль src/game/dungeon/)
-// Файлы:
-//   - dungeon.h / .cpp        - загрузка/хранение/сериализация уровней
-//   - tile.h                   - TileType, Tile, Level
-//   - dungeon_renderer.h/.cpp  - генерация геометрии из тайлов + рендер
-//   - visibility.h/.cpp        - raycasting на гриде (DDA)
-//   - party.h / .cpp           - Party, Character, Inventory
-
-// 2. Turn-based system (src/game/combat/)
-//   - combat_state.h/.cpp       - конечный автомат боя
-//   - action.h                  - ActionType (Move, Turn, Attack, Cast...)
-//   - monster.h / .cpp          - Monster, AI (патруль/агр/преследование)
-//   - dice.h                    - d20, d6 и т.д.
-
-// 3. Retro UI (src/game/ui/)
-//   - bitmap_font.h/.cpp       - битмап-шрифт из atlas (stb_truetype)
-//   - hud.h/.cpp               - портреты, HP, AC, лог, мини-карта
-//   - ui_renderer.h/.cpp       - ортографический рендер quad'ов с текстурами
-```
-
-### Интеграция с текущим рендерером
-- DungeonRenderer **переиспользует** instancing из `Renderer::Submit()`:
-  - Каждый тайл (Floor) = один instance с позиционной матрицей
-  - Стены = отдельный batch с материалом стен
-  - Потолок = отдельный batch
-- `Camera` модифицировать в `GridCamera`:
-  - Хранить `int32_t gridX, gridZ, floor, Direction facing`
-  - `m_targetPosition`, `m_targetYaw` — lerp за 0.15-0.3s
-  - Метод `SnapToGrid()` вызывать после анимации
-
-### Сериализация
-- Уже есть паттерн `to_json`/`from_json` в `settings_state.cpp`
-- Расширить на `Dungeon`, `Party`, `Monster`, `Tile`
-- Save/load через `fopen`/`fread` (WASM-safe) одной файловой функцией
-
-### Рекомендации по ретро-рендеру (Eye of Beholder style)
-
-1. **Разрешение**: рендер в FBO 320×240 (или 480×320) с `GL_NEAREST` фильтром — уже есть в `m_renderHeight` (settings)
-2. **Шейдеры**: минимальные — текстурированные quad'ы с плоским освещением (no normal mapping)
-3. **Биллборды**: монстры и предметы — textured quad с альфа-тестом (`discard` в фрагментном шейдере)
-4. **Визуализация стен**: каждая стена — отдельный quad/plane без экструзии (плоские полигоны с текстурой камня), не full 3D BSP
-5. **Пол/потолок**: один большой quad на клетку с тайловой текстурой, через instancing
-
-### Структура кадра для EoB
-```
-1. Clear (FBO 320×240)
-2. Render dungeon (стены → пол → потолок → монстры-биллборды) через Renderer::Submit()
-3. Render overlay (HUD — портреты, HP, лог) в отдельный проход
-4. Blit FBO на экран с nearest-neighbor (ретро-пикселизация)
-5. ImGui (debug-меню)
-```
-
----
-
 ##  Проверка связанных файлов
 
 | Файл | Статус | Комментарий |
 |------|--------|-------------|
-| `README.MD` | ✅ Заполнен | Отражает текущее состояние (шаги 1–44) |
-| `ROADMAP.MD` | ✅ Заполнен | Только будущие задачи (шаги 45+) |
-| `FINISH.MD` | ✅ Создан | Всё выполненное (шаги 1–44 + отклонения) |
+| `README.MD` | ✅ Заполнен | Отражает текущее состояние (шаги 1–55) |
+| `ROADMAP.MD` | ✅ Заполнен | Только будущие задачи (шаги 56+) |
+| `FINISH.MD` | ✅ Создан | Всё выполненное (шаги 1–55 + отклонения) |
 | `AUDIT.MD` | ✅ Обновлён | Текущий аудит |
 | `TODO.md` | ❌ Не существует | Пока не нужен |
 | `src/Game.vcxproj:230` | ✅ Исправлено | `engine/renderer/aabb.h` удалён |
 | `core/event_bus.h` | ⚠ Нет `Unsubscribe()` | Добавить или исправить AUDIT.md |
-| `build.bat` | ⚠ Нет emscripten-цели | todo |
+| `build_web.bat` | ✅ Существует | Веб-сборка через Emscripten (заменяет emscripten-цель build.bat) |
 
 ---
 

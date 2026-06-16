@@ -1,4 +1,4 @@
-# Реализовано (Phase 1: steps 1–44)
+# Реализовано (Phase 1–3: steps 1–55)
 
 > Всё завершённое из ROADMAP.md, перемещено сюда.
 > Актуальный план оставшихся задач — в [ROADMAP.md](./ROADMAP.md).
@@ -282,6 +282,43 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - **Tab — только карта** — больше не переключает debug-режим, не сохраняет/восстанавливает позицию камеры
 - **Debug-режим** — перенесён на F1 (сохраняет/восстанавливает камеру при входе/выходе)
 - **Синхронизация позиции персонажа** — `m_character.position` и `m_character.facing` синхронизируются с камерой в `doGridAction()` после каждого шага/поворота
+
+---
+
+## Фаза 3: Skill System & Class Integration (шаги 41–55) ✅
+
+### Skill Trees / System (шаги 41–48)
+
+41. `SkillTree` — структура в JSON для каждого класса: массив умений с требованиями по уровню (реализовано через `abilities.json` с полями `levelReq`, `classReq`, `passive`)
+42. `Skill` — имя, описание, уровень открытия, эффект, стоимость MP/кулдаун (`struct Skill` в `skill_manager.h`, парсинг из JSON через `Skill::FromJson()`)
+43. Список доступных умений на данном уровне показывается в окне Skills (клавиша K) — `renderSkillsWindow()` с группировкой на Active/Passive, цветовая индикация (белый = доступно, серый = неоткрыто, тёмный = выше уровня)
+44. Passive skills: "+5 HP", "+1 ATK", "+2 AC" — применяются автоматически через `ApplyPassiveSkills()` (рекалькуляция базовых статов + сумма всех passives)
+45. Active skills: "Power Strike (2x damage)", "Shield Bash (stun)" — добавляются на hotbar через `GrantSkillsForLevel()`
+46. Умения загружаются в `Character::unlockedSkills` при level-up — `GrantSkillsForLevel()` вызывается в момент повышения уровня
+47. Hotbar (1-9) заполняется из `actionSlots[]` — массив `ActionSlot {type, id, cooldownRemaining}`, рендерится `renderHotbar()` с фоном, нумерацией, кулдаун-оверлеем
+48. Окно "Skills" (K): дерево умений, подсвечены доступные, серые — неоткрытые (реализовано как список с цветовой дифференциацией)
+
+### Интеграция классов (шаги 49–55)
+
+49. `ClassSelectionState` → после выбора создаёт Character с класс-специфичными статами (использует `CreateCharacter()` из `class_selection_state.cpp`, читает `classes.json`)
+50. Каждый класс получает 1–2 стартовых активных умения (например, Barbarian: "Power Strike", Mage: "Magic Missile") — задаётся в `classes.json` `startingAbilities`
+51. Passive class bonuses: Barbarian +2 damage, Paladin +2 AC, Thief +1 backstab (через `ClassDamageBonus()`, `ClassAtkBonus()`, `ClassAcBonus()` в `CombatSystem`)
+52. `CombatSystem` использует `Character::charClass` для модификаторов атаки — статические методы `ClassDamageBonus()`, `ClassAtkBonus()`, `ClassAcBonus()`
+53. Thief: атака со спины (monster не смотрит на игрока) → +2 damage, +2 atkBonus (параметр `behind` в `MeleeAttack()`, расчёт через `DirectionToTarget()`)
+54. Регенерация: Paladin медленно восстанавливает HP (2/ход), Mage восстанавливает MP (1/ход) — через `regenHpPerTurn`/`regenMpPerTurn` в `classes.json`, применяется в `applyRegen()` на старте хода игрока
+55. Тест: создание персонажа каждого класса, проверка стартовых статов и умений — все 5 классов работают через `ClassSelectionState`
+
+### Ключевые изменения
+
+- `data/abilities.json` — добавлены поля `passive`, `hpBonus`, `mpBonus`, `acBonus`, `atkBonus`, `damageBonus` для passive-скиллов
+- `src/game/data/skill_manager.h/.cpp` — новый файл: `Skill` struct, `SkillManager` (6 статических методов: `GetSkill()`, `GetSkillsForClass()`, `GetSkillsForClassAtLevel()`, `GetPassiveSkillsForClassAtLevel()`, `GetSkillIdsForClassAtLevel()`, `GetNewSkillIdsForLevel()`)
+- `src/game/combat/character.h` — добавлены `unlockedSkills` (vector), `actionSlots[9]` (array of `ActionSlot`), `learnedSpells` (vector)
+- `src/game/combat/combat_system.h/.cpp` — добавлен `UseAbility()`, статические `ClassDamageBonus()`, `ClassAtkBonus()`, `ClassAcBonus()`; backstab +2/+2
+- `src/game/data/experience_system.h/.cpp` — добавлены `GrantSkillsForLevel()`, `ApplyPassiveSkills()`
+- `src/game/states/class_selection_state.cpp` — `CreateCharacter()` назначает стартовые abilities в `unlockedSkills` + `actionSlots`
+- `src/game/states/play_state.h/.cpp` — `renderHotbar()` (9 слотов, кулдаун, клавиши 1-9), `renderSkillsWindow()` (K, активные/пассивные, тултипы), `processActionSlot()`, `useAbility()`, `applyRegen()`; level-up popup вызывает `GrantSkillsForLevel()` + `ApplyPassiveSkills()`
+- `src/game/serialization.h` — Character сериализует `unlockedSkills`, `actionSlots[9]`, `learnedSpells`; добавлены `to_json`/`from_json` для `ActionSlot`
+- `src/core/json_data_manager.h` — удалён дубликат `AllAbilities()`; `AllAbilities()`, `GetLevelTable()` — `noexcept`
 
 ---
 

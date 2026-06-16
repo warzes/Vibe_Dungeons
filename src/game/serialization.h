@@ -191,6 +191,23 @@ inline void from_json(const json& j, Chunk& chunk)
 	}
 }
 
+// ---- ActionSlot ----
+inline void to_json(json& j, const ActionSlot& s)
+{
+	j = json{
+		{"type", s.type},
+		{"id", s.id},
+		{"cooldownRemaining", s.cooldownRemaining}
+	};
+}
+
+inline void from_json(const json& j, ActionSlot& s)
+{
+	j.at("type").get_to(s.type);
+	j.at("id").get_to(s.id);
+	j.at("cooldownRemaining").get_to(s.cooldownRemaining);
+}
+
 // ---- Character (with inventory) ----
 inline void to_json(json& j, const Character& c)
 {
@@ -202,6 +219,12 @@ inline void to_json(json& j, const Character& c)
 		{
 			invJson.push_back(*item);
 		}
+	}
+
+	json slotsJson = json::array();
+	for (const auto& slot : c.actionSlots)
+	{
+		slotsJson.push_back(slot);
 	}
 
 	j = json{
@@ -225,7 +248,10 @@ inline void to_json(json& j, const Character& c)
 		{"xpForNext", c.xpForNext},
 		{"position", c.position},
 		{"facing", c.facing},
-		{"inventory", std::move(invJson)}
+		{"inventory", std::move(invJson)},
+		{"unlockedSkills", c.unlockedSkills},
+		{"actionSlots", std::move(slotsJson)},
+		{"learnedSpells", c.learnedSpells}
 	};
 }
 
@@ -257,5 +283,32 @@ inline void from_json(const json& j, Character& c)
 	for (const auto& itemJson : invJson)
 	{
 		c.inventory.Add(itemJson.get<Item>());
+	}
+
+	c.unlockedSkills.clear();
+	if (j.contains("unlockedSkills"))
+	{
+		for (const auto& s : j.at("unlockedSkills"))
+		{
+			c.unlockedSkills.push_back(s.get<std::string>());
+		}
+	}
+
+	c.learnedSpells.clear();
+	if (j.contains("learnedSpells"))
+	{
+		for (const auto& s : j.at("learnedSpells"))
+		{
+			c.learnedSpells.push_back(s.get<std::string>());
+		}
+	}
+
+	if (j.contains("actionSlots"))
+	{
+		const json& slotsJson = j.at("actionSlots");
+		for (size_t i = 0; i < slotsJson.size() && i < static_cast<size_t>(Character::NUM_ACTION_SLOTS); ++i)
+		{
+			slotsJson[i].get_to(c.actionSlots[i]);
+		}
 	}
 }
