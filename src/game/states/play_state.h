@@ -143,4 +143,10 @@ private:
 
 	void processPickup() noexcept;
 	void renderInventoryWindow() noexcept;
+	void renderMapWindow() noexcept;
+
+	void SaveGame(const char* path) noexcept;
+	void LoadGame(const char* path) noexcept;
+
+	bool m_showMap = false;
 };

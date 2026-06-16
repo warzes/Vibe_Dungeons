@@ -9,6 +9,7 @@
 #include "core/exception.h"
 #include "engine/renderer/renderer.h"
 #include "game/states/settings_state.h"
+#include "game/serialization.h"
 
 //=============================================================================
 
@@ -295,20 +296,42 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_TAB)
 	{
+		m_showMap = !m_showMap;
+	}
+
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F1)
+	{
 		if (m_showDebug)
 		{
 			exitDebugMode();
+			m_showDebug = false;
 		}
 		else
 		{
 			enterDebugMode();
+			m_showDebug = true;
 		}
-		m_showDebug = !m_showDebug;
 	}
 
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_I)
 	{
 		m_showInventory = !m_showInventory;
+	}
+
+	if (event.type == SDL_EVENT_KEY_DOWN)
+	{
+		if (event.key.key == SDLK_F5)
+		{
+			SaveGame("save.json");
+		}
+		else if (event.key.key == SDLK_F9)
+		{
+			LoadGame("save.json");
+		}
+		else if (event.key.key == SDLK_M)
+		{
+			m_showMap = !m_showMap;
+		}
 	}
 
 	if (event.type == SDL_EVENT_WINDOW_RESIZED)
@@ -470,6 +493,10 @@ void PlayState::doGridAction(std::string_view name) noexcept
 	else if (name == "TurnRight")   m_camera.TurnRight();
 	else if (name == "StrafeLeft")  m_camera.MoveLeft();
 	else                            m_camera.MoveRight();
+
+	// Sync character state with camera after every grid action
+	m_character.position = m_camera.GetGridPosition();
+	m_character.facing = m_camera.Facing();
 }
 
 //=============================================================================
@@ -862,6 +889,232 @@ void PlayState::renderInventoryWindow() noexcept
 
 //=============================================================================
 
+void PlayState::SaveGame(const char* path) noexcept
+{
+	try
+	{
+		json j;
+
+		// Character
+		j["character"] = m_character;
+
+		// Dungeon
+		json dungeonJson;
+		to_json(dungeonJson, m_dungeon.GetChunk());
+		j["dungeon"] = dungeonJson;
+
+		// Monsters
+		json monstersJson = json::array();
+		for (const Monster& m : m_monsterManager.All())
+		{
+			monstersJson.push_back(m);
+		}
+		j["monsters"] = monstersJson;
+
+		// Item drops
+		j["itemDrops"] = m_itemDrops;
+
+		std::string dumped = j.dump(2);
+
+		FILE* fp = fopen(path, "wb");
+		if (!fp)
+		{
+			m_combatLog.Add("Save failed: cannot open file.", glm::vec3(1.0f, 0.3f, 0.0f));
+			return;
+		}
+
+		fwrite(dumped.data(), 1, dumped.size(), fp);
+		fclose(fp);
+
+		m_combatLog.Add("Game saved.", glm::vec3(0.3f, 0.8f, 1.0f));
+	}
+	catch (const std::exception& e)
+	{
+		m_combatLog.Add("Save error: " + std::string(e.what()), glm::vec3(1.0f, 0.3f, 0.0f));
+	}
+}
+
+//=============================================================================
+
+void PlayState::LoadGame(const char* path) noexcept
+{
+	try
+	{
+		FILE* fp = fopen(path, "rb");
+		if (!fp)
+		{
+			m_combatLog.Add("Load failed: file not found.", glm::vec3(1.0f, 0.3f, 0.0f));
+			return;
+		}
+
+		fseek(fp, 0, SEEK_END);
+		long size = ftell(fp);
+		rewind(fp);
+
+		std::string buffer;
+		buffer.resize(static_cast<size_t>(size));
+		fread(buffer.data(), 1, static_cast<size_t>(size), fp);
+		fclose(fp);
+
+		json j = json::parse(buffer);
+
+		// Character
+		m_character = j.at("character").get<Character>();
+
+		// Synchronize camera with loaded character position
+		m_camera.SetGridPosition(m_character.position, m_character.facing);
+		m_camera.SnapToGrid();
+
+		// Dungeon
+		Chunk loadedChunk;
+		from_json(j.at("dungeon"), loadedChunk);
+		m_dungeon.SetChunk(loadedChunk);
+		m_dungeonRenderer.SetNeedsRebuild(true);
+
+		// Monsters
+		m_monsterManager.Clear();
+		for (const auto& monsterJson : j.at("monsters"))
+		{
+			m_monsterManager.Spawn(monsterJson.get<Monster>());
+		}
+
+		// Item drops
+		m_itemDrops = j.at("itemDrops").get<std::vector<ItemDrop>>();
+
+		m_gameMode = GameMode::Exploring;
+		m_combatLog.Add("Game loaded.", glm::vec3(0.3f, 0.8f, 1.0f));
+	}
+	catch (const std::exception& e)
+	{
+		m_combatLog.Add("Load error: " + std::string(e.what()), glm::vec3(1.0f, 0.3f, 0.0f));
+	}
+}
+
+//=============================================================================
+
+void PlayState::renderMapWindow() noexcept
+{
+	if (!m_showMap && !m_showDebug)
+	{
+		return;
+	}
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 ws = viewport->WorkSize;
+
+	ImGui::SetNextWindowPos(ImVec2(ws.x * 0.5f - 275.0f, 50.0f), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(550, 550), ImGuiCond_FirstUseEver);
+
+	if (!ImGui::Begin("Map", &m_showMap, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
+	{
+		ImGui::End();
+		return;
+	}
+
+	const int32_t chunkSize = m_dungeon.ChunkSize();
+	const ImVec2 avail = ImGui::GetContentRegionAvail();
+	const float cellSize = (std::min)(avail.x, avail.y) / static_cast<float>(chunkSize);
+	const float mapSize = cellSize * static_cast<float>(chunkSize);
+
+	// Center the map in the available area
+	const float offsetX = (avail.x - mapSize) * 0.5f;
+	const float offsetY = (avail.y - mapSize) * 0.5f;
+
+	ImDrawList* draw = ImGui::GetWindowDrawList();
+	const ImVec2 origin = ImGui::GetCursorScreenPos() + ImVec2(offsetX, offsetY);
+
+	// Draw cells
+	for (int32_t r = 0; r < chunkSize; ++r)
+	{
+		for (int32_t c = 0; c < chunkSize; ++c)
+		{
+			const Cell& cell = m_dungeon.GetCell({r, c, 0});
+			ImVec2 p0 = origin + ImVec2(static_cast<float>(c) * cellSize, static_cast<float>(r) * cellSize);
+			ImVec2 p1 = p0 + ImVec2(cellSize, cellSize);
+
+			uint32_t color;
+			if (cell.isWall)
+			{
+				color = IM_COL32(60, 50, 40, 255);
+			}
+			else if (cell.hasFloor)
+			{
+				color = IM_COL32(30, 30, 30, 255);
+			}
+			else
+			{
+				color = IM_COL32(10, 10, 10, 255);
+			}
+
+			draw->AddRectFilled(p0, p1, color);
+		}
+	}
+
+	// Draw items as small blue dots
+	for (const ItemDrop& drop : m_itemDrops)
+	{
+		ImVec2 center = origin + ImVec2(
+			(static_cast<float>(drop.position.col) + 0.5f) * cellSize,
+			(static_cast<float>(drop.position.row) + 0.5f) * cellSize);
+		float radius = cellSize * 0.25f;
+		draw->AddCircleFilled(center, radius, IM_COL32(100, 100, 255, 200), 8);
+	}
+
+	// Draw monsters as red dots
+	for (const Monster& mon : m_monsterManager.All())
+	{
+		if (!mon.alive)
+		{
+			continue;
+		}
+		ImVec2 center = origin + ImVec2(
+			(static_cast<float>(mon.position.col) + 0.5f) * cellSize,
+			(static_cast<float>(mon.position.row) + 0.5f) * cellSize);
+		float radius = cellSize * 0.3f;
+		draw->AddCircleFilled(center, radius, IM_COL32(220, 40, 40, 220), 10);
+		// Facing indicator
+		glm::ivec2 fwd = DirectionToVec(mon.facing);
+		ImVec2 tip = center + ImVec2(
+			static_cast<float>(fwd.y) * cellSize * 0.4f,
+			static_cast<float>(fwd.x) * cellSize * 0.4f);
+		draw->AddLine(center, tip, IM_COL32(255, 100, 100, 220), 2.0f);
+	}
+
+	// Draw player as green dot
+	{
+		GridPosition ppos = m_camera.GetGridPosition();
+		ImVec2 center = origin + ImVec2(
+			(static_cast<float>(ppos.col) + 0.5f) * cellSize,
+			(static_cast<float>(ppos.row) + 0.5f) * cellSize);
+		float radius = cellSize * 0.35f;
+		draw->AddCircleFilled(center, radius, IM_COL32(40, 220, 40, 240), 12);
+		// Facing indicator
+		glm::ivec2 fwd = DirectionToVec(m_camera.Facing());
+		ImVec2 tip = center + ImVec2(
+			static_cast<float>(fwd.y) * cellSize * 0.45f,
+			static_cast<float>(fwd.x) * cellSize * 0.45f);
+		draw->AddLine(center, tip, IM_COL32(100, 255, 100, 240), 2.5f);
+	}
+
+	// Grid lines
+	for (int32_t i = 0; i <= chunkSize; ++i)
+	{
+		float pos = static_cast<float>(i) * cellSize;
+		ImVec2 lineH0 = origin + ImVec2(0.0f, pos);
+		ImVec2 lineH1 = origin + ImVec2(mapSize, pos);
+		draw->AddLine(lineH0, lineH1, IM_COL32(50, 50, 50, 80), 0.5f);
+
+		ImVec2 lineV0 = origin + ImVec2(pos, 0.0f);
+		ImVec2 lineV1 = origin + ImVec2(pos, mapSize);
+		draw->AddLine(lineV0, lineV1, IM_COL32(50, 50, 50, 80), 0.5f);
+	}
+
+	ImGui::Dummy(ImVec2(mapSize, mapSize));
+	ImGui::End();
+}
+
+//=============================================================================
+
 void PlayState::RenderScene(Renderer& renderer) noexcept
 {
 	PROFILE_FUNCTION();
@@ -929,7 +1182,8 @@ void PlayState::Render() noexcept
 	ImGui::Text("Q/E \tStrafe L/R");
 	ImGui::Text("Space\tAttack");
 	ImGui::Separator();
-	ImGui::Text("Tab: Debug [%s]", m_showDebug ? "ON" : "OFF");
+	ImGui::Text("Tab: Map [%s]", m_showMap ? "ON" : "OFF");
+	ImGui::Text("F1: Debug [%s]", m_showDebug ? "ON" : "OFF");
 	if (ImGui::Button("Back to Menu"))
 	{
 		m_machine.ReplaceState("MainMenu");
@@ -997,6 +1251,9 @@ void PlayState::Render() noexcept
 
 	// ===== Inventory window (toggle with I) =====
 	renderInventoryWindow();
+
+	// ===== Map window (toggle with M) =====
+	renderMapWindow();
 
 	// ===== Debug windows (only when debug is on) =====
 

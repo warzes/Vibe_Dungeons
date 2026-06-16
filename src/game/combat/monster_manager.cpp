@@ -22,6 +22,11 @@ void MonsterManager::RemoveDead()
 	std::erase_if(m_monsters, [](const Monster& m) { return !m.alive; });
 }
 
+void MonsterManager::Clear()
+{
+	m_monsters.clear();
+}
+
 Monster* MonsterManager::At(GridPosition pos)
 {
 	for (auto& m : m_monsters)

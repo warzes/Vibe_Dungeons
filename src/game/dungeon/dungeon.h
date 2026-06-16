@@ -15,6 +15,16 @@ public:
 		return m_chunk;
 	}
 
+	Chunk& GetChunk() noexcept
+	{
+		return m_chunk;
+	}
+
+	void SetChunk(const Chunk& chunk) noexcept
+	{
+		m_chunk = chunk;
+	}
+
 	[[nodiscard]] int32_t ChunkSize() const noexcept
 	{
 		return Chunk::SIZE;

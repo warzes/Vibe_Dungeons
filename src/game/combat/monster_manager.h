@@ -13,6 +13,8 @@ public:
 
 	void RemoveDead();
 
+	void Clear();
+
 	[[nodiscard]] Monster* At(GridPosition pos);
 	[[nodiscard]] const Monster* At(GridPosition pos) const;
 
