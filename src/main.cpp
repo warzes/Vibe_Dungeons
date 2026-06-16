@@ -48,8 +48,12 @@ int main(int argc, char* argv[])
 	// Load JSON data files
 	if (!JsonDataManager::Instance().LoadAll("data"))
 	{
+#if defined(__EMSCRIPTEN__)
+		EM_ASM({ alert("[ERROR] Failed to load JSON data files. Check --preload-file."); });
+#else
 		std::printf("[ERROR] Failed to load one or more JSON data files.\n");
 		std::getchar();
+#endif
 		return 1;
 	}
 	std::printf("[DATA] All JSON data files loaded successfully.\n");

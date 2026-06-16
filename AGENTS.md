@@ -2,9 +2,10 @@
 
 ##  Система сборки
 - Проект компилируется **gcc** (через `build.bat`) и **Visual Studio 2026** (через `src/Game.slnx`).
+- **Web (WASM)**: сборка через `build_web.bat` (Emscripten) — **не использовать `build.bat`** для web.
 - **Не пытаться** собрать через CMake, Ninja, или любые другие тулчейны.
 - **Precompiled headers** (`stdafx.h`/`stdafx.cpp`) — всегда подключать `stdafx.h` первым в `.cpp` файлах.
-- Исходный код находится в `src/`. После перемещения файлов обновляй пути в `build.bat` и `src/Game.vcxproj`.
+- Исходный код находится в `src/`. После перемещения файлов обновляй пути в `build.bat`, `build_web.bat` и `src/Game.vcxproj`.
 
 ## Целевые платформы
 - **Desktop (Windows/Linux)**: OpenGL 3.3 Core Profile, SDL3, gcc/MSVC.
