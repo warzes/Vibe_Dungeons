@@ -13,6 +13,8 @@
 #include "core/json_data_manager.h"
 #include "game/data/monster_factory.h"
 #include "game/data/item_factory.h"
+#include "game/data/experience_system.h"
+#include "game/states/class_selection_state.h"
 
 //=============================================================================
 
@@ -90,15 +92,16 @@ void PlayState::OnEnter() noexcept
 		m_camera.SetGridPosition({17, 17, 0}, Direction::North);
 		m_camera.SnapToGrid();
 
-		// ---- Character ----
-		m_character = Character{};
-		m_character.name = "Hero";
-		m_character.hp = 20;
-		m_character.maxHp = 20;
-		m_character.ac = 12;
-		m_character.atkBonus = 2;
-		m_character.damageMin = 1;
-		m_character.damageMax = 6;
+		// ---- Character (from class selection or default) ----
+		if (ClassSelectionState::s_pendingCharacter.level > 0)
+		{
+			m_character = std::move(ClassSelectionState::s_pendingCharacter);
+			ClassSelectionState::s_pendingCharacter = Character{};
+		}
+		else
+		{
+			m_character = Character{};
+		}
 		m_character.position = {17, 17, 0};
 		m_character.facing = Direction::North;
 		Logger::Info("PlayState: character created");
@@ -404,6 +407,19 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		return;
 	}
 
+	if (m_pendingLevelUp)
+	{
+		m_showLevelUp = true;
+		m_pendingLevelUp = false;
+	}
+
+	if (m_showLevelUp)
+	{
+		m_camera.UpdateAnimation(static_cast<float>(dt.Seconds()));
+		m_audio.Update();
+		return;
+	}
+
 	if (m_showDebug)
 	{
 		// ---- Debug / Free camera ----
@@ -699,7 +715,8 @@ void PlayState::performCombat() noexcept
 	}
 
 	// Player attacks
-	AttackResult playerResult = m_combatSystem.MeleeAttack(m_character, *target);
+	bool behind = (DirectionToTarget(target->position, m_character.position) == Opposite(target->facing));
+	AttackResult playerResult = m_combatSystem.MeleeAttack(m_character, *target, behind);
 
 	if (playerResult.critical)
 	{
@@ -722,8 +739,15 @@ void PlayState::performCombat() noexcept
 	{
 		std::string msg = target->name + " dies!";
 		m_combatLog.Add(msg, glm::vec3(0.2f, 1.0f, 0.2f));
+
+		// Award XP
+		ExperienceSystem::AwardKill(m_character, *target);
+		m_combatLog.Add("Gained " + std::to_string(target->xpReward) + " XP.",
+			glm::vec3(0.3f, 0.6f, 1.0f));
+
 		m_monsterManager.RemoveDead();
 		m_gameMode = GameMode::TurnWaiting;
+		m_pendingLevelUp = ExperienceSystem::CheckLevelUp(m_character);
 		return;
 	}
 
@@ -1125,16 +1149,11 @@ void PlayState::RestartGame() noexcept
 	m_showInventory = false;
 	m_showMap = false;
 	m_combatLog.Clear();
+	m_pendingLevelUp = false;
+	m_showLevelUp = false;
 
-	// Reset character
-	m_character = Character{};
-	m_character.name = "Hero";
-	m_character.hp = 20;
-	m_character.maxHp = 20;
-	m_character.ac = 12;
-	m_character.atkBonus = 2;
-	m_character.damageMin = 1;
-	m_character.damageMax = 6;
+	// Reset character from class data
+	m_character = ClassSelectionState::CreateCharacter(m_character.charClass);
 	m_character.position = {17, 17, 0};
 	m_character.facing = Direction::North;
 
@@ -1380,6 +1399,12 @@ void PlayState::Render() noexcept
 	ImGui::Text("AC: %d", m_character.ac);
 	ImGui::Text("Attack Bonus: %+d", m_character.atkBonus);
 	ImGui::Text("Damage: %dd%d", m_character.damageMin, m_character.damageMax);
+	ImGui::Separator();
+	const float xpFrac = (m_character.xpForNext > 0)
+		? static_cast<float>(m_character.xp) / static_cast<float>(m_character.xpForNext)
+		: 0.0f;
+	ImGui::ProgressBar(xpFrac, ImVec2(-1.0f, 0.0f),
+		(std::to_string(m_character.xp) + " / " + std::to_string(m_character.xpForNext) + " XP").c_str());
 	ImGui::End();
 
 	// ---- Monster in front ----
@@ -1496,6 +1521,62 @@ void PlayState::Render() noexcept
 		ImGui::Text("Floor: %s", cell.hasFloor ? "yes" : "no");
 		ImGui::Text("Walkable: %s", cell.IsWalkable() ? "yes" : "no");
 		ImGui::End();
+	}
+
+	// ---- Level Up overlay ----
+	if (m_showLevelUp)
+	{
+		ImGui::OpenPopup("Level Up!");
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+		if (ImGui::BeginPopupModal("Level Up!", nullptr,
+			ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
+		{
+			ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f),
+				"Level %d!", m_character.level + 1);
+			ImGui::Separator();
+			ImGui::Text("Choose a stat to increase (+2):");
+			ImGui::Dummy(ImVec2(0.0f, 8.0f));
+			if (ImGui::Button("STR"))
+			{
+				m_character.level += 1;
+				m_character.atkBonus += 1;
+				m_character.str += 2;
+				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
+				m_character.hp = m_character.maxHp;
+				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
+				m_showLevelUp = false;
+				m_combatLog.Add("Level up! STR increased!", glm::vec3(0.2f, 1.0f, 0.2f));
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("DEX"))
+			{
+				m_character.level += 1;
+				m_character.atkBonus += 1;
+				m_character.dex += 2;
+				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
+				m_character.hp = m_character.maxHp;
+				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
+				m_showLevelUp = false;
+				m_combatLog.Add("Level up! DEX increased!", glm::vec3(0.2f, 1.0f, 0.2f));
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("CON"))
+			{
+				m_character.level += 1;
+				m_character.atkBonus += 1;
+				m_character.con += 2;
+				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
+				m_character.hp = m_character.maxHp;
+				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
+				m_showLevelUp = false;
+				m_combatLog.Add("Level up! CON increased!", glm::vec3(0.2f, 1.0f, 0.2f));
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
 	}
 
 	// ---- Game Over overlay ----

@@ -206,16 +206,23 @@ inline void to_json(json& j, const Character& c)
 
 	j = json{
 		{"name", c.name},
+		{"charClass", c.charClass},
 		{"level", c.level},
 		{"hp", c.hp},
 		{"maxHp", c.maxHp},
+		{"mp", c.mp},
+		{"maxMp", c.maxMp},
 		{"ac", c.ac},
 		{"str", c.str},
 		{"dex", c.dex},
 		{"con", c.con},
+		{"intel", c.intel},
 		{"atkBonus", c.atkBonus},
+		{"damageBonus", c.damageBonus},
 		{"damageMin", c.damageMin},
 		{"damageMax", c.damageMax},
+		{"xp", c.xp},
+		{"xpForNext", c.xpForNext},
 		{"position", c.position},
 		{"facing", c.facing},
 		{"inventory", std::move(invJson)}
@@ -225,16 +232,23 @@ inline void to_json(json& j, const Character& c)
 inline void from_json(const json& j, Character& c)
 {
 	j.at("name").get_to(c.name);
+	j.at("charClass").get_to(c.charClass);
 	j.at("level").get_to(c.level);
 	j.at("hp").get_to(c.hp);
 	j.at("maxHp").get_to(c.maxHp);
+	j.at("mp").get_to(c.mp);
+	j.at("maxMp").get_to(c.maxMp);
 	j.at("ac").get_to(c.ac);
 	j.at("str").get_to(c.str);
 	j.at("dex").get_to(c.dex);
 	j.at("con").get_to(c.con);
+	j.at("intel").get_to(c.intel);
 	j.at("atkBonus").get_to(c.atkBonus);
+	j.at("damageBonus").get_to(c.damageBonus);
 	j.at("damageMin").get_to(c.damageMin);
 	j.at("damageMax").get_to(c.damageMax);
+	j.at("xp").get_to(c.xp);
+	j.at("xpForNext").get_to(c.xpForNext);
 	j.at("position").get_to(c.position);
 	j.at("facing").get_to(c.facing);
 

@@ -1,87 +1,14 @@
 # Roadmap: Dungeon Crawlers — новый план развития
 
-> **Выполнено (фаза 1+2 — прототип + JSON-фундамент)**: см. [FINISH.md](./FINISH.md)
-> **Архив старого плана (шаги 61–120)**: `_archived/old_phase2_61_120.md`
-> **Текущая работа**: Фаза 3, шаг 26
+> **Выполнено (фаза 1–3, шаги 1–40)**: см. [FINISH.md](./FINISH.md)
+> **Архив**: `_archived/old_phase2_61_120.md`
+> **Текущая работа**: Фаза 3, шаг 41
 
 ---
 
-##  Условные обозначения
-
-- `[Data]` — JSON-данные (assets, конфиги)
-- `[Core]` — ядро системы (data-driven, базовые классы)
-- `[UI]` — интерфейс (ImGui-окна, HUD)
-- `[Combat]` — боевая система
-- `[World]` — мир, карта, подземелья
-- `[Content]` — наполнение данными (предметы, монстры, рецепты)
-- `[Build]` — сборка, тестирование
-
----
-
-##  Фаза 2: Фундамент (шаги 1–25)
-
-> Цель: вся статика из кода → JSON, чтобы контент правился без перекомпиляции.
-
-### JSON-движок (шаги 1–10)
-
-1. `data/classes.json` — 5 классов с базовыми статами (HP, STR, DEX, CON, INT) и описанием
-2. `data/monsters.json` — монстры (имя, HP, AC, ATK, дамаг, тип, способности)
-3. `data/items_base.json` — базовые типы предметов (оружие, броня, щит, кольцо, амулет, шлем, поножи, перчатки, сапоги, ингредиенты, еда, зелья, свитки)
-4. `data/weapon_types.json` — типы оружия (Sword, Axe, Mace, Bow, Crossbow, Staff, Dagger, Spear): базовый дамаг, дальность, требования по STR/DEX
-5. `data/armor_types.json` — типы брони (Cloth, Leather, Chain, Plate): базовый AC, вес, требования
-6. `data/materials.json` — материалы (Iron, Steel, Silver, Mithril, Adamant, Dragonbone, Wood, Leather): модификаторы статов
-7. `data/prefixes.json` — префиксы (Sharp, Vicious, Sturdy, Blessed, Cursed, Flaming, Freezing, Shocking, Venomous, Holy): модификаторы
-8. `data/postfixes.json` — постфиксы (of Power, of Protection, of Fire, of Ice, of Vitality, of Vampire, of Accuracy): бонус-эффекты
-9. `data/spells.json` — заклинания (имя, тип, элемент, дамаг/хил, дальность, радиус AoE, стоимость MP, уровень, классы)
-10. `data/abilities.json` — классовые способности (имя, описание, требования, эффект, кулдаун)
-
-### Загрузчик данных (шаги 11–20)
-
-11. `JsonDataManager` — синглтон, загружает все JSON из `data/` при старте игры
-12. `MonsterFactory` — создаёт `Monster` из JSON-шаблона по имени монстра + level scaling
-13. `ItemFactory` — создаёт `Item` из JSON-шаблона + prefix + material + postfix генерация
-14. `SpellManager` — загружает spells.json, предоставляет поиск по имени/уровню/классу
-15. `AbilityManager` — загружает abilities.json, предоставляет способности по классу
-16. `ClassManager` — загружает classes.json, создаёт стартовые статы для персонажа
-17. `MaterialGenerator` — генерирует имя предмета вида "Sharp Iron Sword of Fire" из частей
-18. `ItemStatCalculator` — вычисляет финальные статы предмета из prefix + material + base
-19. При старте игры все JSON загружаются в `JsonDataManager`, ошибки валидации в лог
-20. Тест: изменение JSON-файла → изменения в игре без перекомпиляции
-
-### Интеграция (шаги 21–25)
-
-21. Заменить ручное создание монстров в `OnEnter` на `MonsterFactory::Create("Skeleton", 1)`
-22. Заменить ручное создание предметов в `OnEnter` на `ItemFactory::CreatePotion("healing")`
-23. `ItemFactory::GenerateEquip(prefixId, materialId, baseTypeId)` — создание снаряжения
-24. Добавить seed для генерации (чтобы одинаковый seed давал одинаковый предмет)
-25. Валидация JSON-файлов при загрузке — проверка ссылочной целостности
-
----
-
-##  Фаза 3: Классовая система (шаги 26–55)
+##  Фаза 3: Классовая система (шаги 41–55)
 
 > Цель: игрок выбирает класс при старте, класс определяет статы, способности и стиль игры.
-
-### Выбор класса (шаги 26–33)
-
-26. `ClassSelectionState` — экран выбора класса перед входом в игру
-27. В `data/classes.json` добавить: стартовое снаряжение для каждого класса
-28. `Character::charClass` — поле с enum класса, влияет на все расчёты
-29. Class-modifiers для `MeleeAttack`: Barbarian +2 damage, Thief +1 damage при атаке со спины
-30. Class-modifiers для `AC`: Paladin +2 AC (бонус щита), Mage -2 AC, Thief +1 AC (уклонение)
-31. Class-modifiers для `HP per level`: Barbarian d12, Paladin d10, War Priest d8, Thief d8, Mage d6
-32. Класс влияет на доступность оружия: Mage не может использовать двуручные мечи
-33. Класс влияет на доступность брони: Mage только Cloth, Thief Cloth+Leather, Paladin всё
-
-### XP и уровни (шаги 34–40)
-
-34. `ExperienceSystem` — получение XP за убийство монстров (из JSON: monster.xpReward)
-35. `LevelTable` — таблица XP на уровень в JSON: `{"levels": [{"level":1, "xpNeeded":0}, {"level":2, "xpNeeded":100}, ...]}`
-36. `Character::xp` и `Character::level` — обновляются при убийстве, проверка на level-up
-37. При level-up: прибавка HP по хиту класса, +1 к ATK, +2 к одному стату на выбор
-38. Level-up popup: "Level X! Choose stat to increase: STR/DEX/CON" (три кнопки)
-39. Прогресс XP в HUD: полоска "XP: 150 / 300"
-40. Уровень монстра скейлит его статы: `monster.hp + level * 2`, `atkBonus + level / 2`
 
 ### Skill Trees (шаги 41–48)
 

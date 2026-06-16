@@ -6,6 +6,7 @@
 			"description": "A fierce warrior who relies on raw strength and rage.",
 			"baseHp": 24,
 			"hpPerLevel": 12,
+			"hitDice": 12,
 			"baseMp": 0,
 			"mpPerLevel": 0,
 			"baseStr": 16,
@@ -19,7 +20,8 @@
 			"allowedWeapons": ["axe", "mace", "sword", "spear"],
 			"startingAbilities": ["power_strike"],
 			"regenHpPerTurn": 0,
-			"regenMpPerTurn": 0
+			"regenMpPerTurn": 0,
+			"startingEquipment": ["rusty_dagger", "leather_armor"]
 		},
 		{
 			"id": "paladin",
@@ -27,6 +29,7 @@
 			"description": "A holy knight with heavy armor and divine magic.",
 			"baseHp": 22,
 			"hpPerLevel": 10,
+			"hitDice": 10,
 			"baseMp": 6,
 			"mpPerLevel": 2,
 			"baseStr": 14,
@@ -40,7 +43,8 @@
 			"allowedWeapons": ["sword", "mace", "spear"],
 			"startingAbilities": ["holy_smite"],
 			"regenHpPerTurn": 2,
-			"regenMpPerTurn": 0
+			"regenMpPerTurn": 0,
+			"startingEquipment": ["wooden_shield", "cloth_armor"]
 		},
 		{
 			"id": "war_priest",
@@ -48,6 +52,7 @@
 			"description": "A battle-hardened priest wielding holy magic and a mace.",
 			"baseHp": 18,
 			"hpPerLevel": 8,
+			"hitDice": 8,
 			"baseMp": 12,
 			"mpPerLevel": 4,
 			"baseStr": 12,
@@ -61,7 +66,8 @@
 			"allowedWeapons": ["mace", "staff"],
 			"startingAbilities": ["heal", "smite_undead"],
 			"regenHpPerTurn": 1,
-			"regenMpPerTurn": 1
+			"regenMpPerTurn": 1,
+			"startingEquipment": ["wooden_staff", "cloth_armor"]
 		},
 		{
 			"id": "thief",
@@ -69,6 +75,7 @@
 			"description": "A sneaky rogue who strikes from the shadows.",
 			"baseHp": 16,
 			"hpPerLevel": 8,
+			"hitDice": 8,
 			"baseMp": 4,
 			"mpPerLevel": 1,
 			"baseStr": 10,
@@ -82,7 +89,8 @@
 			"allowedWeapons": ["sword", "dagger", "spear", "bow", "crossbow"],
 			"startingAbilities": ["backstab", "shadow_step"],
 			"regenHpPerTurn": 0,
-			"regenMpPerTurn": 0
+			"regenMpPerTurn": 0,
+			"startingEquipment": ["rusty_dagger", "leather_armor"]
 		},
 		{
 			"id": "mage",
@@ -90,6 +98,7 @@
 			"description": "A master of arcane magic with devastating spells.",
 			"baseHp": 14,
 			"hpPerLevel": 6,
+			"hitDice": 6,
 			"baseMp": 24,
 			"mpPerLevel": 8,
 			"baseStr": 8,
@@ -103,7 +112,8 @@
 			"allowedWeapons": ["staff", "dagger"],
 			"startingAbilities": ["magic_missile", "fireball"],
 			"regenHpPerTurn": 0,
-			"regenMpPerTurn": 2
+			"regenMpPerTurn": 2,
+			"startingEquipment": ["wooden_staff", "scroll_fireball"]
 		}
 	]
 }

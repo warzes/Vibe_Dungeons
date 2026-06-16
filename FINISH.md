@@ -354,3 +354,40 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - **serialization.h**: `MonsterType` сериализация заменена на `typeId` (string)
 - **play_state.cpp**: монстры и предметы создаются через фабрики; текстуры монстров загружаются из JSON
 - **main.cpp**: `JsonDataManager::LoadAll("data")` вызывается до создания GameApp
+
+---
+
+## Фаза 3: Классовая система (шаги 26–40) ✅
+
+### Выбор класса (шаги 26–33)
+
+26. `ClassSelectionState` — экран выбора класса перед входом в игру (5 классов: Barbarian, Paladin, War Priest, Thief, Mage). ImGui-панели с названием, HP, MP, STR/DEX/CON, броней, оружием, способностями.
+27. `data/classes.json` дополнен: `startingEquipment` (массив itemId) и `hitDice` (d12/d10/d8/d6).
+28. `Character::charClass` — `std::string` (id из JSON), влияет на все классовые расчёты.
+29. Class-modifiers для `MeleeAttack`: Barbarian +2 damage, Thief +1 damage (+1 при атаке со спины через `behind` flag).
+30. Class-modifiers для `AC`: Paladin +2, Mage -2, Thief +1 (в `classAcBonus`).
+31. Class-modifiers для `HP per level`: Barbarian d12, Paladin d10, War Priest d8, Thief d8, Mage d6 — `HpGainForLevel()`.
+32. Проверка оружия: `CombatSystem::CanUseWeaponItem()` — сверка `allowedWeapons` из JSON.
+33. Проверка брони: `CanUseArmorItem()` — сверка `allowedArmor` из JSON.
+
+### XP и уровни (шаги 34–40)
+
+34. `ExperienceSystem` — `AwardKill(Character&, Monster&)` — XP за убийство из `monster.xpReward`.
+35. `data/level_table.json` — 20 уровней с `xpNeeded` (100, 250, 500, 800...).
+36. `Character::xp`, `level`, `xpForNext` — обновляются при убийстве, проверка на level-up.
+37. При level-up: +1 ATK, +2 к STR/DEX/CON на выбор, HP по hit-dice класса.
+38. Level-up popup: "Level X! Choose stat to increase: STR/DEX/CON" (три кнопки, каждая начисляет бонусы).
+39. XP bar в HUD: `ImGui::ProgressBar` под статами персонажа.
+40. Уровень монстра скейлит статы: HP += level * 2, atkBonus += level / 2, xpReward += level * 5 (уже в `MonsterFactory`).
+
+### Ключевые изменения
+
+- **class_selection_state.h/.cpp** — новый файл: статический `s_pendingCharacter` передаёт персонажа в PlayState, `CreateCharacter()` собирает Character из JSON-данных класса.
+- **play_state.cpp** — при `OnEnter()` проверяет `ClassSelectionState::s_pendingCharacter`; при старте через MainMenu → ClassSelection → Play. `RestartGame()` пересоздаёт персонажа через `CreateCharacter()`.
+- **play_state.h** — добавлены `m_pendingLevelUp`, `m_showLevelUp` для управления popup'ом.
+- **combat_system.h/.cpp** — `MeleeAttack` принимает `bool behind`; classDamageBonus/classAtkBonus используют `behind` для thief backstab (+1 damage, +1 atk).
+- **direction.h** — добавлены `Opposite()` и `DirectionToTarget()` для определения атаки со спины.
+- **experience_system.h/.cpp** — новые файлы: `AwardKill()`, `CheckLevelUp()`, `XpForLevel()`, `HpGainForLevel()`.
+- **main_menu_state.cpp** — кнопка "Start Game" ведёт в ClassSelection, не напрямую в Play.
+- **game_app.cpp** — зарегистрирован `ClassSelectionState`.
+- **main.cpp** — загружает `data/level_table.json` через `JsonDataManager::LoadAll("data")`.

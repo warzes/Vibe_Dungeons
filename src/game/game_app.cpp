@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "game/game_app.h"
 #include "game/states/main_menu_state.h"
+#include "game/states/class_selection_state.h"
 #include "game/states/play_state.h"
 #include "game/states/settings_state.h"
 #include "engine/window.h"
@@ -34,6 +35,10 @@ GameApp::GameApp()
 	m_stateMachine.RegisterState("MainMenu", [this]()
 	{
 		return std::make_unique<MainMenuState>(m_stateMachine, *m_window, m_input);
+	});
+	m_stateMachine.RegisterState("ClassSelection", [this]()
+	{
+		return std::make_unique<ClassSelectionState>(m_stateMachine, *m_window, m_input);
 	});
 	m_stateMachine.RegisterState("Play", [this]()
 	{

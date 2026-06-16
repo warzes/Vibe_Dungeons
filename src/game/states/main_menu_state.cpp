@@ -34,7 +34,7 @@ void MainMenuState::Render() noexcept
 
 	if (ImGui::Button("Start Game"))
 	{
-		m_machine.ReplaceState("Play");
+		m_machine.ReplaceState("ClassSelection");
 	}
 
 	ImGui::SameLine();

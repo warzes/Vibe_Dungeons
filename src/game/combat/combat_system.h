@@ -15,7 +15,7 @@ struct AttackResult final
 class CombatSystem final
 {
 public:
-	[[nodiscard]] AttackResult MeleeAttack(const Character& attacker, Monster& defender);
+	[[nodiscard]] AttackResult MeleeAttack(const Character& attacker, Monster& defender, bool behind = false);
 
 	[[nodiscard]] AttackResult MonsterMeleeAttack(const Monster& attacker, Character& defender);
 };

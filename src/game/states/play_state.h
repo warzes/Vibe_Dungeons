@@ -150,4 +150,8 @@ private:
 
 	bool m_showMap = false;
 	bool m_showOptions = false;
+
+	// Level-up
+	bool m_pendingLevelUp = false;
+	bool m_showLevelUp = false;
 };

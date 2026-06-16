@@ -22,6 +22,7 @@ public:
 	[[nodiscard]] const json& GetPostfix(const std::string& id) const;
 	[[nodiscard]] const json& GetSpellData(const std::string& spellId) const;
 	[[nodiscard]] const json& GetAbilityData(const std::string& abilityId) const;
+	[[nodiscard]] const json& GetLevelTable() const noexcept { return m_levelTable; }
 
 	[[nodiscard]] const json& AllClasses() const noexcept { return m_classes; }
 	[[nodiscard]] const json& AllMonsters() const noexcept { return m_monsters; }
@@ -52,4 +53,5 @@ private:
 	json m_postfixes = json::array();
 	json m_spells = json::array();
 	json m_abilities = json::array();
+	json m_levelTable = json::array();
 };

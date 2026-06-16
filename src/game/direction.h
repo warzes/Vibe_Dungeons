@@ -49,3 +49,26 @@ enum class Direction : uint8_t
 	}
 	return 0.0f;
 }
+
+[[nodiscard]] inline Direction Opposite(Direction d)
+{
+	switch (d)
+	{
+		case Direction::North: return Direction::South;
+		case Direction::East:  return Direction::West;
+		case Direction::South: return Direction::North;
+		case Direction::West:  return Direction::East;
+	}
+	return d;
+}
+
+[[nodiscard]] inline Direction DirectionToTarget(GridPosition from, GridPosition to)
+{
+	int32_t dr = to.row - from.row;
+	int32_t dc = to.col - from.col;
+	if (glm::abs(dr) > glm::abs(dc))
+		return (dr > 0) ? Direction::South : Direction::North;
+	if (glm::abs(dc) > glm::abs(dr))
+		return (dc > 0) ? Direction::East : Direction::West;
+	return Direction::North;
+}
