@@ -299,6 +299,11 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 		m_showMap = !m_showMap;
 	}
 
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F2)
+	{
+		m_showOptions = !m_showOptions;
+	}
+
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F1)
 	{
 		if (m_showDebug)
@@ -1115,6 +1120,198 @@ void PlayState::renderMapWindow() noexcept
 
 //=============================================================================
 
+void PlayState::RestartGame() noexcept
+{
+	m_gameMode = GameMode::Exploring;
+	m_showInventory = false;
+	m_showMap = false;
+	m_combatLog.Clear();
+
+	// Reset character
+	m_character = Character{};
+	m_character.name = "Hero";
+	m_character.hp = 20;
+	m_character.maxHp = 20;
+	m_character.ac = 12;
+	m_character.atkBonus = 2;
+	m_character.damageMin = 1;
+	m_character.damageMax = 6;
+	m_character.position = {17, 17, 0};
+	m_character.facing = Direction::North;
+
+	// Reset camera
+	m_camera.SetGridPosition({17, 17, 0}, Direction::North);
+	m_camera.SnapToGrid();
+
+	// Regenerate dungeon
+	m_dungeon.GenerateTestRoom();
+	m_dungeonRenderer.SetNeedsRebuild(true);
+
+	// Respawn monsters
+	m_monsterManager.Clear();
+	{
+		Monster skelly;
+		skelly.name = "Skeleton";
+		skelly.type = MonsterType::Skeleton;
+		skelly.hp = 8;
+		skelly.maxHp = 8;
+		skelly.ac = 12;
+		skelly.atkBonus = 1;
+		skelly.damageMin = 1;
+		skelly.damageMax = 4;
+		skelly.position = {16, 17, 0};
+		skelly.facing = Direction::South;
+		m_monsterManager.Spawn(std::move(skelly));
+	}
+	{
+		Monster slime;
+		slime.name = "Slime";
+		slime.type = MonsterType::Slime;
+		slime.hp = 4;
+		slime.maxHp = 4;
+		slime.ac = 8;
+		slime.atkBonus = 0;
+		slime.damageMin = 1;
+		slime.damageMax = 3;
+		slime.position = {13, 17, 0};
+		slime.facing = Direction::South;
+		m_monsterManager.Spawn(std::move(slime));
+	}
+
+	// Respawn items
+	m_itemDrops.clear();
+	{
+		ItemDrop healPotion;
+		healPotion.item.name = "Healing Potion";
+		healPotion.item.type = ItemType::PotionHeal;
+		healPotion.item.value = 10;
+		healPotion.position = {16, 17, 0};
+		m_itemDrops.push_back(std::move(healPotion));
+	}
+	{
+		ItemDrop gold;
+		gold.item.name = "Gold Coins";
+		gold.item.type = ItemType::Gold;
+		gold.item.value = 25;
+		gold.position = {14, 17, 0};
+		m_itemDrops.push_back(std::move(gold));
+	}
+
+	m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
+
+	m_combatLog.Add("Game restarted.", glm::vec3(0.3f, 0.8f, 1.0f));
+}
+
+//=============================================================================
+
+void PlayState::renderOptionsWindow() noexcept
+{
+	if (!m_showOptions)
+	{
+		return;
+	}
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 ws = viewport->WorkSize;
+
+	ImGui::SetNextWindowPos(ImVec2(ws.x * 0.5f - 200.0f, ws.y * 0.5f - 150.0f), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
+
+	if (!ImGui::Begin("Options", &m_showOptions))
+	{
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("In-Game Settings");
+	ImGui::Separator();
+
+	float repeatDelay = m_moveRepeatDelay;
+	int rh = 480;
+
+	// Load current config to populate fields
+	{
+		FILE* fp = fopen("player_config.json", "rb");
+		if (fp)
+		{
+			fseek(fp, 0, SEEK_END);
+			long len = ftell(fp);
+			rewind(fp);
+			std::string buf(static_cast<size_t>(len), '\0');
+			fread(buf.data(), 1, static_cast<size_t>(len), fp);
+			fclose(fp);
+			json j = json::parse(buf, nullptr, false);
+			if (!j.is_discarded())
+			{
+				repeatDelay = j.value("gridMoveRepeatDelay", repeatDelay);
+				rh = j.value("renderHeight", rh);
+			}
+		}
+	}
+
+	if (ImGui::SliderFloat("Move Repeat Delay", &repeatDelay, 0.05f, 0.5f, "%.2f s"))
+	{
+		m_moveRepeatDelay = repeatDelay;
+	}
+
+	if (ImGui::SliderInt("Render Height", &rh, 120, 1080, "%d px"))
+	{
+		if (rh < 120) { rh = 120; }
+		if (rh > 1080) { rh = 1080; }
+	}
+	ImGui::TextDisabled("Retro FBO height. Requires restart.");
+
+	ImGui::Separator();
+
+	if (ImGui::Button("Save"))
+	{
+		// Read current full config, update only our fields
+		json j;
+		FILE* fp = fopen("player_config.json", "rb");
+		if (fp)
+		{
+			fseek(fp, 0, SEEK_END);
+			long len = ftell(fp);
+			rewind(fp);
+			std::string buf(static_cast<size_t>(len), '\0');
+			fread(buf.data(), 1, static_cast<size_t>(len), fp);
+			fclose(fp);
+			json parsed = json::parse(buf, nullptr, false);
+			if (!parsed.is_discarded())
+			{
+				j = std::move(parsed);
+			}
+		}
+
+		j["gridMoveRepeatDelay"] = repeatDelay;
+		j["renderHeight"] = rh;
+
+		std::string dumped = j.dump(2);
+		fp = fopen("player_config.json", "wb");
+		if (fp)
+		{
+			fwrite(dumped.data(), 1, dumped.size(), fp);
+			fclose(fp);
+			m_combatLog.Add("Options saved.", glm::vec3(0.3f, 0.8f, 1.0f));
+		}
+		else
+		{
+			m_combatLog.Add("Failed to save options!", glm::vec3(1.0f, 0.3f, 0.0f));
+		}
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Cancel"))
+	{
+		m_showOptions = false;
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+
 void PlayState::RenderScene(Renderer& renderer) noexcept
 {
 	PROFILE_FUNCTION();
@@ -1184,6 +1381,9 @@ void PlayState::Render() noexcept
 	ImGui::Separator();
 	ImGui::Text("Tab: Map [%s]", m_showMap ? "ON" : "OFF");
 	ImGui::Text("F1: Debug [%s]", m_showDebug ? "ON" : "OFF");
+	ImGui::Text("F2: Options");
+	ImGui::Text("F5: Save / F9: Load");
+	ImGui::Text("I: Inventory");
 	if (ImGui::Button("Back to Menu"))
 	{
 		m_machine.ReplaceState("MainMenu");
@@ -1252,8 +1452,11 @@ void PlayState::Render() noexcept
 	// ===== Inventory window (toggle with I) =====
 	renderInventoryWindow();
 
-	// ===== Map window (toggle with M) =====
+	// ===== Map window (toggle with Tab / M) =====
 	renderMapWindow();
+
+	// ===== Options window (toggle with F2) =====
+	renderOptionsWindow();
 
 	// ===== Debug windows (only when debug is on) =====
 
@@ -1328,6 +1531,12 @@ void PlayState::Render() noexcept
 			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
 				"Your hero has fallen!");
 			ImGui::Separator();
+			if (ImGui::Button("Restart"))
+			{
+				RestartGame();
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::SameLine();
 			if (ImGui::Button("Back to Menu"))
 			{
 				m_machine.ReplaceState("MainMenu");
