@@ -1,0 +1,14 @@
+{
+	"postfixes": [
+		{"id": "none", "name": "", "tier": 0, "valueMult": 1.0, "tags": []},
+		{"id": "of_power", "name": "of Power", "tier": 2, "damageBonus": 1, "valueMult": 1.3, "tags": ["positive"]},
+		{"id": "of_protection", "name": "of Protection", "tier": 2, "acBonus": 1, "valueMult": 1.3, "tags": ["positive"]},
+		{"id": "of_accuracy", "name": "of Accuracy", "tier": 2, "atkBonus": 1, "valueMult": 1.3, "tags": ["positive"]},
+		{"id": "of_fire", "name": "of Fire", "tier": 3, "elementDamage": {"type": "fire", "min": 1, "max": 4}, "valueMult": 1.6, "tags": ["positive", "elemental"]},
+		{"id": "of_ice", "name": "of Ice", "tier": 3, "elementDamage": {"type": "ice", "min": 1, "max": 4}, "valueMult": 1.6, "tags": ["positive", "elemental"]},
+		{"id": "of_vitality", "name": "of Vitality", "tier": 3, "hpBonus": 5, "conBonus": 1, "valueMult": 1.5, "tags": ["positive"]},
+		{"id": "of_vampire", "name": "of Vampire", "tier": 4, "lifeStealPercent": 10, "valueMult": 2.5, "tags": ["positive", "rare"]},
+		{"id": "of_strength", "name": "of Strength", "tier": 3, "strBonus": 2, "valueMult": 1.5, "tags": ["positive"]},
+		{"id": "of_dexterity", "name": "of Dexterity", "tier": 3, "dexBonus": 2, "valueMult": 1.5, "tags": ["positive"]}
+	]
+}

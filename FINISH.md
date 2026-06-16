@@ -308,3 +308,49 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - Исправление yaw-wrapping в Camera::UpdateAnimation
 - Иммутабельный `const Monster* At(pos) const` для константных проверок
 - ImGui-окна с фиксированными стартовыми позициями и размерами
+
+---
+
+## Фаза 2: Фундамент JSON (шаги 1–25) ✅
+
+### JSON-данные (шаги 1–10)
+
+1. `data/classes.json` — 5 классов: Barbarian, Paladin, War Priest, Thief, Mage (базовые статы, HP, MP, STR, DEX, CON, INT, ATK, AC, allowedArmor/Weapons, startingAbilities, regen)
+2. `data/monsters.json` — 7 типов монстров: skeleton, slime, goblin, skeleton_warrior, giant_rat, fire_elemental, skeleton_mage (каждый с level, HP, AC, ATK, дамаг, XP, AI, резисты, дроп)
+3. `data/items_base.json` — базовые предметы: зелья, ключи, золото, ингредиенты, материалы, еда, броня, оружие, аксессуары, свитки
+4. `data/weapon_types.json` — 8 типов оружия: dagger, sword, axe, mace, spear, staff, bow, crossbow (damage, range, hands, stat requirements, tags)
+5. `data/armor_types.json` — 8 типов брони/защиты: cloth, leather, chain, plate, shield, helmet, boots, gloves (AC, slot, strReq, tags)
+6. `data/materials.json` — 10 материалов: cloth, leather, wood, bone, iron, steel, silver, mithril, adamant, dragonbone (tier, damageMult, acBonus, weight, valueMult, tags)
+7. `data/prefixes.json` — 13 префиксов: crude, rusty, old, plain, fine, sturdy, sharp, vicious, blessed, flaming, freezing, shocking, venomous, holy (модификаторы damage/AC/ATK, elementDamage, valueMult)
+8. `data/postfixes.json` — 10 постфиксов: none, of_power, of_protection, of_accuracy, of_fire, of_ice, of_vitality, of_vampire, of_strength, of_dexterity (тэги, модификаторы, elementDamage)
+9. `data/spells.json` — 7 заклинаний: magic_missile, fireball, frost_bolt, lightning_bolt, heal, smite_undead, holy_smite (тип, элемент, дамаг/хил, радиус, MP, требования, статус-эффекты)
+10. `data/abilities.json` — 10 способностей: power_strike, holy_smite, heal, smite_undead, backstab, shadow_step, magic_missile, fireball, shield_bash, fire_aura (тип, MP, кулдаун, дамаг/хил, дальность, требования)
+
+### Загрузчик данных (шаги 11–20)
+
+11. `src/core/json_data_manager.h/.cpp` — синглтон `JsonDataManager`, загружает 10 JSON-файлов из `data/` при старте игры (`LoadAll("data")`), предоставляет `GetMonsterData(id)`, `GetItemBaseData(id)`, `GetClassData(id)`, `GetSpellData(id)`, `GetAbilityData(id)`, `GetMaterial(id)`, `GetPrefix(id)`, `GetPostfix(id)`, `GetWeaponType(id)`, `GetArmorType(id)`, а также bulk-геттеры `AllMonsters()`, `AllClasses()` и т.д.
+12. `src/game/data/monster_factory.h/.cpp` — `MonsterFactory::Create(typeId, level)` — создаёт `Monster` из JSON-шаблона с level-scaling (HP + level*2, atkBonus + level/2, xpReward + level*5)
+13. `src/game/data/item_factory.h/.cpp` — `ItemFactory::CreateBase(itemId)`, `CreatePotion(subtype, value)`, `CreateGold(amount)`, `CreateScroll(spellId)` — создаёт `Item` из данных
+14. `src/game/data/spell_manager.h/.cpp` — `SpellManager::GetSpell(id)`, `GetSpellsByClass(classId)` — доступ к spells.json
+15. `src/game/data/ability_manager.h/.cpp` — `AbilityManager::GetAbility(id)`, `GetAbilitiesByClass(classId)` — доступ к abilities.json
+16. `src/game/data/class_manager.h/.cpp` — `ClassManager::GetClass(id)`, `ApplyStartingStats(...)` — применяет классовые статы
+17. `src/game/data/material_generator.h/.cpp` — `MaterialGenerator::AssembleName(prefix, material, base, postfix)` — склейка имени предмета
+18. `src/game/data/item_stat_calculator.h/.cpp` — `ItemStatCalculator::Calculate(base, material, prefix, postfix)` — вычисление `ItemStats` из компонентов
+19. Все JSON загружаются в `main.cpp` до создания GameApp, ошибки валидации пишутся в лог
+20. Изменение JSON → эффект в игре без перекомпиляции (проверено: `data/monsters.json` → новые мобы)
+
+### Интеграция (шаги 21–25)
+
+21. `MonsterType` enum удалён, `Monster::type` заменён на `std::string typeId` — тип загружается из JSON
+22. `MonsterRenderer::Submit` принимает `std::unordered_map<std::string, Material*>` для рендера по typeId
+23. Текстуры монстров загружаются динамически из JSON (`data/monsters.json` → texture → Type)
+24. `PlayState::OnEnter` и `RestartGame` используют `MonsterFactory::Create` и `ItemFactory::Create*` вместо ручного конструирования
+25. Все новые файлы добавлены в `Game.vcxproj` (8 .cpp + 8 .h в соответствующие секции)
+
+### Ключевые изменения
+
+- **Monster.h**: удалён `MonsterType` enum, добавлен `std::string typeId`, добавлен `int32_t xpReward`
+- **monster_renderer.cpp**: материал выбирается по `monster.typeId` из переданной map
+- **serialization.h**: `MonsterType` сериализация заменена на `typeId` (string)
+- **play_state.cpp**: монстры и предметы создаются через фабрики; текстуры монстров загружаются из JSON
+- **main.cpp**: `JsonDataManager::LoadAll("data")` вызывается до создания GameApp

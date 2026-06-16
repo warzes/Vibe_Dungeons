@@ -1,0 +1,12 @@
+{
+	"weaponTypes": [
+		{"id": "dagger", "name": "Dagger", "damageMin": 1, "damageMax": 4, "range": 1, "hands": 1, "strReq": 0, "dexReq": 0, "baseValue": 5, "tags": ["light", "piercing"]},
+		{"id": "sword", "name": "Sword", "damageMin": 1, "damageMax": 8, "range": 1, "hands": 1, "strReq": 2, "dexReq": 0, "baseValue": 15, "tags": ["slashing"]},
+		{"id": "axe", "name": "Axe", "damageMin": 2, "damageMax": 8, "range": 1, "hands": 1, "strReq": 4, "dexReq": 0, "baseValue": 20, "tags": ["slashing", "heavy"]},
+		{"id": "mace", "name": "Mace", "damageMin": 2, "damageMax": 6, "range": 1, "hands": 1, "strReq": 2, "dexReq": 0, "baseValue": 12, "tags": ["blunt", "piercing"]},
+		{"id": "spear", "name": "Spear", "damageMin": 1, "damageMax": 6, "range": 2, "hands": 2, "strReq": 1, "dexReq": 1, "baseValue": 10, "tags": ["piercing", "reach"]},
+		{"id": "staff", "name": "Staff", "damageMin": 1, "damageMax": 4, "range": 1, "hands": 2, "strReq": 0, "dexReq": 0, "baseValue": 5, "tags": ["blunt", "magic_focus"]},
+		{"id": "bow", "name": "Bow", "damageMin": 1, "damageMax": 6, "range": 3, "hands": 2, "strReq": 1, "dexReq": 3, "baseValue": 20, "tags": ["piercing", "ranged"]},
+		{"id": "crossbow", "name": "Crossbow", "damageMin": 2, "damageMax": 8, "range": 4, "hands": 2, "strReq": 2, "dexReq": 1, "baseValue": 30, "tags": ["piercing", "ranged", "slow"]}
+	]
+}

@@ -1,0 +1,14 @@
+{
+	"materials": [
+		{"id": "cloth", "name": "Cloth", "tier": 1, "damageMult": 0.5, "acBonus": 0, "weight": 0.5, "valueMult": 0.5, "tags": ["light", "cheap"]},
+		{"id": "leather", "name": "Leather", "tier": 1, "damageMult": 0.7, "acBonus": 1, "weight": 0.7, "valueMult": 0.7, "tags": ["light", "flexible"]},
+		{"id": "wood", "name": "Wood", "tier": 1, "damageMult": 0.8, "acBonus": 0, "weight": 0.8, "valueMult": 0.6, "tags": ["cheap", "brittle"]},
+		{"id": "bone", "name": "Bone", "tier": 1, "damageMult": 0.9, "acBonus": 1, "weight": 0.9, "valueMult": 0.8, "tags": ["light", "cheap"]},
+		{"id": "iron", "name": "Iron", "tier": 2, "damageMult": 1.0, "acBonus": 2, "weight": 1.0, "valueMult": 1.0, "tags": ["common"]},
+		{"id": "steel", "name": "Steel", "tier": 3, "damageMult": 1.2, "acBonus": 3, "weight": 1.1, "valueMult": 1.5, "tags": ["strong"]},
+		{"id": "silver", "name": "Silver", "tier": 3, "damageMult": 1.0, "acBonus": 2, "weight": 1.0, "valueMult": 2.0, "tags": ["holy", "rare"]},
+		{"id": "mithril", "name": "Mithril", "tier": 4, "damageMult": 1.3, "acBonus": 4, "weight": 0.5, "valueMult": 3.0, "tags": ["light", "strong", "rare"]},
+		{"id": "adamant", "name": "Adamant", "tier": 5, "damageMult": 1.5, "acBonus": 5, "weight": 1.5, "valueMult": 4.0, "tags": ["heavy", "strong", "rare"]},
+		{"id": "dragonbone", "name": "Dragonbone", "tier": 5, "damageMult": 1.6, "acBonus": 4, "weight": 0.8, "valueMult": 5.0, "tags": ["light", "strong", "legendary"]}
+	]
+}

@@ -10,6 +10,9 @@
 #include "engine/renderer/renderer.h"
 #include "game/states/settings_state.h"
 #include "game/serialization.h"
+#include "core/json_data_manager.h"
+#include "game/data/monster_factory.h"
+#include "game/data/item_factory.h"
 
 //=============================================================================
 
@@ -100,52 +103,52 @@ void PlayState::OnEnter() noexcept
 		m_character.facing = Direction::North;
 		Logger::Info("PlayState: character created");
 
-		// ---- Monster textures ----
-		m_texMonsterSkeleton = m_resources.LoadTexture("tex_monster_skeleton", "data/skeleton.png", false);
-		m_texMonsterSlime = m_resources.LoadTexture("tex_monster_slime", "data/slime.png", false);
-
-		if (!m_texMonsterSkeleton || !m_texMonsterSlime)
+		// ---- Monster textures (loaded from JSON data) ----
 		{
-			throw std::runtime_error("Failed to load monster textures");
-		}
+			const json& monstersJson = JsonDataManager::Instance().AllMonsters();
+			for (const auto& entry : monstersJson)
+			{
+				std::string typeId = entry.value("id", std::string());
+				if (typeId.empty()) { continue; }
 
-		m_matMonsterSkeleton = m_resources.GetOrCreateMaterial("mat_monster_skeleton", *m_dungeonShader, *m_texMonsterSkeleton);
-		m_matMonsterSlime = m_resources.GetOrCreateMaterial("mat_monster_slime", *m_dungeonShader, *m_texMonsterSlime);
+				std::string texPath = entry.value("texture", std::string());
+				if (texPath.empty()) { continue; }
 
-		if (!m_matMonsterSkeleton || !m_matMonsterSlime)
-		{
-			throw std::runtime_error("Failed to create monster materials");
+				std::string texKey = "tex_monster_" + typeId;
+				std::string matKey = "mat_monster_" + typeId;
+
+				Texture* tex = m_resources.LoadTexture(texKey.c_str(), texPath.c_str(), false);
+				if (!tex)
+				{
+					Logger::Warn(std::string("Failed to load texture for monster: ") + typeId + " at " + texPath);
+					continue;
+				}
+
+				Material* mat = m_resources.GetOrCreateMaterial(matKey.c_str(), *m_dungeonShader, *tex);
+				if (!mat)
+				{
+					Logger::Warn(std::string("Failed to create material for monster: ") + typeId);
+					continue;
+				}
+
+				m_monsterTextures[typeId] = tex;
+				m_monsterMaterials[typeId] = mat;
+			}
 		}
 		Logger::Info("PlayState: monster textures loaded");
 
 		// ---- Monster renderer ----
 		m_monsterRenderer.Init();
 
-		// ---- Spawn test monsters ----
+		// ---- Spawn monsters from data ----
 		{
-			Monster skelly;
-			skelly.name = "Skeleton";
-			skelly.type = MonsterType::Skeleton;
-			skelly.hp = 8;
-			skelly.maxHp = 8;
-			skelly.ac = 12;
-			skelly.atkBonus = 1;
-			skelly.damageMin = 1;
-			skelly.damageMax = 4;
+			Monster skelly = MonsterFactory::Create("skeleton", 1);
 			skelly.position = {16, 17, 0};
 			skelly.facing = Direction::South;
 			m_monsterManager.Spawn(std::move(skelly));
 		}
 		{
-			Monster slime;
-			slime.name = "Slime";
-			slime.type = MonsterType::Slime;
-			slime.hp = 4;
-			slime.maxHp = 4;
-			slime.ac = 8;
-			slime.atkBonus = 0;
-			slime.damageMin = 1;
-			slime.damageMax = 3;
+			Monster slime = MonsterFactory::Create("slime", 1);
 			slime.position = {13, 17, 0};
 			slime.facing = Direction::South;
 			m_monsterManager.Spawn(std::move(slime));
@@ -216,22 +219,18 @@ void PlayState::OnEnter() noexcept
 
 		m_showInventory = false;
 
-		// ---- Spawn test item drops ----
+		// ---- Spawn item drops from data ----
 		{
-			ItemDrop healPotion;
-			healPotion.item.name = "Healing Potion";
-			healPotion.item.type = ItemType::PotionHeal;
-			healPotion.item.value = 10;
-			healPotion.position = {16, 17, 0};
-			m_itemDrops.push_back(std::move(healPotion));
+			ItemDrop drop;
+			drop.item = ItemFactory::CreatePotion("heal", 10);
+			drop.position = {16, 17, 0};
+			m_itemDrops.push_back(std::move(drop));
 		}
 		{
-			ItemDrop gold;
-			gold.item.name = "Gold Coins";
-			gold.item.type = ItemType::Gold;
-			gold.item.value = 25;
-			gold.position = {14, 17, 0};
-			m_itemDrops.push_back(std::move(gold));
+			ItemDrop drop;
+			drop.item = ItemFactory::CreateGold(25);
+			drop.position = {14, 17, 0};
+			m_itemDrops.push_back(std::move(drop));
 		}
 		Logger::Info("PlayState: item drops spawned");
 
@@ -1150,29 +1149,13 @@ void PlayState::RestartGame() noexcept
 	// Respawn monsters
 	m_monsterManager.Clear();
 	{
-		Monster skelly;
-		skelly.name = "Skeleton";
-		skelly.type = MonsterType::Skeleton;
-		skelly.hp = 8;
-		skelly.maxHp = 8;
-		skelly.ac = 12;
-		skelly.atkBonus = 1;
-		skelly.damageMin = 1;
-		skelly.damageMax = 4;
+		Monster skelly = MonsterFactory::Create("skeleton", 1);
 		skelly.position = {16, 17, 0};
 		skelly.facing = Direction::South;
 		m_monsterManager.Spawn(std::move(skelly));
 	}
 	{
-		Monster slime;
-		slime.name = "Slime";
-		slime.type = MonsterType::Slime;
-		slime.hp = 4;
-		slime.maxHp = 4;
-		slime.ac = 8;
-		slime.atkBonus = 0;
-		slime.damageMin = 1;
-		slime.damageMax = 3;
+		Monster slime = MonsterFactory::Create("slime", 1);
 		slime.position = {13, 17, 0};
 		slime.facing = Direction::South;
 		m_monsterManager.Spawn(std::move(slime));
@@ -1181,20 +1164,16 @@ void PlayState::RestartGame() noexcept
 	// Respawn items
 	m_itemDrops.clear();
 	{
-		ItemDrop healPotion;
-		healPotion.item.name = "Healing Potion";
-		healPotion.item.type = ItemType::PotionHeal;
-		healPotion.item.value = 10;
-		healPotion.position = {16, 17, 0};
-		m_itemDrops.push_back(std::move(healPotion));
+		ItemDrop drop;
+		drop.item = ItemFactory::CreatePotion("heal", 10);
+		drop.position = {16, 17, 0};
+		m_itemDrops.push_back(std::move(drop));
 	}
 	{
-		ItemDrop gold;
-		gold.item.name = "Gold Coins";
-		gold.item.type = ItemType::Gold;
-		gold.item.value = 25;
-		gold.position = {14, 17, 0};
-		m_itemDrops.push_back(std::move(gold));
+		ItemDrop drop;
+		drop.item = ItemFactory::CreateGold(25);
+		drop.position = {14, 17, 0};
+		m_itemDrops.push_back(std::move(drop));
 	}
 
 	m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
@@ -1329,7 +1308,7 @@ void PlayState::RenderScene(Renderer& renderer) noexcept
 
 	m_dungeonRenderer.Submit(renderer);
 
-	m_monsterRenderer.Submit(renderer, m_camera, m_monsterManager.All(), *m_matMonsterSkeleton, *m_matMonsterSlime);
+	m_monsterRenderer.Submit(renderer, m_camera, m_monsterManager.All(), m_monsterMaterials);
 
 	m_itemRenderer.Submit(renderer, m_camera, m_itemDrops);
 

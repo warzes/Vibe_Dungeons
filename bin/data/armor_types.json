@@ -1,0 +1,12 @@
+{
+	"armorTypes": [
+		{"id": "cloth", "name": "Cloth", "ac": 1, "slot": "body", "strReq": 0, "baseValue": 3, "tags": ["light", "quiet"]},
+		{"id": "leather", "name": "Leather", "ac": 3, "slot": "body", "strReq": 1, "baseValue": 10, "tags": ["light", "quiet"]},
+		{"id": "chain", "name": "Chain", "ac": 5, "slot": "body", "strReq": 3, "baseValue": 25, "tags": ["medium", "noisy"]},
+		{"id": "plate", "name": "Plate", "ac": 7, "slot": "body", "strReq": 5, "baseValue": 50, "tags": ["heavy", "noisy"]},
+		{"id": "shield", "name": "Shield", "ac": 2, "slot": "shield", "strReq": 2, "baseValue": 15, "tags": ["block"]},
+		{"id": "helmet", "name": "Helmet", "ac": 1, "slot": "head", "strReq": 1, "baseValue": 8, "tags": []},
+		{"id": "boots", "name": "Boots", "ac": 1, "slot": "feet", "strReq": 0, "baseValue": 5, "tags": []},
+		{"id": "gloves", "name": "Gloves", "ac": 0, "slot": "hands", "strReq": 0, "baseValue": 3, "tags": []}
+	]
+}

@@ -42,8 +42,7 @@ void MonsterRenderer::Submit(
 	Renderer& renderer,
 	const Camera& camera,
 	const std::vector<Monster>& monsters,
-	const Material& skeletonMat,
-	const Material& slimeMat
+	const std::unordered_map<std::string, Material*>& materialsByType
 )
 {
 	if (!m_initialized)
@@ -77,9 +76,10 @@ void MonsterRenderer::Submit(
 		model = glm::translate(model, worldPos);
 		model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
 
-		const Material& mat = (monster.type == MonsterType::Skeleton)
-			? skeletonMat : slimeMat;
-
-		renderer.Submit(m_billboardMesh, mat, model);
+		auto it = materialsByType.find(monster.typeId);
+		if (it != materialsByType.end() && it->second != nullptr)
+		{
+			renderer.Submit(m_billboardMesh, *it->second, model);
+		}
 	}
 }

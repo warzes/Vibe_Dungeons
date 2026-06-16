@@ -116,10 +116,8 @@ private:
 	float m_moveRepeatTimer = 0.0f;
 
 	// Combat
-	Texture* m_texMonsterSkeleton = nullptr;
-	Texture* m_texMonsterSlime = nullptr;
-	Material* m_matMonsterSkeleton = nullptr;
-	Material* m_matMonsterSlime = nullptr;
+	std::unordered_map<std::string, Texture*> m_monsterTextures;
+	std::unordered_map<std::string, Material*> m_monsterMaterials;
 
 	Character m_character;
 	MonsterManager m_monsterManager;

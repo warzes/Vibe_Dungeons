@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_map>
 #include "engine/renderer/mesh.h"
 #include "engine/renderer/material.h"
 #include "game/combat/monster.h"
@@ -18,8 +19,7 @@ public:
 		Renderer& renderer,
 		const Camera& camera,
 		const std::vector<Monster>& monsters,
-		const Material& skeletonMat,
-		const Material& slimeMat
+		const std::unordered_map<std::string, Material*>& materialsByType
 	);
 
 private:

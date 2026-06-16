@@ -106,23 +106,12 @@ inline void from_json(const json& j, MonsterAI& ai)
 	ai = static_cast<MonsterAI>(j.get<uint8_t>());
 }
 
-// ---- MonsterType ----
-inline void to_json(json& j, MonsterType t)
-{
-	j = static_cast<uint8_t>(t);
-}
-
-inline void from_json(const json& j, MonsterType& t)
-{
-	t = static_cast<MonsterType>(j.get<uint8_t>());
-}
-
 // ---- Monster ----
 inline void to_json(json& j, const Monster& m)
 {
 	j = json{
 		{"name", m.name},
-		{"type", m.type},
+		{"typeId", m.typeId},
 		{"level", m.level},
 		{"hp", m.hp},
 		{"maxHp", m.maxHp},
@@ -133,14 +122,15 @@ inline void to_json(json& j, const Monster& m)
 		{"position", m.position},
 		{"facing", m.facing},
 		{"ai", m.ai},
-		{"alive", m.alive}
+		{"alive", m.alive},
+		{"xpReward", m.xpReward}
 	};
 }
 
 inline void from_json(const json& j, Monster& m)
 {
 	j.at("name").get_to(m.name);
-	j.at("type").get_to(m.type);
+	j.at("typeId").get_to(m.typeId);
 	j.at("level").get_to(m.level);
 	j.at("hp").get_to(m.hp);
 	j.at("maxHp").get_to(m.maxHp);
@@ -152,6 +142,7 @@ inline void from_json(const json& j, Monster& m)
 	j.at("facing").get_to(m.facing);
 	j.at("ai").get_to(m.ai);
 	j.at("alive").get_to(m.alive);
+	j.at("xpReward").get_to(m.xpReward);
 }
 
 // ---- Cell ----

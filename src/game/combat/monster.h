@@ -12,16 +12,10 @@ enum class MonsterAI : uint8_t
 	Aggressive
 };
 
-enum class MonsterType : uint8_t
-{
-	Skeleton,
-	Slime
-};
-
 struct Monster final
 {
 	std::string name = "Rat";
-	MonsterType type = MonsterType::Skeleton;
+	std::string typeId = "slime";
 	int32_t level = 1;
 	int32_t hp = 5;
 	int32_t maxHp = 5;
@@ -33,4 +27,5 @@ struct Monster final
 	Direction facing = Direction::North;
 	MonsterAI ai = MonsterAI::Stationary;
 	bool alive = true;
+	int32_t xpReward = 10;
 };

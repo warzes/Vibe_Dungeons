@@ -1,0 +1,156 @@
+{
+	"monsters": [
+		{
+			"id": "skeleton",
+			"name": "Skeleton",
+			"type": "undead",
+			"level": 1,
+			"hp": 8,
+			"maxHp": 8,
+			"ac": 12,
+			"atkBonus": 1,
+			"damageMin": 1,
+			"damageMax": 4,
+			"xpReward": 30,
+			"ai": "Stationary",
+			"texture": "data/skeleton.png",
+			"resistances": [],
+			"weaknesses": ["holy"],
+			"abilities": [],
+			"drops": [
+				{"itemId": "bones", "chance": 0.5, "minCount": 1, "maxCount": 2},
+				{"itemId": "gold_coins", "chance": 0.3, "minCount": 1, "maxCount": 5}
+			]
+		},
+		{
+			"id": "slime",
+			"name": "Slime",
+			"type": "ooze",
+			"level": 1,
+			"hp": 4,
+			"maxHp": 4,
+			"ac": 8,
+			"atkBonus": 0,
+			"damageMin": 1,
+			"damageMax": 3,
+			"xpReward": 15,
+			"ai": "Stationary",
+			"texture": "data/slime.png",
+			"resistances": ["poison"],
+			"weaknesses": ["fire"],
+			"abilities": [],
+			"drops": [
+				{"itemId": "slime_glob", "chance": 0.7, "minCount": 1, "maxCount": 1},
+				{"itemId": "gold_coins", "chance": 0.1, "minCount": 1, "maxCount": 3}
+			]
+		},
+		{
+			"id": "goblin",
+			"name": "Goblin",
+			"type": "humanoid",
+			"level": 1,
+			"hp": 6,
+			"maxHp": 6,
+			"ac": 11,
+			"atkBonus": 1,
+			"damageMin": 1,
+			"damageMax": 4,
+			"xpReward": 25,
+			"ai": "Patrol",
+			"texture": "data/goblin.png",
+			"resistances": [],
+			"weaknesses": [],
+			"abilities": [],
+			"drops": [
+				{"itemId": "gold_coins", "chance": 0.5, "minCount": 1, "maxCount": 6},
+				{"itemId": "rusty_dagger", "chance": 0.2, "minCount": 1, "maxCount": 1}
+			]
+		},
+		{
+			"id": "skeleton_warrior",
+			"name": "Skeleton Warrior",
+			"type": "undead",
+			"level": 2,
+			"hp": 14,
+			"maxHp": 14,
+			"ac": 14,
+			"atkBonus": 2,
+			"damageMin": 2,
+			"damageMax": 6,
+			"xpReward": 60,
+			"ai": "Patrol",
+			"texture": "data/skeleton_warrior.png",
+			"resistances": ["ice"],
+			"weaknesses": ["holy", "fire"],
+			"abilities": ["shield_bash"],
+			"drops": [
+				{"itemId": "bones", "chance": 0.6, "minCount": 1, "maxCount": 3},
+				{"itemId": "iron_ingot", "chance": 0.2, "minCount": 1, "maxCount": 1}
+			]
+		},
+		{
+			"id": "giant_rat",
+			"name": "Giant Rat",
+			"type": "beast",
+			"level": 1,
+			"hp": 5,
+			"maxHp": 5,
+			"ac": 10,
+			"atkBonus": 0,
+			"damageMin": 1,
+			"damageMax": 3,
+			"xpReward": 12,
+			"ai": "Stationary",
+			"texture": "data/giant_rat.png",
+			"resistances": [],
+			"weaknesses": [],
+			"abilities": [],
+			"drops": [
+				{"itemId": "rat_meat", "chance": 0.4, "minCount": 1, "maxCount": 1}
+			]
+		},
+		{
+			"id": "fire_elemental",
+			"name": "Fire Elemental",
+			"type": "elemental",
+			"level": 3,
+			"hp": 20,
+			"maxHp": 20,
+			"ac": 12,
+			"atkBonus": 3,
+			"damageMin": 3,
+			"damageMax": 6,
+			"xpReward": 100,
+			"ai": "Aggressive",
+			"texture": "data/fire_elemental.png",
+			"resistances": ["fire"],
+			"weaknesses": ["ice"],
+			"abilities": ["fire_aura"],
+			"drops": [
+				{"itemId": "fire_essence", "chance": 0.8, "minCount": 1, "maxCount": 2}
+			]
+		},
+		{
+			"id": "skeleton_mage",
+			"name": "Skeleton Mage",
+			"type": "undead",
+			"level": 3,
+			"hp": 12,
+			"maxHp": 12,
+			"ac": 10,
+			"atkBonus": 0,
+			"damageMin": 0,
+			"damageMax": 0,
+			"xpReward": 80,
+			"ai": "Stationary",
+			"texture": "data/skeleton_mage.png",
+			"resistances": ["ice", "poison"],
+			"weaknesses": ["holy"],
+			"abilities": ["magic_missile", "frost_bolt"],
+			"drops": [
+				{"itemId": "bones", "chance": 0.5, "minCount": 1, "maxCount": 2},
+				{"itemId": "scroll_frost_bolt", "chance": 0.3, "minCount": 1, "maxCount": 1}
+			]
+		}
+	]
+}

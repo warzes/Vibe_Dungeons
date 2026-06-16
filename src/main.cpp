@@ -1,6 +1,7 @@
 ﻿#include "stdafx.h"
 #include "game/game_app.h"
 #include "core/scoped_sdl.h"
+#include "core/json_data_manager.h"
 //=============================================================================
 #if !defined(__EMSCRIPTEN__)
 #	define RUN_TESTS
@@ -43,6 +44,15 @@ int main(int argc, char* argv[])
 	}
 	std::printf("[TEST] All tests passed — continuing to game.\n");
 #endif
+
+	// Load JSON data files
+	if (!JsonDataManager::Instance().LoadAll("data"))
+	{
+		std::printf("[ERROR] Failed to load one or more JSON data files.\n");
+		std::getchar();
+		return 1;
+	}
+	std::printf("[DATA] All JSON data files loaded successfully.\n");
 
 	try
 	{

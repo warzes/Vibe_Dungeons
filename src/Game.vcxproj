@@ -170,8 +170,16 @@
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">TurnOffAllWarnings</WarningLevel>
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">TurnOffAllWarnings</WarningLevel>
     </ClCompile>
+    <ClCompile Include="core\json_data_manager.cpp" />
     <ClCompile Include="core\logger.cpp" />
     <ClCompile Include="core\profiler.cpp" />
+    <ClCompile Include="game\data\monster_factory.cpp" />
+    <ClCompile Include="game\data\item_factory.cpp" />
+    <ClCompile Include="game\data\spell_manager.cpp" />
+    <ClCompile Include="game\data\ability_manager.cpp" />
+    <ClCompile Include="game\data\class_manager.cpp" />
+    <ClCompile Include="game\data\material_generator.cpp" />
+    <ClCompile Include="game\data\item_stat_calculator.cpp" />
     <ClCompile Include="engine\audio_system.cpp" />
     <ClCompile Include="engine\delta_time.cpp" />
     <ClCompile Include="engine\game_state.cpp" />
@@ -227,10 +235,18 @@
     <ClInclude Include="core\collision.h" />
     <ClInclude Include="core\event_bus.h" />
     <ClInclude Include="core\exception.h" />
+    <ClInclude Include="core\json_data_manager.h" />
     <ClInclude Include="core\logger.h" />
     <ClInclude Include="core\profiler.h" />
     <ClInclude Include="core\scoped_sdl.h" />
     <ClInclude Include="core\transform.h" />
+    <ClInclude Include="game\data\monster_factory.h" />
+    <ClInclude Include="game\data\item_factory.h" />
+    <ClInclude Include="game\data\spell_manager.h" />
+    <ClInclude Include="game\data\ability_manager.h" />
+    <ClInclude Include="game\data\class_manager.h" />
+    <ClInclude Include="game\data\material_generator.h" />
+    <ClInclude Include="game\data\item_stat_calculator.h" />
     <ClInclude Include="engine\audio_system.h" />
     <ClInclude Include="engine\delta_time.h" />
     <ClInclude Include="engine\game_state.h" />
