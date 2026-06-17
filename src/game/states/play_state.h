@@ -48,7 +48,8 @@ public:
 		GameStateMachine& machine,
 		const Window& window,
 		InputManager& input,
-		ResourceManager& resources
+		ResourceManager& resources,
+		Character* pendingCharacter
 	) noexcept;
 	~PlayState() noexcept override;
 
@@ -86,6 +87,7 @@ private:
 	const Window& m_window;
 	InputManager& m_input;
 	ResourceManager& m_resources;
+	Character* m_pendingCharacter = nullptr;
 
 	Shader* m_dungeonShader = nullptr;
 	Texture* m_texFloor = nullptr;

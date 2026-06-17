@@ -5,33 +5,117 @@
 #include "game/combat/inventory.h"
 #include "game/data/skill_manager.h"
 
-struct Character final
+class Character final
 {
+public:
 	static constexpr int32_t NUM_ACTION_SLOTS = 9;
 
-	std::string name = "Hero";
-	std::string charClass = "barbarian";
-	int32_t level = 1;
-	int32_t hp = 24;
-	int32_t maxHp = 24;
-	int32_t mp = 0;
-	int32_t maxMp = 0;
-	int32_t ac = 12;
-	int32_t str = 16;
-	int32_t dex = 10;
-	int32_t con = 14;
-	int32_t intel = 8;
-	int32_t atkBonus = 3;
-	int32_t damageBonus = 2;
-	int32_t damageMin = 1;
-	int32_t damageMax = 6;
-	int32_t xp = 0;
-	int32_t xpForNext = 100;
-	GridPosition position;
-	Direction facing = Direction::North;
-	Inventory inventory;
+	// ---- Stats accessors ----
+	[[nodiscard]] const std::string& GetName() const noexcept { return m_name; }
+	void SetName(std::string_view v) { m_name = v; }
 
-	std::vector<std::string> unlockedSkills;
-	std::array<ActionSlot, NUM_ACTION_SLOTS> actionSlots{};
-	std::vector<std::string> learnedSpells;
+	[[nodiscard]] const std::string& GetClass() const noexcept { return m_charClass; }
+	void SetClass(std::string_view v) { m_charClass = v; }
+
+	[[nodiscard]] int32_t GetLevel() const noexcept { return m_level; }
+	void SetLevel(int32_t v) noexcept { m_level = v; }
+
+	[[nodiscard]] int32_t GetHp() const noexcept { return m_hp; }
+	[[nodiscard]] int32_t GetMaxHp() const noexcept { return m_maxHp; }
+	void TakeDamage(int32_t amount) noexcept;
+	void Heal(int32_t amount) noexcept;
+	void SetHp(int32_t v) noexcept { m_hp = v; }
+	void SetMaxHp(int32_t v) noexcept { m_maxHp = v; }
+
+	[[nodiscard]] int32_t GetMp() const noexcept { return m_mp; }
+	[[nodiscard]] int32_t GetMaxMp() const noexcept { return m_maxMp; }
+	void SpendMp(int32_t amount) noexcept;
+	void RestoreMp(int32_t amount) noexcept;
+	void SetMp(int32_t v) noexcept { m_mp = v; }
+	void SetMaxMp(int32_t v) noexcept { m_maxMp = v; }
+
+	[[nodiscard]] int32_t GetAc() const noexcept { return m_ac; }
+	void SetAc(int32_t v) noexcept { m_ac = v; }
+
+	[[nodiscard]] int32_t GetStr() const noexcept { return m_str; }
+	void SetStr(int32_t v) noexcept { m_str = v; }
+
+	[[nodiscard]] int32_t GetDex() const noexcept { return m_dex; }
+	void SetDex(int32_t v) noexcept { m_dex = v; }
+
+	[[nodiscard]] int32_t GetCon() const noexcept { return m_con; }
+	void SetCon(int32_t v) noexcept { m_con = v; }
+
+	[[nodiscard]] int32_t GetIntel() const noexcept { return m_intel; }
+	void SetIntel(int32_t v) noexcept { m_intel = v; }
+
+	[[nodiscard]] int32_t GetAtkBonus() const noexcept { return m_atkBonus; }
+	void SetAtkBonus(int32_t v) noexcept { m_atkBonus = v; }
+
+	[[nodiscard]] int32_t GetDamageBonus() const noexcept { return m_damageBonus; }
+	void SetDamageBonus(int32_t v) noexcept { m_damageBonus = v; }
+
+	[[nodiscard]] int32_t GetDamageMin() const noexcept { return m_damageMin; }
+	void SetDamageMin(int32_t v) noexcept { m_damageMin = v; }
+
+	[[nodiscard]] int32_t GetDamageMax() const noexcept { return m_damageMax; }
+	void SetDamageMax(int32_t v) noexcept { m_damageMax = v; }
+
+	[[nodiscard]] int32_t GetXp() const noexcept { return m_xp; }
+	void AddXp(int32_t amount) noexcept { m_xp += amount; }
+	void SetXp(int32_t v) noexcept { m_xp = v; }
+
+	[[nodiscard]] int32_t GetXpForNext() const noexcept { return m_xpForNext; }
+	void SetXpForNext(int32_t v) noexcept { m_xpForNext = v; }
+
+	// ---- Position ----
+	[[nodiscard]] const GridPosition& GetPosition() const noexcept { return m_position; }
+	[[nodiscard]] GridPosition& GetPosition() noexcept { return m_position; }
+
+	[[nodiscard]] Direction GetFacing() const noexcept { return m_facing; }
+	void SetFacing(Direction v) noexcept { m_facing = v; }
+
+	// ---- Inventory ----
+	[[nodiscard]] Inventory& GetInventory() noexcept { return m_inventory; }
+	[[nodiscard]] const Inventory& GetInventory() const noexcept { return m_inventory; }
+
+	// ---- Skills ----
+	[[nodiscard]] std::vector<std::string>& GetUnlockedSkills() noexcept { return m_unlockedSkills; }
+	[[nodiscard]] const std::vector<std::string>& GetUnlockedSkills() const noexcept { return m_unlockedSkills; }
+
+	[[nodiscard]] std::array<ActionSlot, NUM_ACTION_SLOTS>& GetActionSlots() noexcept { return m_actionSlots; }
+	[[nodiscard]] const std::array<ActionSlot, NUM_ACTION_SLOTS>& GetActionSlots() const noexcept { return m_actionSlots; }
+
+	[[nodiscard]] std::vector<std::string>& GetLearnedSpells() noexcept { return m_learnedSpells; }
+	[[nodiscard]] const std::vector<std::string>& GetLearnedSpells() const noexcept { return m_learnedSpells; }
+
+	// ---- Serialization ----
+	friend void to_json(json& j, const Character& c);
+	friend void from_json(const json& j, Character& c);
+
+private:
+	std::string m_name = "Hero";
+	std::string m_charClass = "barbarian";
+	int32_t m_level = 1;
+	int32_t m_hp = 24;
+	int32_t m_maxHp = 24;
+	int32_t m_mp = 0;
+	int32_t m_maxMp = 0;
+	int32_t m_ac = 12;
+	int32_t m_str = 16;
+	int32_t m_dex = 10;
+	int32_t m_con = 14;
+	int32_t m_intel = 8;
+	int32_t m_atkBonus = 3;
+	int32_t m_damageBonus = 2;
+	int32_t m_damageMin = 1;
+	int32_t m_damageMax = 6;
+	int32_t m_xp = 0;
+	int32_t m_xpForNext = 100;
+	GridPosition m_position;
+	Direction m_facing = Direction::North;
+	Inventory m_inventory;
+	std::vector<std::string> m_unlockedSkills;
+	std::array<ActionSlot, NUM_ACTION_SLOTS> m_actionSlots{};
+	std::vector<std::string> m_learnedSpells;
 };

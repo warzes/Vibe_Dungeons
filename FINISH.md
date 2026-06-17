@@ -428,3 +428,49 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - **main_menu_state.cpp** — кнопка "Start Game" ведёт в ClassSelection, не напрямую в Play.
 - **game_app.cpp** — зарегистрирован `ClassSelectionState`.
 - **main.cpp** — загружает `data/level_table.json` через `JsonDataManager::LoadAll("data")`.
+
+---
+
+## Исправления по аудиту (Phase 4: проблемы 2,3,4,6,7,8,9,10) ✅
+
+### Проблема 2: State machine exception safety
+`engine/game_state.cpp` — `applyPush()` и `applyReplace()`:
+- При исключении в `OnEnter()` теперь вызывается `OnResume()` на предыдущем состоянии, восстанавливая корректный жизненный цикл стека состояний.
+
+### Проблема 3: Дублирование `hp = maxHp` в level-up
+`game/states/play_state.cpp:1598-1641` — удалено второе присваивание `m_character.hp = m_character.maxHp` в каждой из трёх веток (STR/DEX/CON).
+
+### Проблема 4: `AudioSystem::Stop()` — деструктивная перезапись стрима
+`engine/audio_system.cpp` — `Stop()` теперь только удаляет клип из `m_playing`, не очищая и не перезаливая весь SDL-аудиострийм. Данные в стриме доигрываются естественным образом, синхронизация не теряется.
+
+### Проблема 6: Character — инкапсуляция
+`game/combat/character.h/.cpp`:
+- `Character` изменён с `struct` на `class` с `private`-полями (префикс `m_`).
+- Добавлены геттеры/сеттеры (`GetHp()`, `SetMaxHp()`, `GetStr()`, и т.д.).
+- Добавлены методы-мутаторы: `TakeDamage()`, `Heal()`, `SpendMp()`, `RestoreMp()`, `AddXp()`.
+- Сериализация — через `friend`-функции `to_json`/`from_json`.
+- Обновлены все потребители: `play_state.cpp`, `class_selection_state.cpp`, `combat_system.cpp`, `experience_system.cpp`, `serialization.h`.
+
+### Проблема 7: `static Character` в ClassSelectionState
+`game/states/class_selection_state.h/.cpp`:
+- Удалён `static Character s_pendingCharacter`.
+- `Character m_pendingCharacter` перенесён в `GameApp`.
+- `ClassSelectionState` получает `Character&` через конструктор и пишет в него при Confirm.
+- `PlayState` получает `Character*` через конструктор и читает при `OnEnter()`, затем обнуляет.
+- `CreateCharacter()` вынесена в свободную функцию `CreateCharacterFromClass()` (доступна из `PlayState::RestartGame()`).
+
+### Проблема 8: Inventory MAX_ITEMS консистентность
+`game/combat/inventory.h/.cpp`:
+- Заменён `std::vector<Item> m_items` на `std::array<Item, MAX_ITEMS> m_items` + `size_t m_size`.
+- Лимит в 32 элемента гарантирован на уровне типа, а не только проверкой в `Add()`.
+- Операции `Remove()`/`Clear()`/`Get()`/`Size()` переписаны на работу с `m_size`.
+
+### Проблема 9: build.bat — мусорные .o в линковке
+`build.bat:142-146`:
+- Линковка теперь собирает .o файлы из списка исходников (`ALL_SRCS`), а не рекурсивным поиском по `_obj\gcc\*`.
+- Старые .o от удалённых/переименованных файлов больше не попадают в линковку.
+
+### Проблема 10: OGG загрузка — null check + конверсия
+`engine/audio_system.cpp`:
+- Добавлена проверка `output == nullptr` после `stb_vorbis_decode_filename`.
+- Конверсия S16→F32 переписана с `std::transform` и предвычисленным `inv32768` вместо цикла с поэлементным делением.

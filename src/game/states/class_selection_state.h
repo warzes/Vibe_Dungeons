@@ -7,13 +7,16 @@
 class Window;
 class InputManager;
 
+[[nodiscard]] Character CreateCharacterFromClass(const std::string& classId);
+
 class ClassSelectionState final : public GameState
 {
 public:
 	ClassSelectionState(
 		GameStateMachine& machine,
 		const Window& window,
-		InputManager& input
+		InputManager& input,
+		Character& characterOut
 	) noexcept;
 
 	void OnEnter() noexcept override;
@@ -27,12 +30,11 @@ public:
 		return "ClassSelection";
 	}
 
-	static Character CreateCharacter(const std::string& classId);
-	static Character s_pendingCharacter;
-
 private:
+
 	GameStateMachine& m_machine;
 	const Window& m_window;
 	InputManager& m_input;
+	Character* m_characterOut = nullptr;
 	std::string m_selectedClass = "barbarian";
 };

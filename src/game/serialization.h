@@ -212,9 +212,9 @@ inline void from_json(const json& j, ActionSlot& s)
 inline void to_json(json& j, const Character& c)
 {
 	json invJson = json::array();
-	for (size_t i = 0; i < c.inventory.Size(); ++i)
+	for (size_t i = 0; i < c.m_inventory.Size(); ++i)
 	{
-		const Item* item = c.inventory.Get(i);
+		const Item* item = c.m_inventory.Get(i);
 		if (item)
 		{
 			invJson.push_back(*item);
@@ -222,84 +222,84 @@ inline void to_json(json& j, const Character& c)
 	}
 
 	json slotsJson = json::array();
-	for (const auto& slot : c.actionSlots)
+	for (const auto& slot : c.m_actionSlots)
 	{
 		slotsJson.push_back(slot);
 	}
 
 	j = json{
-		{"name", c.name},
-		{"charClass", c.charClass},
-		{"level", c.level},
-		{"hp", c.hp},
-		{"maxHp", c.maxHp},
-		{"mp", c.mp},
-		{"maxMp", c.maxMp},
-		{"ac", c.ac},
-		{"str", c.str},
-		{"dex", c.dex},
-		{"con", c.con},
-		{"intel", c.intel},
-		{"atkBonus", c.atkBonus},
-		{"damageBonus", c.damageBonus},
-		{"damageMin", c.damageMin},
-		{"damageMax", c.damageMax},
-		{"xp", c.xp},
-		{"xpForNext", c.xpForNext},
-		{"position", c.position},
-		{"facing", c.facing},
+		{"name", c.m_name},
+		{"charClass", c.m_charClass},
+		{"level", c.m_level},
+		{"hp", c.m_hp},
+		{"maxHp", c.m_maxHp},
+		{"mp", c.m_mp},
+		{"maxMp", c.m_maxMp},
+		{"ac", c.m_ac},
+		{"str", c.m_str},
+		{"dex", c.m_dex},
+		{"con", c.m_con},
+		{"intel", c.m_intel},
+		{"atkBonus", c.m_atkBonus},
+		{"damageBonus", c.m_damageBonus},
+		{"damageMin", c.m_damageMin},
+		{"damageMax", c.m_damageMax},
+		{"xp", c.m_xp},
+		{"xpForNext", c.m_xpForNext},
+		{"position", c.m_position},
+		{"facing", c.m_facing},
 		{"inventory", std::move(invJson)},
-		{"unlockedSkills", c.unlockedSkills},
+		{"unlockedSkills", c.m_unlockedSkills},
 		{"actionSlots", std::move(slotsJson)},
-		{"learnedSpells", c.learnedSpells}
+		{"learnedSpells", c.m_learnedSpells}
 	};
 }
 
 inline void from_json(const json& j, Character& c)
 {
-	j.at("name").get_to(c.name);
-	j.at("charClass").get_to(c.charClass);
-	j.at("level").get_to(c.level);
-	j.at("hp").get_to(c.hp);
-	j.at("maxHp").get_to(c.maxHp);
-	j.at("mp").get_to(c.mp);
-	j.at("maxMp").get_to(c.maxMp);
-	j.at("ac").get_to(c.ac);
-	j.at("str").get_to(c.str);
-	j.at("dex").get_to(c.dex);
-	j.at("con").get_to(c.con);
-	j.at("intel").get_to(c.intel);
-	j.at("atkBonus").get_to(c.atkBonus);
-	j.at("damageBonus").get_to(c.damageBonus);
-	j.at("damageMin").get_to(c.damageMin);
-	j.at("damageMax").get_to(c.damageMax);
-	j.at("xp").get_to(c.xp);
-	j.at("xpForNext").get_to(c.xpForNext);
-	j.at("position").get_to(c.position);
-	j.at("facing").get_to(c.facing);
+	j.at("name").get_to(c.m_name);
+	j.at("charClass").get_to(c.m_charClass);
+	j.at("level").get_to(c.m_level);
+	j.at("hp").get_to(c.m_hp);
+	j.at("maxHp").get_to(c.m_maxHp);
+	j.at("mp").get_to(c.m_mp);
+	j.at("maxMp").get_to(c.m_maxMp);
+	j.at("ac").get_to(c.m_ac);
+	j.at("str").get_to(c.m_str);
+	j.at("dex").get_to(c.m_dex);
+	j.at("con").get_to(c.m_con);
+	j.at("intel").get_to(c.m_intel);
+	j.at("atkBonus").get_to(c.m_atkBonus);
+	j.at("damageBonus").get_to(c.m_damageBonus);
+	j.at("damageMin").get_to(c.m_damageMin);
+	j.at("damageMax").get_to(c.m_damageMax);
+	j.at("xp").get_to(c.m_xp);
+	j.at("xpForNext").get_to(c.m_xpForNext);
+	j.at("position").get_to(c.m_position);
+	j.at("facing").get_to(c.m_facing);
 
-	c.inventory.Clear();
+	c.m_inventory.Clear();
 	const json& invJson = j.at("inventory");
 	for (const auto& itemJson : invJson)
 	{
-		c.inventory.Add(itemJson.get<Item>());
+		c.m_inventory.Add(itemJson.get<Item>());
 	}
 
-	c.unlockedSkills.clear();
+	c.m_unlockedSkills.clear();
 	if (j.contains("unlockedSkills"))
 	{
 		for (const auto& s : j.at("unlockedSkills"))
 		{
-			c.unlockedSkills.push_back(s.get<std::string>());
+			c.m_unlockedSkills.push_back(s.get<std::string>());
 		}
 	}
 
-	c.learnedSpells.clear();
+	c.m_learnedSpells.clear();
 	if (j.contains("learnedSpells"))
 	{
 		for (const auto& s : j.at("learnedSpells"))
 		{
-			c.learnedSpells.push_back(s.get<std::string>());
+			c.m_learnedSpells.push_back(s.get<std::string>());
 		}
 	}
 
@@ -308,7 +308,7 @@ inline void from_json(const json& j, Character& c)
 		const json& slotsJson = j.at("actionSlots");
 		for (size_t i = 0; i < slotsJson.size() && i < static_cast<size_t>(Character::NUM_ACTION_SLOTS); ++i)
 		{
-			slotsJson[i].get_to(c.actionSlots[i]);
+			slotsJson[i].get_to(c.m_actionSlots[i]);
 		}
 	}
 }

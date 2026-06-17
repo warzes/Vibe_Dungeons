@@ -138,6 +138,11 @@ void GameStateMachine::applyPush(std::unique_ptr<GameState> state)
 	{
 		Logger::Error(std::string("State OnEnter threw: ") + m_stack.back()->GetName().data());
 		m_stack.pop_back();
+		// Resume the previous state that was paused
+		if (!m_stack.empty())
+		{
+			m_stack.back()->OnResume();
+		}
 		return;
 	}
 	Logger::Info(std::string("State push: ") + m_stack.back()->GetName().data());
@@ -149,13 +154,13 @@ void GameStateMachine::applyPop() noexcept
 	{
 		return;
 	}
-		m_stack.back()->OnExit();
-		Logger::Info(std::string("State pop: ") + m_stack.back()->GetName().data());
-		m_stack.pop_back();
-		if (!m_stack.empty())
-		{
-			m_stack.back()->OnResume();
-		}
+	m_stack.back()->OnExit();
+	Logger::Info(std::string("State pop: ") + m_stack.back()->GetName().data());
+	m_stack.pop_back();
+	if (!m_stack.empty())
+	{
+		m_stack.back()->OnResume();
+	}
 }
 
 void GameStateMachine::applyReplace(std::unique_ptr<GameState> state)
@@ -176,6 +181,11 @@ void GameStateMachine::applyReplace(std::unique_ptr<GameState> state)
 	{
 		Logger::Error(std::string("State OnEnter threw: ") + m_stack.back()->GetName().data());
 		m_stack.pop_back();
+		// Resume whatever state remains below (if any)
+		if (!m_stack.empty())
+		{
+			m_stack.back()->OnResume();
+		}
 		return;
 	}
 	Logger::Info(std::string("State replace with: ") + m_stack.back()->GetName().data());

@@ -111,6 +111,9 @@
     <ClCompile Include="game\combat\monster_renderer.cpp">
       <Filter>game\combat</Filter>
     </ClCompile>
+    <ClCompile Include="game\combat\character.cpp">
+      <Filter>game\combat</Filter>
+    </ClCompile>
     <ClCompile Include="game\combat\combat_system.cpp">
       <Filter>game\combat</Filter>
     </ClCompile>

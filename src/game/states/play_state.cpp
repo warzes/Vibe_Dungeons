@@ -23,12 +23,14 @@ PlayState::PlayState(
 	GameStateMachine& machine,
 	const Window& window,
 	InputManager& input,
-	ResourceManager& resources
+	ResourceManager& resources,
+	Character* pendingCharacter
 ) noexcept
 	: m_machine(machine)
 	, m_window(window)
 	, m_input(input)
 	, m_resources(resources)
+	, m_pendingCharacter(pendingCharacter)
 {}
 
 PlayState::~PlayState() noexcept = default;
@@ -94,17 +96,17 @@ void PlayState::OnEnter() noexcept
 		m_camera.SnapToGrid();
 
 		// ---- Character (from class selection or default) ----
-		if (ClassSelectionState::s_pendingCharacter.level > 0)
+		if (m_pendingCharacter && m_pendingCharacter->GetLevel() > 0)
 		{
-			m_character = std::move(ClassSelectionState::s_pendingCharacter);
-			ClassSelectionState::s_pendingCharacter = Character{};
+			m_character = std::move(*m_pendingCharacter);
+			*m_pendingCharacter = Character{};
 		}
 		else
 		{
 			m_character = Character{};
 		}
-		m_character.position = {17, 17, 0};
-		m_character.facing = Direction::North;
+		m_character.GetPosition() = {17, 17, 0};
+		m_character.SetFacing(Direction::North);
 		Logger::Info("PlayState: character created");
 
 		// ---- Monster textures (loaded from JSON data) ----
@@ -532,8 +534,8 @@ void PlayState::doGridAction(std::string_view name) noexcept
 	else                            m_camera.MoveRight();
 
 	// Sync character state with camera after every grid action
-	m_character.position = m_camera.GetGridPosition();
-	m_character.facing = m_camera.Facing();
+	m_character.GetPosition() = m_camera.GetGridPosition();
+	m_character.SetFacing(m_camera.Facing());
 }
 
 //=============================================================================
@@ -735,7 +737,7 @@ void PlayState::performCombat() noexcept
 	}
 
 	// Player attacks
-	bool behind = (DirectionToTarget(target->position, m_character.position) == Opposite(target->facing));
+	bool behind = (DirectionToTarget(target->position, m_character.GetPosition()) == Opposite(target->facing));
 	AttackResult playerResult = m_combatSystem.MeleeAttack(m_character, *target, behind);
 
 	if (playerResult.critical)
@@ -791,7 +793,7 @@ void PlayState::performCombat() noexcept
 		m_combatLog.Add(msg, glm::vec3(0.7f, 0.7f, 0.7f));
 	}
 
-	if (m_character.hp <= 0)
+	if (m_character.GetHp() <= 0)
 	{
 		m_combatLog.Add("Hero has fallen!", glm::vec3(1.0f, 0.0f, 0.0f));
 		m_gameMode = GameMode::GameOver;
@@ -825,7 +827,7 @@ void PlayState::processPickup() noexcept
 				&& it->position.col == checkPos.col
 				&& it->position.floor == checkPos.floor)
 			{
-				if (m_character.inventory.Add(it->item))
+				if (m_character.GetInventory().Add(it->item))
 				{
 					std::string msg = "Picked up " + it->item.name + "!";
 					m_combatLog.Add(msg, glm::vec3(0.2f, 0.8f, 1.0f));
@@ -866,18 +868,18 @@ void PlayState::renderInventoryWindow() noexcept
 		return;
 	}
 
-	ImGui::Text("Items: %zu / %zu", m_character.inventory.Size(), Inventory::MAX_ITEMS);
+	ImGui::Text("Items: %zu / %zu", m_character.GetInventory().Size(), Inventory::MAX_ITEMS);
 	ImGui::Separator();
 
-	if (m_character.inventory.Size() == 0)
+	if (m_character.GetInventory().Size() == 0)
 	{
 		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(empty)");
 	}
 	else
 	{
-		for (size_t i = 0; i < m_character.inventory.Size(); ++i)
+		for (size_t i = 0; i < m_character.GetInventory().Size(); ++i)
 		{
-			const Item* item = m_character.inventory.Get(i);
+			const Item* item = m_character.GetInventory().Get(i);
 			if (!item)
 			{
 				continue;
@@ -895,15 +897,11 @@ void PlayState::renderInventoryWindow() noexcept
 				{
 					if (item->type == ItemType::PotionHeal)
 					{
-						m_character.hp += item->value;
-						if (m_character.hp > m_character.maxHp)
-						{
-							m_character.hp = m_character.maxHp;
-						}
+						m_character.Heal(item->value);
 						m_combatLog.Add(
 							"Used " + item->name + " (healed " + std::to_string(item->value) + " HP)!",
 							glm::vec3(0.2f, 1.0f, 0.2f));
-						m_character.inventory.Remove(i);
+						m_character.GetInventory().Remove(i);
 					}
 					else if (item->type == ItemType::PotionMana)
 					{
@@ -926,7 +924,7 @@ void PlayState::renderInventoryWindow() noexcept
 				drop.position = m_camera.GetGridPosition();
 				m_itemDrops.push_back(std::move(drop));
 				m_combatLog.Add("Dropped " + item->name + ".", glm::vec3(0.6f));
-				m_character.inventory.Remove(i);
+				m_character.GetInventory().Remove(i);
 			}
 			ImGui::PopID();
 		}
@@ -969,7 +967,7 @@ void PlayState::SaveGame(const char* path) noexcept
 		auto errn = fopen_s(&fp, path, "wb");
 		if (errn) return;
 #else
-		fp = fopen(path, "rb");
+		fp = fopen(path, "wb");
 #endif
 		if (!fp)
 		{
@@ -1022,7 +1020,7 @@ void PlayState::LoadGame(const char* path) noexcept
 		m_character = j.at("character").get<Character>();
 
 		// Synchronize camera with loaded character position
-		m_camera.SetGridPosition(m_character.position, m_character.facing);
+		m_camera.SetGridPosition(m_character.GetPosition(), m_character.GetFacing());
 		m_camera.SnapToGrid();
 
 		// Dungeon
@@ -1185,9 +1183,9 @@ void PlayState::RestartGame() noexcept
 	m_showLevelUp = false;
 
 	// Reset character from class data
-	m_character = ClassSelectionState::CreateCharacter(m_character.charClass);
-	m_character.position = {17, 17, 0};
-	m_character.facing = Direction::North;
+	m_character = CreateCharacterFromClass(m_character.GetClass());
+	m_character.GetPosition() = {17, 17, 0};
+	m_character.SetFacing(Direction::North);
 
 	// Reset camera
 	m_camera.SetGridPosition({17, 17, 0}, Direction::North);
@@ -1441,19 +1439,19 @@ void PlayState::Render() noexcept
 	ImGui::SetNextWindowPos(ImVec2(0, 150), ImGuiCond_FirstUseEver, ImVec2(0, 0));
 	ImGui::SetNextWindowSize(ImVec2(260, 110), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Hero");
-	const float hpFrac = static_cast<float>(m_character.hp) / static_cast<float>(m_character.maxHp);
-	ImGui::Text("%s", m_character.name.c_str());
+	const float hpFrac = static_cast<float>(m_character.GetHp()) / static_cast<float>(m_character.GetMaxHp());
+	ImGui::Text("%s", m_character.GetName().c_str());
 	ImGui::ProgressBar(hpFrac, ImVec2(-1.0f, 0.0f),
-		(std::to_string(m_character.hp) + " / " + std::to_string(m_character.maxHp)).c_str());
-	ImGui::Text("AC: %d", m_character.ac);
-	ImGui::Text("Attack Bonus: %+d", m_character.atkBonus);
-	ImGui::Text("Damage: %dd%d", m_character.damageMin, m_character.damageMax);
+		(std::to_string(m_character.GetHp()) + " / " + std::to_string(m_character.GetMaxHp())).c_str());
+	ImGui::Text("AC: %d", m_character.GetAc());
+	ImGui::Text("Attack Bonus: %+d", m_character.GetAtkBonus());
+	ImGui::Text("Damage: %dd%d", m_character.GetDamageMin(), m_character.GetDamageMax());
 	ImGui::Separator();
-	const float xpFrac = (m_character.xpForNext > 0)
-		? static_cast<float>(m_character.xp) / static_cast<float>(m_character.xpForNext)
+	const float xpFrac = (m_character.GetXpForNext() > 0)
+		? static_cast<float>(m_character.GetXp()) / static_cast<float>(m_character.GetXpForNext())
 		: 0.0f;
 	ImGui::ProgressBar(xpFrac, ImVec2(-1.0f, 0.0f),
-		(std::to_string(m_character.xp) + " / " + std::to_string(m_character.xpForNext) + " XP").c_str());
+		(std::to_string(m_character.GetXp()) + " / " + std::to_string(m_character.GetXpForNext()) + " XP").c_str());
 	ImGui::End();
 
 	// ---- Monster in front ----
@@ -1588,21 +1586,20 @@ void PlayState::Render() noexcept
 			ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove))
 		{
 			ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f),
-				"Level %d!", m_character.level + 1);
+				"Level %d!", m_character.GetLevel() + 1);
 			ImGui::Separator();
 			ImGui::Text("Choose a stat to increase (+2):");
 			ImGui::Dummy(ImVec2(0.0f, 8.0f));
 			if (ImGui::Button("STR"))
 			{
-				m_character.level += 1;
-				m_character.atkBonus += 1;
-				m_character.str += 2;
-				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
-				m_character.hp = m_character.maxHp;
-				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.level);
+				m_character.SetLevel(m_character.GetLevel() + 1);
+				m_character.SetAtkBonus(m_character.GetAtkBonus() + 1);
+				m_character.SetStr(m_character.GetStr() + 2);
+				m_character.SetMaxHp(m_character.GetMaxHp() + ExperienceSystem::HpGainForLevel(m_character.GetClass()));
+				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.GetLevel());
 				ExperienceSystem::ApplyPassiveSkills(m_character);
-				m_character.hp = m_character.maxHp;
-				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
+				m_character.SetHp(m_character.GetMaxHp());
+				m_character.SetXpForNext(ExperienceSystem::XpForLevel(m_character.GetLevel() + 1));
 				m_showLevelUp = false;
 				m_combatLog.Add("Level up! STR increased!", glm::vec3(0.2f, 1.0f, 0.2f));
 				ImGui::CloseCurrentPopup();
@@ -1610,15 +1607,14 @@ void PlayState::Render() noexcept
 			ImGui::SameLine();
 			if (ImGui::Button("DEX"))
 			{
-				m_character.level += 1;
-				m_character.atkBonus += 1;
-				m_character.dex += 2;
-				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
-				m_character.hp = m_character.maxHp;
-				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.level);
+				m_character.SetLevel(m_character.GetLevel() + 1);
+				m_character.SetAtkBonus(m_character.GetAtkBonus() + 1);
+				m_character.SetDex(m_character.GetDex() + 2);
+				m_character.SetMaxHp(m_character.GetMaxHp() + ExperienceSystem::HpGainForLevel(m_character.GetClass()));
+				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.GetLevel());
 				ExperienceSystem::ApplyPassiveSkills(m_character);
-				m_character.hp = m_character.maxHp;
-				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
+				m_character.SetHp(m_character.GetMaxHp());
+				m_character.SetXpForNext(ExperienceSystem::XpForLevel(m_character.GetLevel() + 1));
 				m_showLevelUp = false;
 				m_combatLog.Add("Level up! DEX increased!", glm::vec3(0.2f, 1.0f, 0.2f));
 				ImGui::CloseCurrentPopup();
@@ -1626,15 +1622,14 @@ void PlayState::Render() noexcept
 			ImGui::SameLine();
 			if (ImGui::Button("CON"))
 			{
-				m_character.level += 1;
-				m_character.atkBonus += 1;
-				m_character.con += 2;
-				m_character.maxHp += ExperienceSystem::HpGainForLevel(m_character.charClass);
-				m_character.hp = m_character.maxHp;
-				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.level);
+				m_character.SetLevel(m_character.GetLevel() + 1);
+				m_character.SetAtkBonus(m_character.GetAtkBonus() + 1);
+				m_character.SetCon(m_character.GetCon() + 2);
+				m_character.SetMaxHp(m_character.GetMaxHp() + ExperienceSystem::HpGainForLevel(m_character.GetClass()));
+				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.GetLevel());
 				ExperienceSystem::ApplyPassiveSkills(m_character);
-				m_character.hp = m_character.maxHp;
-				m_character.xpForNext = ExperienceSystem::XpForLevel(m_character.level + 1);
+				m_character.SetHp(m_character.GetMaxHp());
+				m_character.SetXpForNext(ExperienceSystem::XpForLevel(m_character.GetLevel() + 1));
 				m_showLevelUp = false;
 				m_combatLog.Add("Level up! CON increased!", glm::vec3(0.2f, 1.0f, 0.2f));
 				ImGui::CloseCurrentPopup();
@@ -1696,7 +1691,7 @@ void PlayState::renderHotbar() noexcept
 
 	for (int32_t i = 0; i < Character::NUM_ACTION_SLOTS; ++i)
 	{
-		const auto& slot = m_character.actionSlots[i];
+		const auto& slot = m_character.GetActionSlots()[i];
 
 		ImGui::BeginGroup();
 		ImVec2 cursor = ImGui::GetCursorScreenPos();
@@ -1774,7 +1769,7 @@ void PlayState::renderSkillsWindow() noexcept
 	ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Skills (K)", &m_showSkills);
 
-	std::vector<Skill> allSkills = SkillManager::GetSkillsForClass(m_character.charClass);
+	std::vector<Skill> allSkills = SkillManager::GetSkillsForClass(m_character.GetClass());
 
 	// Split into passive and active
 	ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "Active Skills");
@@ -1788,7 +1783,7 @@ void PlayState::renderSkillsWindow() noexcept
 		}
 
 		bool unlocked = false;
-		for (const auto& us : m_character.unlockedSkills)
+		for (const auto& us : m_character.GetUnlockedSkills())
 		{
 			if (us == s.id)
 			{
@@ -1797,7 +1792,7 @@ void PlayState::renderSkillsWindow() noexcept
 			}
 		}
 
-		bool available = s.levelReq <= m_character.level;
+		bool available = s.levelReq <= m_character.GetLevel();
 
 		if (!available)
 		{
@@ -1835,7 +1830,7 @@ void PlayState::renderSkillsWindow() noexcept
 			continue;
 		}
 
-		bool owned = s.levelReq <= m_character.level;
+		bool owned = s.levelReq <= m_character.GetLevel();
 		if (!owned)
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
@@ -1871,7 +1866,7 @@ void PlayState::processActionSlot(int32_t slotIndex) noexcept
 		return;
 	}
 
-	auto& slot = m_character.actionSlots[slotIndex];
+	auto& slot = m_character.GetActionSlots()[slotIndex];
 	if (slot.id.empty())
 	{
 		return;
@@ -1906,7 +1901,7 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 	}
 
 	// Check MP
-	if (skill.mpCost > m_character.mp)
+	if (skill.mpCost > m_character.GetMp())
 	{
 		m_combatLog.Add("Not enough MP!", glm::vec3(0.8f, 0.4f, 0.8f));
 		return;
@@ -1915,7 +1910,7 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 	if (skill.type == "self" || skill.type == "heal")
 	{
 		// Self-targeted ability
-		m_character.mp -= skill.mpCost;
+		m_character.SetMp(m_character.GetMp() - skill.mpCost);
 		AttackResult result = m_combatSystem.UseAbility(m_character, nullptr, skill);
 		if (result.damage < 0)
 		{
@@ -1929,11 +1924,11 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 	if (skill.type == "melee")
 	{
 		// Find monster in front
-		glm::ivec2 fwd = DirectionToVec(m_character.facing);
+		glm::ivec2 fwd = DirectionToVec(m_character.GetFacing());
 		GridPosition targetPos = {
-			m_character.position.row + fwd.x,
-			m_character.position.col + fwd.y,
-			m_character.position.floor
+			m_character.GetPosition().row + fwd.x,
+			m_character.GetPosition().col + fwd.y,
+			m_character.GetPosition().floor
 		};
 
 		Monster* target = m_monsterManager.At(targetPos);
@@ -1942,10 +1937,10 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 			m_combatLog.Add("No enemy in front!", glm::vec3(0.8f, 0.4f, 0.2f));
 			return;
 		}
+		m_character.SetMp(m_character.GetMp() - skill.mpCost);
 
-		m_character.mp -= skill.mpCost;
+		bool behind = (DirectionToTarget(target->position, m_character.GetPosition()) == Opposite(target->facing));
 
-		bool behind = (DirectionToTarget(target->position, m_character.position) == Opposite(target->facing));
 		AttackResult result = m_combatSystem.UseAbility(m_character, target, skill, behind);
 
 		if (result.hit)
@@ -1977,17 +1972,17 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 	if (skill.type == "movement")
 	{
 		// Teleport: move to target position
-		glm::ivec2 fwd = DirectionToVec(m_character.facing);
+		glm::ivec2 fwd = DirectionToVec(m_character.GetFacing());
 		GridPosition targetPos = {
-			m_character.position.row + fwd.x * skill.range,
-			m_character.position.col + fwd.y * skill.range,
-			m_character.position.floor
+			m_character.GetPosition().row + fwd.x,
+			m_character.GetPosition().col + fwd.y,
+			m_character.GetPosition().floor
 		};
 
 		if (m_dungeon.IsWalkable(targetPos) && !m_monsterManager.At(targetPos))
 		{
-			m_character.mp -= skill.mpCost;
-			m_character.position = targetPos;
+			m_character.SetMp(m_character.GetMp() - skill.mpCost);
+			m_character.GetPosition() = targetPos;
 			doGridAction("MoveForward");
 			m_combatLog.Add(skill.name + " activated!", glm::vec3(0.6f, 0.3f, 1.0f));
 		}
@@ -2002,11 +1997,11 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 	if (skill.type == "ranged" || skill.type == "aoe")
 	{
 		// Simple forward-target for now
-		glm::ivec2 fwd = DirectionToVec(m_character.facing);
+		glm::ivec2 fwd = DirectionToVec(m_character.GetFacing());
 		GridPosition targetPos = {
-			m_character.position.row + fwd.x,
-			m_character.position.col + fwd.y,
-			m_character.position.floor
+			m_character.GetPosition().row + fwd.x,
+			m_character.GetPosition().col + fwd.y,
+			m_character.GetPosition().floor
 		};
 
 		Monster* target = m_monsterManager.At(targetPos);
@@ -2016,8 +2011,8 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 			return;
 		}
 
-		m_character.mp -= skill.mpCost;
-		bool behind = (DirectionToTarget(target->position, m_character.position) == Opposite(target->facing));
+		m_character.SetMp(m_character.GetMp() - skill.mpCost);
+		bool behind = (DirectionToTarget(target->position, m_character.GetPosition()) == Opposite(target->facing));
 		AttackResult result = m_combatSystem.UseAbility(m_character, target, skill, behind);
 
 		if (result.hit)
@@ -2049,25 +2044,21 @@ void PlayState::useAbility(const std::string& abilityId) noexcept
 //=============================================================================
 void PlayState::applyRegen() noexcept
 {
-	const json& classData = JsonDataManager::Instance().GetClassData(m_character.charClass);
+	const json& classData = JsonDataManager::Instance().GetClassData(m_character.GetClass());
 	int32_t hpRegen = classData.value("regenHpPerTurn", 0);
 	int32_t mpRegen = classData.value("regenMpPerTurn", 0);
 
 	if (hpRegen > 0)
 	{
-		m_character.hp += hpRegen;
-		if (m_character.hp > m_character.maxHp)
-		{
-			m_character.hp = m_character.maxHp;
-		}
+		m_character.Heal(hpRegen);
 	}
 
 	if (mpRegen > 0)
 	{
-		m_character.mp += mpRegen;
-		if (m_character.mp > m_character.maxMp)
+		m_character.SetMp(m_character.GetMp() + mpRegen);
+		if (m_character.GetMp() > m_character.GetMaxMp())
 		{
-			m_character.mp = m_character.maxMp;
+			m_character.SetMp(m_character.GetMaxMp());
 		}
 	}
 }

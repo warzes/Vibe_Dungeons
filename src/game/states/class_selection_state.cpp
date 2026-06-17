@@ -8,16 +8,16 @@
 #include "game/data/experience_system.h"
 #include <imgui/imgui.h>
 
-Character ClassSelectionState::s_pendingCharacter;
-
 ClassSelectionState::ClassSelectionState(
 	GameStateMachine& machine,
 	const Window& window,
-	InputManager& input
+	InputManager& input,
+	Character& characterOut
 ) noexcept
 	: m_machine(machine)
 	, m_window(window)
 	, m_input(input)
+	, m_characterOut(&characterOut)
 {}
 
 void ClassSelectionState::OnEnter() noexcept
@@ -104,36 +104,39 @@ void ClassSelectionState::Render() noexcept
 
 	if (ImGui::Button("Confirm", ImVec2(120, 0)))
 	{
-		s_pendingCharacter = CreateCharacter(m_selectedClass);
+		if (m_characterOut)
+		{
+			*m_characterOut = CreateCharacterFromClass(m_selectedClass);
+		}
 		m_machine.ReplaceState("Play");
 	}
 
 	ImGui::End();
 }
 
-Character ClassSelectionState::CreateCharacter(const std::string& classId)
+Character CreateCharacterFromClass(const std::string& classId)
 {
 	const json& data = JsonDataManager::Instance().GetClassData(classId);
 
 	Character c;
-	c.charClass = classId;
-	c.name = data.value("name", classId);
-	c.level = 1;
-	c.maxHp = data.value("baseHp", 20);
-	c.hp = c.maxHp;
-	c.maxMp = data.value("baseMp", 0);
-	c.mp = c.maxMp;
-	c.ac = 10 + data.value("acBonus", 0);
-	c.atkBonus = data.value("atkBonus", 1);
-	c.damageBonus = data.value("damageBonus", 0);
-	c.str = data.value("baseStr", 10);
-	c.dex = data.value("baseDex", 10);
-	c.con = data.value("baseCon", 10);
-	c.intel = data.value("baseInt", 10);
-	c.damageMin = 1;
-	c.damageMax = 6;
-	c.xp = 0;
-	c.xpForNext = 100;
+	c.SetClass(classId);
+	c.SetName(data.value("name", classId));
+	c.SetLevel(1);
+	c.SetMaxHp(data.value("baseHp", 20));
+	c.SetHp(c.GetMaxHp());
+	c.SetMaxMp(data.value("baseMp", 0));
+	c.SetMp(c.GetMaxMp());
+	c.SetAc(10 + data.value("acBonus", 0));
+	c.SetAtkBonus(data.value("atkBonus", 1));
+	c.SetDamageBonus(data.value("damageBonus", 0));
+	c.SetStr(data.value("baseStr", 10));
+	c.SetDex(data.value("baseDex", 10));
+	c.SetCon(data.value("baseCon", 10));
+	c.SetIntel(data.value("baseInt", 10));
+	c.SetDamageMin(1);
+	c.SetDamageMax(6);
+	c.SetXp(0);
+	c.SetXpForNext(100);
 
 	// Starting equipment
 	if (data.contains("startingEquipment"))
@@ -141,7 +144,7 @@ Character ClassSelectionState::CreateCharacter(const std::string& classId)
 		for (const auto& eqId : data["startingEquipment"])
 		{
 			Item item = ItemFactory::CreateBase(eqId.get<std::string>());
-			c.inventory.Add(std::move(item));
+			c.GetInventory().Add(std::move(item));
 		}
 	}
 
@@ -152,12 +155,12 @@ Character ClassSelectionState::CreateCharacter(const std::string& classId)
 		for (const auto& abId : data["startingAbilities"])
 		{
 			std::string sid = abId.get<std::string>();
-			c.unlockedSkills.push_back(sid);
+			c.GetUnlockedSkills().push_back(sid);
 			if (slotIdx < Character::NUM_ACTION_SLOTS)
 			{
-				c.actionSlots[slotIdx].type = "ability";
-				c.actionSlots[slotIdx].id = sid;
-				c.actionSlots[slotIdx].cooldownRemaining = 0;
+				c.GetActionSlots()[slotIdx].type = "ability";
+				c.GetActionSlots()[slotIdx].id = sid;
+				c.GetActionSlots()[slotIdx].cooldownRemaining = 0;
 				++slotIdx;
 			}
 		}
@@ -165,8 +168,8 @@ Character ClassSelectionState::CreateCharacter(const std::string& classId)
 
 	// Apply passive skills
 	ExperienceSystem::ApplyPassiveSkills(c);
-	c.hp = c.maxHp;
-	c.mp = c.maxMp;
+	c.SetHp(c.GetMaxHp());
+	c.SetMp(c.GetMaxMp());
 
 	return c;
 }

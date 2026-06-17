@@ -7,6 +7,7 @@
 #include "engine/renderer/framebuffer.h"
 #include "engine/renderer/shader.h"
 #include "engine/renderer/renderer.h"
+#include "game/combat/character.h"
 
 class Window;
 class GLContext;
@@ -44,6 +45,7 @@ private:
 	InputManager m_input;
 	DeltaTime m_deltaTime;
 	ResourceManager m_resources;
+	Character m_pendingCharacter;
 	int32_t m_renderHeight;
 	FrameBuffer m_fbo;
 	Renderer m_renderer;

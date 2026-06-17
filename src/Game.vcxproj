@@ -189,6 +189,7 @@
     <ClCompile Include="engine\renderer\texture.cpp" />
     <ClCompile Include="engine\resource_manager.cpp" />
     <ClCompile Include="engine\window.cpp" />
+    <ClCompile Include="game\combat\character.cpp" />
     <ClCompile Include="game\combat\combat_system.cpp" />
     <ClCompile Include="game\combat\dice.cpp" />
     <ClCompile Include="game\combat\inventory.cpp" />

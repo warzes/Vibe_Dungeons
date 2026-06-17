@@ -7,23 +7,23 @@
 
 void ExperienceSystem::AwardKill(Character& character, const Monster& monster)
 {
-	character.xp += monster.xpReward;
+	character.AddXp(monster.xpReward);
 
-	int32_t needed = XpForLevel(character.level + 1);
+	int32_t needed = XpForLevel(character.GetLevel() + 1);
 	if (needed > 0)
 	{
-		character.xpForNext = needed;
+		character.SetXpForNext(needed);
 	}
 }
 
 bool ExperienceSystem::CheckLevelUp(const Character& character)
 {
-	int32_t needed = XpForLevel(character.level + 1);
+	int32_t needed = XpForLevel(character.GetLevel() + 1);
 	if (needed <= 0)
 	{
 		return false;
 	}
-	return character.xp >= needed;
+	return character.GetXp() >= needed;
 }
 
 int32_t ExperienceSystem::XpForLevel(int32_t level)
@@ -56,11 +56,11 @@ std::vector<std::string> ExperienceSystem::GrantSkillsForLevel(
 	Character& character, int32_t newLevel)
 {
 	std::vector<std::string> newSkills = SkillManager::GetNewSkillIdsForLevel(
-		character.charClass, newLevel, character.unlockedSkills);
+		character.GetClass(), newLevel, character.GetUnlockedSkills());
 
 	for (const auto& skillId : newSkills)
 	{
-		character.unlockedSkills.push_back(skillId);
+		character.GetUnlockedSkills().push_back(skillId);
 	}
 
 	// Auto-assign new non-passive active skills to empty action slots
@@ -72,15 +72,15 @@ std::vector<std::string> ExperienceSystem::GrantSkillsForLevel(
 		{
 			// Find first empty slot
 			while (slotIdx < Character::NUM_ACTION_SLOTS &&
-				!character.actionSlots[slotIdx].id.empty())
+				!character.GetActionSlots()[slotIdx].id.empty())
 			{
 				++slotIdx;
 			}
 			if (slotIdx < Character::NUM_ACTION_SLOTS)
 			{
-				character.actionSlots[slotIdx].type = "ability";
-				character.actionSlots[slotIdx].id = skillId;
-				character.actionSlots[slotIdx].cooldownRemaining = 0;
+				character.GetActionSlots()[slotIdx].type = "ability";
+				character.GetActionSlots()[slotIdx].id = skillId;
+				character.GetActionSlots()[slotIdx].cooldownRemaining = 0;
 				++slotIdx;
 			}
 		}
@@ -92,31 +92,37 @@ std::vector<std::string> ExperienceSystem::GrantSkillsForLevel(
 void ExperienceSystem::ApplyPassiveSkills(Character& character)
 {
 	std::vector<Skill> passives = SkillManager::GetPassiveSkillsForClassAtLevel(
-		character.charClass, character.level);
+		character.GetClass(), character.GetLevel());
 
 	// Reset bonuses from passives (reapply all)
 	// First, clear passive-applied bonuses by rebuilding from base class data
-	const json& classData = JsonDataManager::Instance().GetClassData(character.charClass);
+	const json& classData = JsonDataManager::Instance().GetClassData(character.GetClass());
 	int32_t baseHp = classData.value("baseHp", 20);
 	int32_t baseMp = classData.value("baseMp", 0);
 
 	// Reset to base + level gains
-	character.maxHp = baseHp + (character.level - 1) * classData.value("hpPerLevel", 6);
-	character.maxMp = baseMp + (character.level - 1) * classData.value("mpPerLevel", 0);
-	character.atkBonus = classData.value("atkBonus", 0);
-	character.ac = 10 + classData.value("acBonus", 0);
-	character.damageBonus = classData.value("damageBonus", 0);
+	character.SetMaxHp(baseHp + (character.GetLevel() - 1) * classData.value("hpPerLevel", 6));
+	character.SetMaxMp(baseMp + (character.GetLevel() - 1) * classData.value("mpPerLevel", 0));
+	character.SetAtkBonus(classData.value("atkBonus", 0));
+	character.SetAc(10 + classData.value("acBonus", 0));
+	character.SetDamageBonus(classData.value("damageBonus", 0));
 
 	for (const auto& s : passives)
 	{
-		character.maxHp += s.hpBonus;
-		character.maxMp += s.mpBonus;
-		character.atkBonus += s.atkBonus;
-		character.ac += s.acBonus;
-		character.damageBonus += s.damageBonus;
+		character.SetMaxHp(character.GetMaxHp() + s.hpBonus);
+		character.SetMaxMp(character.GetMaxMp() + s.mpBonus);
+		character.SetAtkBonus(character.GetAtkBonus() + s.atkBonus);
+		character.SetAc(character.GetAc() + s.acBonus);
+		character.SetDamageBonus(character.GetDamageBonus() + s.damageBonus);
 	}
 
 	// Clamp
-	if (character.hp > character.maxHp) character.hp = character.maxHp;
-	if (character.mp > character.maxMp) character.mp = character.maxMp;
+	if (character.GetHp() > character.GetMaxHp())
+	{
+		character.SetHp(character.GetMaxHp());
+	}
+	if (character.GetMp() > character.GetMaxMp())
+	{
+		character.SetMp(character.GetMaxMp());
+	}
 }

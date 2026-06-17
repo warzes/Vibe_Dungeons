@@ -38,11 +38,11 @@ GameApp::GameApp()
 	});
 	m_stateMachine.RegisterState("ClassSelection", [this]()
 	{
-		return std::make_unique<ClassSelectionState>(m_stateMachine, *m_window, m_input);
+		return std::make_unique<ClassSelectionState>(m_stateMachine, *m_window, m_input, m_pendingCharacter);
 	});
 	m_stateMachine.RegisterState("Play", [this]()
 	{
-		return std::make_unique<PlayState>(m_stateMachine, *m_window, m_input, m_resources);
+		return std::make_unique<PlayState>(m_stateMachine, *m_window, m_input, m_resources, &m_pendingCharacter);
 	});
 	m_stateMachine.RegisterState("Settings", [this]()
 	{

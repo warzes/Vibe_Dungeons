@@ -131,8 +131,9 @@ AudioClip* AudioSystem::LoadOGG(std::string_view path)
 
 	const std::string pathStr(path);
 	const int32_t frames = stb_vorbis_decode_filename(pathStr.c_str(), &channels, &sampleRate, &output);
-	if (frames <= 0)
+	if (frames <= 0 || !output)
 	{
+		if (output) free(output);
 		Logger::Warn(std::string("AudioSystem: failed to load OGG: ") + path.data());
 		return nullptr;
 	}
@@ -142,10 +143,9 @@ AudioClip* AudioSystem::LoadOGG(std::string_view path)
 	clip.channels = channels;
 	clip.samples.resize(static_cast<size_t>(frames) * channels);
 
-	for (size_t i = 0; i < clip.samples.size(); ++i)
-	{
-		clip.samples[i] = static_cast<float>(output[i]) / 32768.0f;
-	}
+	const float inv32768 = 1.0f / 32768.0f;
+	std::transform(output, output + clip.samples.size(), clip.samples.begin(),
+		[inv32768](short s) { return static_cast<float>(s) * inv32768; });
 
 	free(output);
 
@@ -264,93 +264,12 @@ void AudioSystem::Stop(std::string_view name) noexcept
 {
 	const std::string target(name);
 
-	// Determine which channels have clips with this name
-	bool hasOnMusic = false;
-	bool hasOnSFX = false;
-	for (const auto& p : m_playing)
-	{
-		if (p.name != target)
-		{
-			continue;
-		}
-		if (p.channel == AudioChannel::Music) { hasOnMusic = true; }
-		else { hasOnSFX = true; }
-	}
-
-	if (!hasOnMusic && !hasOnSFX)
-	{
-		return;
-	}
-
-	// Remove target clips from playlist (all channels)
+	// Remove target clips from playlist only — stream data remains intact
+	// and will be naturally consumed by the audio device. The Update()
+	// cleanup loop will ignore the removed clips since they're no longer
+	// in m_playing. This avoids destructive stream rebuild which would
+	// restart all remaining clips from the beginning.
 	std::erase_if(m_playing, [&](const PlayingClip& p) { return p.name == target; });
-
-	// Rebuild affected channels
-	auto rebuildChannel = [&](AudioChannel channel)
-	{
-		SDL_AudioStream* stream = (channel == AudioChannel::Music) ? m_musicStream : m_sfxStream;
-		if (!stream)
-		{
-			return;
-		}
-
-		const float channelVol = (channel == AudioChannel::Music) ? m_musicVolume : m_sfxVolume;
-
-		SDL_ClearAudioStream(stream);
-
-		std::vector<float> combined;
-		for (const auto& p : m_playing)
-		{
-			if (p.channel != channel)
-			{
-				continue;
-			}
-
-			auto it = m_clips.find(p.name);
-			if (it == m_clips.end())
-			{
-				continue;
-			}
-
-			const AudioClip& clip = it->second;
-			const float vol = channelVol;
-			if (vol >= 1.0f - 1e-6f && vol <= 1.0f + 1e-6f)
-			{
-				combined.insert(combined.end(), clip.samples.begin(), clip.samples.end());
-			}
-			else
-			{
-				for (float s : clip.samples)
-				{
-					combined.push_back(s * vol);
-				}
-			}
-		}
-
-		if (!combined.empty())
-		{
-			SDL_PutAudioStreamData(stream, combined.data(),
-				static_cast<int32_t>(combined.size() * sizeof(float)));
-		}
-
-		// Rebuild stream position tracking for this channel
-		auto& streamPos = (channel == AudioChannel::Music) ? m_musicStreamPos : m_sfxStreamPos;
-		streamPos = 0;
-		for (const auto& p : m_playing)
-		{
-			if (p.channel == channel)
-			{
-				auto it = m_clips.find(p.name);
-				if (it != m_clips.end())
-				{
-					streamPos += static_cast<uint64_t>(it->second.samples.size()) * sizeof(float);
-				}
-			}
-		}
-	};
-
-	if (hasOnMusic) { rebuildChannel(AudioChannel::Music); }
-	if (hasOnSFX)   { rebuildChannel(AudioChannel::SFX); }
 }
 
 void AudioSystem::StopAll() noexcept
