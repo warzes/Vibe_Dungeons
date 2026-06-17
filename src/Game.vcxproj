@@ -196,6 +196,7 @@
     <ClCompile Include="game\combat\combat_system.cpp" />
     <ClCompile Include="game\combat\dice.cpp" />
     <ClCompile Include="game\combat\equipment.cpp" />
+    <ClCompile Include="game\combat\spell_system.cpp" />
     <ClCompile Include="game\combat\inventory.cpp" />
     <ClCompile Include="game\combat\item_handler.cpp" />
     <ClCompile Include="game\combat\item_renderer.cpp" />
@@ -279,6 +280,7 @@
     <ClInclude Include="game\combat\combat_system.h" />
     <ClInclude Include="game\combat\dice.h" />
     <ClInclude Include="game\combat\equipment.h" />
+    <ClInclude Include="game\combat\spell_system.h" />
     <ClInclude Include="game\combat\inventory.h" />
     <ClInclude Include="game\combat\item.h" />
     <ClInclude Include="game\combat\item_handler.h" />

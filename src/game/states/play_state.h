@@ -20,6 +20,7 @@
 #include "game/combat/monster_renderer.h"
 #include "game/combat/combat_handler.h"
 #include "game/combat/combat_system.h"
+#include "game/combat/spell_system.h"
 #include "game/combat/item_handler.h"
 #include "game/ui/combat_log.h"
 
@@ -162,4 +163,17 @@ private:
 	// Equipment
 	bool m_showEquipment = false;
 	void renderEquipmentWindow() noexcept;
+
+	// Spellbook
+	bool m_showSpellbook = false;
+	void renderSpellbookWindow() noexcept;
+
+	// Spell targeting
+	bool m_targetingActive = false;
+	std::string m_targetingSpellId;
+	std::string m_wandItemSpellId;
+	void ProcessSpellAction() noexcept;
+
+	// Spell system
+	SpellSystem m_spellSystem;
 };

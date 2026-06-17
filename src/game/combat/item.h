@@ -12,6 +12,8 @@ enum class ItemType : uint8_t
 	Key,
 	Gold,
 	Scroll,
+	SpellScroll,
+	Wand,
 	QuestItem,
 	Accessory
 };
@@ -59,6 +61,9 @@ struct Item final
 	int32_t elementDamageMax = 0;
 	std::string elementType;
 	int32_t lifeStealPercent = 0;
+	std::string spellId;
+	int32_t charges = 0;
+	int32_t maxCharges = 0;
 
 	[[nodiscard]] const char* SpritePath() const noexcept
 	{
@@ -72,6 +77,8 @@ struct Item final
 			case ItemType::Weapon:      return "data/item_sword.png";
 			case ItemType::Armor:       return "data/item_armor.png";
 			case ItemType::Shield:      return "data/item_shield.png";
+			case ItemType::SpellScroll: return "data/item_scroll.png";
+			case ItemType::Wand:        return "data/item_sword.png";
 			case ItemType::QuestItem:   return "data/item_quest.png";
 			case ItemType::Accessory:   return "data/item_gold.png";
 		}

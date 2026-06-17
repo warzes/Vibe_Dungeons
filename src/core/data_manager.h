@@ -31,6 +31,7 @@ struct Skill final
 	int32_t damageBonus = 0;
 
 	int32_t range = 1;
+	int32_t radius = 0;
 	int32_t levelReq = 1;
 	std::vector<std::string> classReq;
 

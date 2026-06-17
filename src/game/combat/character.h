@@ -29,7 +29,21 @@ public:
 	void SetMaxHp(int32_t v) noexcept { m_maxHp = v; }
 
 	[[nodiscard]] int32_t GetMp() const noexcept { return m_mp; }
-	[[nodiscard]] int32_t GetMaxMp() const noexcept { return m_maxMp; }
+	[[nodiscard]] int32_t GetMaxMp() const noexcept
+	{
+		int32_t base = 5 + m_intel * 2 + m_level * 2;
+		if (m_charClass == "barbarian")  { base = std::max(base, 0); }
+		if (m_charClass == "mage")       { base += m_level * 3; }
+		if (m_charClass == "war_priest") { base += m_level * 2; }
+		if (m_charClass == "paladin")    { base += m_level; }
+		return std::max(base + m_equipment.GetTotalStats().mpBonus, 0);
+	}
+	[[nodiscard]] int32_t GetMpRegenPerTurn() const noexcept
+	{
+		if (m_charClass == "mage")       { return 2; }
+		if (m_charClass == "war_priest") { return 1; }
+		return 0;
+	}
 	void SpendMp(int32_t amount) noexcept;
 	void RestoreMp(int32_t amount) noexcept;
 	void SetMp(int32_t v) noexcept { m_mp = v; }

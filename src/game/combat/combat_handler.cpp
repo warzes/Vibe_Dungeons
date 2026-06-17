@@ -13,6 +13,7 @@
 #include "game/combat/monster_manager.h"
 #include "game/combat/monster_renderer.h"
 #include "game/combat/combat_system.h"
+#include "game/combat/spell_system.h"
 #include "game/data/monster_factory.h"
 #include "game/data/experience_system.h"
 #include "game/data/skill_manager.h"

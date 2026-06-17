@@ -27,6 +27,7 @@ Skill Skill::FromJson(const json& j)
 	s.acBonus = j.value("acBonus", 0);
 	s.damageBonus = j.value("damageBonus", 0);
 	s.range = j.value("range", 1);
+	s.radius = j.value("radius", 0);
 	s.levelReq = j.value("levelReq", 1);
 	s.description = j.value("description", std::string());
 

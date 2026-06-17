@@ -86,7 +86,10 @@ inline void to_json(json& j, const Item& item)
 		{"dexBonus", item.dexBonus},
 		{"conBonus", item.conBonus},
 		{"hpBonus", item.hpBonus},
-		{"mpBonus", item.mpBonus}
+		{"mpBonus", item.mpBonus},
+		{"spellId", item.spellId},
+		{"charges", item.charges},
+		{"maxCharges", item.maxCharges}
 	};
 }
 
@@ -107,6 +110,9 @@ inline void from_json(const json& j, Item& item)
 	if (j.contains("conBonus")) { j.at("conBonus").get_to(item.conBonus); }
 	if (j.contains("hpBonus")) { j.at("hpBonus").get_to(item.hpBonus); }
 	if (j.contains("mpBonus")) { j.at("mpBonus").get_to(item.mpBonus); }
+	if (j.contains("spellId")) { j.at("spellId").get_to(item.spellId); }
+	if (j.contains("charges")) { j.at("charges").get_to(item.charges); }
+	if (j.contains("maxCharges")) { j.at("maxCharges").get_to(item.maxCharges); }
 }
 
 // ---- ItemDrop ----

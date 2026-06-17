@@ -143,6 +143,15 @@ void PlayState::OnEnter() noexcept
 		m_itemHandler.SpawnDefault();
 		Logger::Info("PlayState: item drops spawned");
 
+		// ---- Spell system init ----
+		m_spellSystem.Init(
+			m_character,
+			m_monsterManager,
+			m_combatLog,
+			m_dungeon
+		);
+		Logger::Info("PlayState: spell system initialized");
+
 		// ---- Input actions for grid movement ----
 		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
 		m_input.BindAction("GridMoveBackward", SDL_SCANCODE_S);
@@ -241,14 +250,47 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 		m_showEquipment = !m_showEquipment;
 	}
 
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_B)
+	{
+		m_showSpellbook = !m_showSpellbook;
+	}
+
+	// Spell targeting: Space confirms target
+	if (m_targetingActive && event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_SPACE)
+	{
+		ProcessSpellAction();
+	}
+
+	// Escape cancels targeting
+	if (m_targetingActive && event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)
+	{
+		m_targetingActive = false;
+		m_targetingSpellId.clear();
+		m_wandItemSpellId.clear();
+		m_combatLog.Add("Spell cancelled.", glm::vec3(0.6f));
+	}
+
 	// Hotbar 1-9
 	if (event.type == SDL_EVENT_KEY_DOWN)
 	{
 		SDL_Keycode k = event.key.key;
 		if (k >= SDLK_1 && k <= SDLK_9)
 		{
-			int32_t slot = static_cast<int32_t>(k - SDLK_1);
-			m_combatHandler.ProcessActionSlot(slot);
+			int32_t slotIdx = static_cast<int32_t>(k - SDLK_1);
+			const auto& slot = m_character.GetActionSlots()[slotIdx];
+			if (slot.type == "spell")
+			{
+				// Spells go through targeting system
+				m_targetingActive = true;
+				m_targetingSpellId = slot.id;
+				Skill spell = SkillManager::GetSkill(slot.id);
+				m_combatLog.Add("Select target for " + spell.name + " (Space to cast, Esc to cancel).",
+					glm::vec3(0.6f, 0.8f, 1.0f));
+			}
+			else
+			{
+				m_combatHandler.ProcessActionSlot(slotIdx);
+			}
 		}
 	}
 
@@ -662,9 +704,13 @@ void PlayState::renderInventoryWindow() noexcept
 				}
 			}
 
-			if (!removed && (item->type == ItemType::PotionHeal
+			bool isUsableConsumable = (item->type == ItemType::PotionHeal
 				|| item->type == ItemType::PotionMana
-				|| item->type == ItemType::Scroll))
+				|| item->type == ItemType::Scroll
+				|| item->type == ItemType::SpellScroll
+				|| item->type == ItemType::Wand);
+
+			if (!removed && isUsableConsumable)
 			{
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Use"))
@@ -680,12 +726,93 @@ void PlayState::renderInventoryWindow() noexcept
 					}
 					else if (item->type == ItemType::PotionMana)
 					{
-						m_combatLog.Add("Mana potions not yet implemented.",
-							glm::vec3(0.6f));
+						int32_t restore = (item->value > 0) ? item->value : 10;
+						m_character.RestoreMp(restore);
+						m_combatLog.Add(
+							"Used " + item->name + " (restored " + std::to_string(restore) + " MP)!",
+							glm::vec3(0.2f, 0.4f, 1.0f));
+						m_character.GetInventory().Remove(i);
+						removed = true;
+					}
+					else if (item->type == ItemType::SpellScroll)
+					{
+						if (!item->spellId.empty())
+						{
+							// Learn the spell
+							auto& learned = m_character.GetLearnedSpells();
+							bool alreadyKnown = false;
+							for (const auto& sid : learned)
+							{
+								if (sid == item->spellId) { alreadyKnown = true; break; }
+							}
+							if (!alreadyKnown)
+							{
+								learned.push_back(item->spellId);
+								m_combatLog.Add("Learned spell: " + item->name + "!",
+									glm::vec3(0.4f, 0.8f, 1.0f));
+							}
+							else
+							{
+								m_combatLog.Add("Already know this spell.",
+									glm::vec3(0.6f));
+							}
+						}
+						m_character.GetInventory().Remove(i);
+						removed = true;
+					}
+					else if (item->type == ItemType::Wand)
+					{
+						if (item->charges > 0 && !item->spellId.empty())
+						{
+							Skill wandSpell = SkillManager::GetSkill(item->spellId);
+							if (wandSpell.type == "self" || wandSpell.type == "heal")
+							{
+								// Self-target: cast immediately
+								m_wandItemSpellId = item->spellId;
+								SpellTarget selfTarget;
+								selfTarget.position = m_character.GetPosition();
+								m_spellSystem.ApplySpell(wandSpell, selfTarget);
+								auto* inv = &m_character.GetInventory();
+								for (size_t wi = 0; wi < inv->Size(); ++wi)
+								{
+									const Item* wi2 = inv->Get(wi);
+									if (wi2 && wi2->type == ItemType::Wand && wi2->spellId == item->spellId)
+									{
+										Item modified = *wi2;
+										modified.charges--;
+										inv->Remove(wi);
+										if (modified.charges > 0)
+										{
+											inv->Add(std::move(modified));
+										}
+										else
+										{
+											m_combatLog.Add("Wand crumbles to dust!", glm::vec3(0.8f, 0.6f, 0.2f));
+										}
+										removed = true;
+										break;
+									}
+								}
+								m_wandItemSpellId.clear();
+							}
+							else
+							{
+								m_wandItemSpellId = item->spellId;
+								m_targetingActive = true;
+								m_targetingSpellId = item->spellId;
+								m_combatLog.Add("Wand: select target (Space to cast, Esc to cancel).",
+									glm::vec3(0.6f, 0.8f, 1.0f));
+							}
+						}
+						else
+						{
+							m_combatLog.Add("Wand is out of charges!",
+								glm::vec3(0.8f, 0.4f, 0.2f));
+						}
 					}
 					else if (item->type == ItemType::Scroll)
 					{
-						m_combatLog.Add("Scrolls not yet implemented.",
+						m_combatLog.Add("This scroll has no effect.",
 							glm::vec3(0.6f));
 					}
 				}
@@ -1062,10 +1189,19 @@ void PlayState::Render() noexcept
 	const float hpFrac = static_cast<float>(m_character.GetHp()) / static_cast<float>(m_character.GetMaxHp());
 	ImGui::Text("%s", m_character.GetName().c_str());
 	ImGui::ProgressBar(hpFrac, ImVec2(-1.0f, 0.0f),
-		(std::to_string(m_character.GetHp()) + " / " + std::to_string(m_character.GetMaxHp())).c_str());
-	ImGui::Text("AC: %d", m_character.GetAc());
-	ImGui::Text("Attack Bonus: %+d", m_character.GetAtkBonus());
-	ImGui::Text("Damage: %dd%d", m_character.GetDamageMin(), m_character.GetDamageMax());
+		(std::to_string(m_character.GetHp()) + " / " + std::to_string(m_character.GetMaxHp()) + " HP").c_str());
+	const float mpFrac = (m_character.GetMaxMp() > 0)
+		? static_cast<float>(m_character.GetMp()) / static_cast<float>(m_character.GetMaxMp())
+		: 0.0f;
+	ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.2f, 0.4f, 1.0f, 1.0f));
+	ImGui::ProgressBar(mpFrac, ImVec2(-1.0f, 0.0f),
+		(m_character.GetMaxMp() > 0
+			? (std::to_string(m_character.GetMp()) + " / " + std::to_string(m_character.GetMaxMp()) + " MP").c_str()
+			: "No MP"));
+	ImGui::PopStyleColor();
+	ImGui::Text("AC: %d", m_character.GetEquippedAc());
+	ImGui::Text("Attack Bonus: %+d", m_character.GetEquippedAtkBonus());
+	ImGui::Text("Damage: %dd%d", m_character.GetEquippedDamageMin(), m_character.GetEquippedDamageMax());
 	ImGui::Separator();
 	const float xpFrac = (m_character.GetXpForNext() > 0)
 		? static_cast<float>(m_character.GetXp()) / static_cast<float>(m_character.GetXpForNext())
@@ -1137,6 +1273,9 @@ void PlayState::Render() noexcept
 
 	// ===== Equipment window (toggle with E) =====
 	renderEquipmentWindow();
+
+	// ===== Spellbook window (toggle with B) =====
+	renderSpellbookWindow();
 
 	// ===== Debug windows (only when debug is on) =====
 
@@ -1332,6 +1471,19 @@ void PlayState::renderHotbar() noexcept
 			Skill s = SkillManager::GetSkill(slot.id);
 			std::string label = s.name.substr(0, 6);
 
+			// MP cost indicator
+			if (s.mpCost > 0)
+			{
+				char mpText[8];
+				std::snprintf(mpText, sizeof(mpText), "%d MP", s.mpCost);
+				ImGui::GetWindowDrawList()->AddText(
+					ImVec2(cursor.x + 3.0f, cursor.y + slotH - 14.0f),
+					IM_COL32(100, 150, 255, 200), mpText);
+			}
+
+			bool insufficientMp = (s.mpCost > m_character.GetMp());
+			ImU32 textColor = IM_COL32(200, 200, 220, 255);
+
 			// Cooldown overlay
 			if (slot.cooldownRemaining > 0)
 			{
@@ -1346,13 +1498,26 @@ void PlayState::renderHotbar() noexcept
 						cursor.y + (slotH - textSz.y) * 0.5f),
 					IM_COL32(255, 100, 100, 255), cdText);
 			}
+			else if (insufficientMp)
+			{
+				// Dim blue overlay for insufficient MP
+				ImGui::GetWindowDrawList()->AddRectFilled(
+					cursor, ImVec2(cursor.x + slotW, cursor.y + slotH),
+					IM_COL32(0, 0, 80, 100), 4.0f);
+				textColor = IM_COL32(100, 100, 200, 200);
+				ImVec2 textSz = ImGui::CalcTextSize(label.c_str());
+				ImGui::GetWindowDrawList()->AddText(
+					ImVec2(cursor.x + (slotW - textSz.x) * 0.5f,
+						cursor.y + slotH - textSz.y - 4.0f),
+					textColor, label.c_str());
+			}
 			else
 			{
 				ImVec2 textSz = ImGui::CalcTextSize(label.c_str());
 				ImGui::GetWindowDrawList()->AddText(
 					ImVec2(cursor.x + (slotW - textSz.x) * 0.5f,
 						cursor.y + slotH - textSz.y - 4.0f),
-					IM_COL32(200, 200, 220, 255), label.c_str());
+					textColor, label.c_str());
 			}
 		}
 
@@ -1427,6 +1592,25 @@ void PlayState::renderSkillsWindow() noexcept
 			ImGui::Text("Range: %d  Type: %s", s.range, s.type.c_str());
 			ImGui::EndTooltip();
 		}
+
+		if (available && unlocked)
+		{
+			ImGui::SameLine();
+			if (ImGui::SmallButton(("Assign##" + s.id).c_str()))
+			{
+				auto& slots = m_character.GetActionSlots();
+				for (auto& slot : slots)
+				{
+					if (slot.id.empty())
+					{
+						slot.type = "ability";
+						slot.id = s.id;
+						break;
+					}
+				}
+			}
+		}
+
 		ImGui::PopStyleColor();
 	}
 
@@ -1598,6 +1782,241 @@ void PlayState::renderEquipmentWindow() noexcept
 	if (totals.conBonus > 0){ ImGui::Text("  CON: +%d", totals.conBonus); }
 	if (totals.hpBonus > 0) { ImGui::Text("  HP: +%d", totals.hpBonus); }
 	if (totals.mpBonus > 0) { ImGui::Text("  MP: +%d", totals.mpBonus); }
+
+	ImGui::End();
+}
+
+//=============================================================================
+void PlayState::ProcessSpellAction() noexcept
+{
+	if (!m_targetingActive)
+	{
+		return;
+	}
+
+	Skill spell = SkillManager::GetSkill(m_targetingSpellId);
+	if (spell.id.empty())
+	{
+		m_targetingActive = false;
+		m_targetingSpellId.clear();
+		return;
+	}
+
+	if (spell.mpCost > m_character.GetMp())
+	{
+		m_combatLog.Add("Not enough MP!", glm::vec3(0.8f, 0.4f, 0.8f));
+		m_targetingActive = false;
+		m_targetingSpellId.clear();
+		return;
+	}
+
+	if (m_turnManager.GetGameMode() != GameMode::Exploring
+		&& m_turnManager.GetGameMode() != GameMode::TurnWaiting)
+	{
+		m_targetingActive = false;
+		m_targetingSpellId.clear();
+		return;
+	}
+
+	int32_t spellRange = spell.range;
+	if (spellRange < 1) { spellRange = 1; }
+
+	SpellTarget target = m_spellSystem.AcquireTarget(spell, spellRange);
+
+	if (spell.type != "self" && target.hitMonsters.empty() && !target.hitWall)
+	{
+		m_combatLog.Add("No target in range!", glm::vec3(0.8f, 0.4f, 0.2f));
+		m_targetingActive = false;
+		m_targetingSpellId.clear();
+		return;
+	}
+
+	m_spellSystem.ApplySpell(spell, target);
+
+	// If this came from a wand, decrement charges or remove the wand
+	if (!m_wandItemSpellId.empty())
+	{
+		auto* inv = &m_character.GetInventory();
+		for (size_t wi = 0; wi < inv->Size(); ++wi)
+		{
+			const Item* wandItem = inv->Get(wi);
+			if (wandItem && wandItem->type == ItemType::Wand && wandItem->spellId == m_wandItemSpellId)
+			{
+				Item modified = *wandItem;
+				modified.charges--;
+				inv->Remove(wi);
+				if (modified.charges > 0)
+				{
+					inv->Add(std::move(modified));
+				}
+				else
+				{
+					m_combatLog.Add("Wand is now out of charges and crumbles to dust!",
+						glm::vec3(0.8f, 0.6f, 0.2f));
+				}
+				break;
+			}
+		}
+		m_wandItemSpellId.clear();
+	}
+
+	m_targetingActive = false;
+	m_targetingSpellId.clear();
+
+	m_turnManager.SetGameMode(GameMode::TurnWaiting);
+}
+
+//=============================================================================
+void PlayState::renderSpellbookWindow() noexcept
+{
+	if (!m_showSpellbook)
+	{
+		return;
+	}
+
+	ImGui::SetNextWindowSize(ImVec2(400, 450), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Spellbook (B)", &m_showSpellbook);
+
+	ImGui::Text("MP: %d / %d", m_character.GetMp(), m_character.GetMaxMp());
+	ImGui::Separator();
+
+	// Class spells
+	ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "Class Spells");
+	ImGui::Separator();
+
+	std::vector<std::string> spellIds = DataManager::GetSpellsByClass(m_character.GetClass());
+	if (spellIds.empty())
+	{
+		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(none)");
+	}
+
+	for (const auto& sid : spellIds)
+	{
+		const json& spellJson = JsonDataManager::Instance().GetSpellData(sid);
+		std::string name = spellJson.value("name", sid);
+		int32_t lvlReq = spellJson.value("levelReq", 1);
+		int32_t mpCost = spellJson.value("mpCost", 0);
+		std::string desc = spellJson.value("description", "");
+
+		bool available = lvlReq <= m_character.GetLevel();
+		bool canAfford = mpCost <= m_character.GetMp();
+
+		if (!available)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
+		}
+		else if (!canAfford)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.4f, 0.8f, 1.0f));
+		}
+		else
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+		}
+
+		ImGui::Text("%s (Lvl %d, %d MP)", name.c_str(), lvlReq, mpCost);
+		if (ImGui::IsItemHovered())
+		{
+			ImGui::BeginTooltip();
+			ImGui::Text("%s", desc.c_str());
+			ImGui::Text("Level Required: %d", lvlReq);
+			ImGui::Text("MP Cost: %d", mpCost);
+			ImGui::EndTooltip();
+		}
+		ImGui::PopStyleColor();
+
+		if (available)
+		{
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Cast"))
+			{
+				m_targetingActive = true;
+				m_targetingSpellId = sid;
+				m_combatLog.Add("Select target for " + name + " (Space to cast, Esc to cancel).",
+					glm::vec3(0.6f, 0.8f, 1.0f));
+			}
+			ImGui::SameLine();
+			std::string assignLabel = "##assign_" + sid;
+			if (ImGui::SmallButton("Hotbar"))
+			{
+				// Find first empty hotbar slot
+				auto& slots = m_character.GetActionSlots();
+				for (auto& slot : slots)
+				{
+					if (slot.id.empty())
+					{
+						slot.type = "spell";
+						slot.id = sid;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// Learned spells
+	ImGui::Dummy(ImVec2(0.0f, 8.0f));
+	ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Learned Spells");
+	ImGui::Separator();
+
+	const auto& learned = m_character.GetLearnedSpells();
+	if (learned.empty())
+	{
+		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(none)");
+	}
+	else
+	{
+		for (const auto& sid : learned)
+		{
+			const json& spellJson = JsonDataManager::Instance().GetSpellData(sid);
+			std::string name = spellJson.value("name", sid);
+			int32_t mpCost = spellJson.value("mpCost", 0);
+
+			bool isClassSpell = false;
+			for (const auto& cs : spellIds) { if (cs == sid) { isClassSpell = true; break; } }
+
+			int32_t effectiveCost = isClassSpell ? mpCost : mpCost * 2;
+			bool canAfford = effectiveCost <= m_character.GetMp();
+
+			if (!canAfford)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.4f, 0.8f, 1.0f));
+			}
+			else
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 1.0f, 0.8f, 1.0f));
+			}
+
+			ImGui::Text("%s (%d MP)%s",
+				name.c_str(),
+				effectiveCost,
+				isClassSpell ? "" : " [Cross-class, x2 MP]");
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+			if (ImGui::SmallButton(("Cast##" + sid).c_str()))
+			{
+				m_targetingActive = true;
+				m_targetingSpellId = sid;
+				m_combatLog.Add("Select target for " + name + " (Space to cast).",
+					glm::vec3(0.6f, 0.8f, 1.0f));
+			}
+			ImGui::SameLine();
+			if (ImGui::SmallButton(("Hot##" + sid).c_str()))
+			{
+				auto& slots = m_character.GetActionSlots();
+				for (auto& slot : slots)
+				{
+					if (slot.id.empty())
+					{
+						slot.type = "spell";
+						slot.id = sid;
+						break;
+					}
+				}
+			}
+		}
+	}
 
 	ImGui::End();
 }
