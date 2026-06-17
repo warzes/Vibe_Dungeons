@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
+#include "core/json_alias.h"
 #include "game/grid_position.h"
 #include "game/direction.h"
 #include "game/combat/item.h"

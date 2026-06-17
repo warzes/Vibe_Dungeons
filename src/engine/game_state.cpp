@@ -128,8 +128,10 @@ void GameStateMachine::applyPush(std::unique_ptr<GameState> state)
 	if (!m_stack.empty())
 	{
 		m_stack.back()->OnPause();
+		m_isPaused = true;
 	}
 	m_stack.push_back(std::move(state));
+	m_isPaused = false;
 	try
 	{
 		m_stack.back()->OnEnter();
@@ -138,6 +140,7 @@ void GameStateMachine::applyPush(std::unique_ptr<GameState> state)
 	{
 		Logger::Error(std::string("State OnEnter threw: ") + m_stack.back()->GetName().data());
 		m_stack.pop_back();
+		m_isPaused = false;
 		// Resume the previous state that was paused
 		if (!m_stack.empty())
 		{
@@ -157,6 +160,7 @@ void GameStateMachine::applyPop() noexcept
 	m_stack.back()->OnExit();
 	Logger::Info(std::string("State pop: ") + m_stack.back()->GetName().data());
 	m_stack.pop_back();
+	m_isPaused = false;
 	if (!m_stack.empty())
 	{
 		m_stack.back()->OnResume();

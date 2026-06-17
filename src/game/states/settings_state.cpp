@@ -3,7 +3,8 @@
 #include "engine/delta_time.h"
 #include "core/logger.h"
 
-using json = nlohmann::json;
+#include "core/json_alias.h"
+#include "core/file_io.h"
 
 // ── JSON serialization for PlayerConfig ───────────────────────────────────
 
@@ -40,55 +41,18 @@ static void from_json(const json& j, PlayerConfig& c)
 
 	static std::optional<nlohmann::json> readJsonFile(const std::string& path) noexcept
 	{
-		FILE* file;
-#if defined(_MSC_VER)
-		fopen_s(&file, path.c_str(), "rb");
-#else
-		file = std::fopen(path.c_str(), "rb");
-#endif
-		if (!file)
+		std::string contents = FileReadString(path.c_str());
+		if (contents.empty())
 		{
 			return std::nullopt;
 		}
-
-		std::fseek(file, 0, SEEK_END);
-		const long len = std::ftell(file);
-		if (len <= 0)
-		{
-			std::fclose(file);
-			return std::nullopt;
-		}
-
-		std::string contents(static_cast<size_t>(len), '\0');
-		std::rewind(file);
-		const size_t read = std::fread(contents.data(), 1, static_cast<size_t>(len), file);
-		std::fclose(file);
-
-		if (read != static_cast<size_t>(len))
-		{
-			return std::nullopt;
-		}
-
 		return nlohmann::json::parse(contents, nullptr, false);
 	}
 
 	static bool writeJsonFile(const std::string& path, const nlohmann::json& j) noexcept
 	{
 		const std::string contents = j.dump(2);
-		FILE* file;
-#if defined(_MSC_VER)
-		fopen_s(&file, path.c_str(), "wb");
-#else
-		file = std::fopen(path.c_str(), "wb");
-#endif
-		if (!file)
-		{
-			return false;
-		}
-
-		const size_t written = std::fwrite(contents.data(), 1, contents.size(), file);
-		std::fclose(file);
-		return written == contents.size();
+		return FileWriteBytes(path.c_str(), contents.data(), contents.size());
 	}
 
 	float GetGridMoveRepeatDelayFromConfig() noexcept

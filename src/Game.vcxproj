@@ -170,6 +170,8 @@
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">TurnOffAllWarnings</WarningLevel>
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">TurnOffAllWarnings</WarningLevel>
     </ClCompile>
+    <ClCompile Include="core\data_manager.cpp" />
+    <ClCompile Include="core\file_io.cpp" />
     <ClCompile Include="core\json_data_manager.cpp" />
     <ClCompile Include="core\logger.cpp" />
     <ClCompile Include="core\profiler.cpp" />
@@ -240,6 +242,9 @@
     <ClInclude Include="core\collision.h" />
     <ClInclude Include="core\event_bus.h" />
     <ClInclude Include="core\exception.h" />
+    <ClInclude Include="core\data_manager.h" />
+    <ClInclude Include="core\file_io.h" />
+    <ClInclude Include="core\json_alias.h" />
     <ClInclude Include="core\json_data_manager.h" />
     <ClInclude Include="core\logger.h" />
     <ClInclude Include="core\profiler.h" />

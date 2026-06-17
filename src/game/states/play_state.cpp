@@ -10,6 +10,7 @@
 #include "engine/renderer/renderer.h"
 #include "game/states/settings_state.h"
 #include "game/serialization.h"
+#include "core/file_io.h"
 #include "core/json_data_manager.h"
 #include "game/data/monster_factory.h"
 #include "game/data/item_factory.h"
@@ -955,21 +956,11 @@ void PlayState::SaveGame(const char* path) noexcept
 
 		std::string dumped = j.dump(2);
 
-		FILE* fp = nullptr;
-#if defined(_MSC_VER)
-		auto errn = fopen_s(&fp, path, "wb");
-		if (errn) return;
-#else
-		fp = fopen(path, "wb");
-#endif
-		if (!fp)
+		if (!FileWriteBytes(path, dumped.data(), dumped.size()))
 		{
 			m_combatLog.Add("Save failed: cannot open file.", glm::vec3(1.0f, 0.3f, 0.0f));
 			return;
 		}
-
-		fwrite(dumped.data(), 1, dumped.size(), fp);
-		fclose(fp);
 
 		m_combatLog.Add("Game saved.", glm::vec3(0.3f, 0.8f, 1.0f));
 	}
@@ -985,27 +976,12 @@ void PlayState::LoadGame(const char* path) noexcept
 {
 	try
 	{
-		FILE* fp = nullptr;
-#if defined(_MSC_VER)
-		auto errn = fopen_s(&fp, path, "rb");
-		if (errn) return;
-#else
-		fp = fopen(path, "rb");
-#endif
-		if (!fp)
+		std::string buffer = FileReadString(path);
+		if (buffer.empty())
 		{
 			m_combatLog.Add("Load failed: file not found.", glm::vec3(1.0f, 0.3f, 0.0f));
 			return;
 		}
-
-		fseek(fp, 0, SEEK_END);
-		long size = ftell(fp);
-		rewind(fp);
-
-		std::string buffer;
-		buffer.resize(static_cast<size_t>(size));
-		fread(buffer.data(), 1, static_cast<size_t>(size), fp);
-		fclose(fp);
 
 		json j = json::parse(buffer);
 
@@ -1269,21 +1245,9 @@ void PlayState::renderOptionsWindow() noexcept
 	{
 		// Read current full config, update only our fields
 		json j;
-		FILE* fp = nullptr;
-#if defined(_MSC_VER)
-		auto errn = fopen_s(&fp, "player_config.json", "rb");
-		if (errn && fp)
-#else
-		fp = fopen("player_config.json", "rb");
-#endif
-		if (fp)
+		std::string buf = FileReadString("player_config.json");
+		if (!buf.empty())
 		{
-			fseek(fp, 0, SEEK_END);
-			long len = ftell(fp);
-			rewind(fp);
-			std::string buf(static_cast<size_t>(len), '\0');
-			fread(buf.data(), 1, static_cast<size_t>(len), fp);
-			fclose(fp);
 			json parsed = json::parse(buf, nullptr, false);
 			if (!parsed.is_discarded())
 			{
@@ -1295,16 +1259,8 @@ void PlayState::renderOptionsWindow() noexcept
 		j["renderHeight"] = rh;
 
 		std::string dumped = j.dump(2);
-#if defined(_MSC_VER)
-		errn = fopen_s(&fp, "player_config.json", "wb");
-		if (errn && fp)
-#else
-		fp = fopen("player_config.json", "wb");
-		if (fp)
-#endif
+		if (FileWriteBytes("player_config.json", dumped.data(), dumped.size()))
 		{
-			fwrite(dumped.data(), 1, dumped.size(), fp);
-			fclose(fp);
 			m_combatLog.Add("Options saved.", glm::vec3(0.3f, 0.8f, 1.0f));
 		}
 		else
@@ -1558,49 +1514,37 @@ void PlayState::Render() noexcept
 			ImGui::Separator();
 			ImGui::Text("Choose a stat to increase (+2):");
 			ImGui::Dummy(ImVec2(0.0f, 8.0f));
-			if (ImGui::Button("STR"))
+
+			auto applyLevelUp = [&](const char* statName, int32_t /*statValue*/, int32_t newValue)
 			{
 				m_character.SetLevel(m_character.GetLevel() + 1);
 				m_character.SetAtkBonus(m_character.GetAtkBonus() + 1);
-				m_character.SetStr(m_character.GetStr() + 2);
+				m_character.SetStr(statName[0] == 'S' ? newValue : m_character.GetStr());
+				m_character.SetDex(statName[0] == 'D' ? newValue : m_character.GetDex());
+				m_character.SetCon(statName[0] == 'C' ? newValue : m_character.GetCon());
 				m_character.SetMaxHp(m_character.GetMaxHp() + ExperienceSystem::HpGainForLevel(m_character.GetClass()));
 				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.GetLevel());
 				ExperienceSystem::ApplyPassiveSkills(m_character);
 				m_character.SetHp(m_character.GetMaxHp());
 				m_character.SetXpForNext(ExperienceSystem::XpForLevel(m_character.GetLevel() + 1));
 				m_showLevelUp = false;
-				m_combatLog.Add("Level up! STR increased!", glm::vec3(0.2f, 1.0f, 0.2f));
+				m_combatLog.Add(std::string("Level up! ") + statName + " increased!", glm::vec3(0.2f, 1.0f, 0.2f));
 				ImGui::CloseCurrentPopup();
+			};
+
+			if (ImGui::Button("STR"))
+			{
+				applyLevelUp("STR", m_character.GetStr(), m_character.GetStr() + 2);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("DEX"))
 			{
-				m_character.SetLevel(m_character.GetLevel() + 1);
-				m_character.SetAtkBonus(m_character.GetAtkBonus() + 1);
-				m_character.SetDex(m_character.GetDex() + 2);
-				m_character.SetMaxHp(m_character.GetMaxHp() + ExperienceSystem::HpGainForLevel(m_character.GetClass()));
-				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.GetLevel());
-				ExperienceSystem::ApplyPassiveSkills(m_character);
-				m_character.SetHp(m_character.GetMaxHp());
-				m_character.SetXpForNext(ExperienceSystem::XpForLevel(m_character.GetLevel() + 1));
-				m_showLevelUp = false;
-				m_combatLog.Add("Level up! DEX increased!", glm::vec3(0.2f, 1.0f, 0.2f));
-				ImGui::CloseCurrentPopup();
+				applyLevelUp("DEX", m_character.GetDex(), m_character.GetDex() + 2);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("CON"))
 			{
-				m_character.SetLevel(m_character.GetLevel() + 1);
-				m_character.SetAtkBonus(m_character.GetAtkBonus() + 1);
-				m_character.SetCon(m_character.GetCon() + 2);
-				m_character.SetMaxHp(m_character.GetMaxHp() + ExperienceSystem::HpGainForLevel(m_character.GetClass()));
-				ExperienceSystem::GrantSkillsForLevel(m_character, m_character.GetLevel());
-				ExperienceSystem::ApplyPassiveSkills(m_character);
-				m_character.SetHp(m_character.GetMaxHp());
-				m_character.SetXpForNext(ExperienceSystem::XpForLevel(m_character.GetLevel() + 1));
-				m_showLevelUp = false;
-				m_combatLog.Add("Level up! CON increased!", glm::vec3(0.2f, 1.0f, 0.2f));
-				ImGui::CloseCurrentPopup();
+				applyLevelUp("CON", m_character.GetCon(), m_character.GetCon() + 2);
 			}
 			ImGui::EndPopup();
 		}

@@ -147,10 +147,46 @@ void ResourceManager::Clear() noexcept
 	m_materials.clear();
 }
 
+void ResourceManager::Retain(std::string_view key) noexcept
+{
+	std::string k(key);
+	m_refCounts[std::move(k)]++;
+}
+
+void ResourceManager::ReleaseResource(std::string_view key) noexcept
+{
+	std::string k(key);
+	auto it = m_refCounts.find(k);
+	if (it != m_refCounts.end() && it->second > 0)
+	{
+		it->second--;
+	}
+}
+
 void ResourceManager::CleanupUnused() noexcept
 {
-	// No-op: unique_ptr ownership cannot track external raw-pointer references.
-	// Proper implementation requires migration to std::shared_ptr for
-	// automatic use_count tracking, or explicit Acquire()/Release() ref-counting.
-	// TODO: migrate to shared_ptr
+	auto cleanup = [&](auto& map)
+	{
+		using MapType = std::decay_t<decltype(map)>;
+		std::erase_if(map, [&](const typename MapType::value_type& kv)
+		{
+			auto it = m_refCounts.find(static_cast<const std::string&>(kv.first));
+			return (it == m_refCounts.end() || it->second <= 0);
+		});
+	};
+
+	cleanup(m_shaders);
+	cleanup(m_textures);
+	cleanup(m_meshes);
+	cleanup(m_materials);
+
+	// Remove stale ref-count entries
+	std::erase_if(m_refCounts, [&](const auto& kv)
+	{
+		return kv.second <= 0
+			&& !m_shaders.contains(kv.first)
+			&& !m_textures.contains(kv.first)
+			&& !m_meshes.contains(kv.first)
+			&& !m_materials.contains(kv.first);
+	});
 }

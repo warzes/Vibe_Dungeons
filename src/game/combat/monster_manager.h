@@ -6,6 +6,9 @@
 class MonsterManager final
 {
 public:
+	[[nodiscard]] Monster* FindById(uint32_t id);
+	[[nodiscard]] const Monster* FindById(uint32_t id) const;
+
 	void Spawn(Monster monster);
 
 	void Despawn(GridPosition pos);
@@ -24,5 +27,6 @@ public:
 	void UpdateAI(const Dungeon& dungeon);
 
 private:
+	uint32_t m_nextId = 1;
 	std::unordered_map<GridPosition, Monster> m_monsters;
 };

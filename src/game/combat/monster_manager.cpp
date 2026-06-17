@@ -1,8 +1,33 @@
 #include "stdafx.h"
 #include "game/combat/monster_manager.h"
 
+Monster* MonsterManager::FindById(uint32_t id)
+{
+	for (auto& pair : m_monsters)
+	{
+		if (pair.second.id == id)
+		{
+			return &pair.second;
+		}
+	}
+	return nullptr;
+}
+
+const Monster* MonsterManager::FindById(uint32_t id) const
+{
+	for (const auto& pair : m_monsters)
+	{
+		if (pair.second.id == id)
+		{
+			return &pair.second;
+		}
+	}
+	return nullptr;
+}
+
 void MonsterManager::Spawn(Monster monster)
 {
+	monster.id = m_nextId++;
 	m_monsters.insert_or_assign(monster.position, std::move(monster));
 }
 

@@ -54,9 +54,15 @@ public:
 	void Clear() noexcept;
 	void CleanupUnused() noexcept;
 
+	// Increment reference count for a resource (call when acquiring pointer).
+	// Decrement via ReleaseResource(). CleanupUnused removes resources with count == 0.
+	void Retain(std::string_view key) noexcept;
+	void ReleaseResource(std::string_view key) noexcept;
+
 private:
 	std::unordered_map<std::string, std::unique_ptr<Shader>> m_shaders;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> m_textures;
 	std::unordered_map<std::string, std::unique_ptr<Mesh>> m_meshes;
 	std::unordered_map<std::string, std::unique_ptr<Material>> m_materials;
+	std::unordered_map<std::string, int32_t> m_refCounts;
 };

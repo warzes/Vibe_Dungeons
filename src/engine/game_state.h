@@ -71,6 +71,7 @@ public:
 
 private:
 	std::vector<std::unique_ptr<GameState>> m_stack;
+	bool m_isPaused = false;
 	struct transparent_hash final
 	{
 		using is_transparent = void;

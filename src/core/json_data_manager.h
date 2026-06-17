@@ -1,6 +1,6 @@
 #pragma once
 
-using json = nlohmann::json;
+#include "core/json_alias.h"
 
 class JsonDataManager final
 {
@@ -40,15 +40,27 @@ private:
 
 	bool loadFile(const char* path, json& out, const char* rootKey);
 
+	void buildIndex(const json& array, std::unordered_map<std::string, size_t>& out, const char* key) noexcept;
+
 	json m_classes = json::array();
+	std::unordered_map<std::string, size_t> m_classIndex;
 	json m_monsters = json::array();
+	std::unordered_map<std::string, size_t> m_monsterIndex;
 	json m_itemsBase = json::array();
+	std::unordered_map<std::string, size_t> m_itemBaseIndex;
 	json m_weaponTypes = json::array();
+	std::unordered_map<std::string, size_t> m_weaponTypeIndex;
 	json m_armorTypes = json::array();
+	std::unordered_map<std::string, size_t> m_armorTypeIndex;
 	json m_materials = json::array();
+	std::unordered_map<std::string, size_t> m_materialIndex;
 	json m_prefixes = json::array();
+	std::unordered_map<std::string, size_t> m_prefixIndex;
 	json m_postfixes = json::array();
+	std::unordered_map<std::string, size_t> m_postfixIndex;
 	json m_spells = json::array();
+	std::unordered_map<std::string, size_t> m_spellIndex;
 	json m_abilities = json::array();
+	std::unordered_map<std::string, size_t> m_abilityIndex;
 	json m_levelTable = json::array();
 };

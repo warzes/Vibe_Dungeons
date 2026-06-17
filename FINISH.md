@@ -485,6 +485,72 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 
 ---
 
+## Исправления по аудиту (Phase 4.2: проблемы 18, 32, 34, 37, 38, 41, 43, 44, 45) ✅
+
+### Проблема 18: resource_manager.cpp — CleanupUnused() с reference counting
+`engine/resource_manager.h/.cpp`:
+- Добавлены `Retain(key)` и `ReleaseResource(key)` для ручного управления счётчиком ссылок.
+- `CleanupUnused()` удаляет ресурсы с `refCount <= 0`.
+- Механизм готов для использования; существующие caller'ы не вызывают `Retain`/`ReleaseResource`, но при добавлении вызовов ресурсы будут корректно выгружаться.
+
+### Проблема 32: json_data_manager.cpp — findById() O(1) через unordered_map
+`core/json_data_manager.h/.cpp`:
+- Добавлен `std::unordered_map<std::string, size_t>` для каждого JSON-массива.
+- `buildIndex()` заполняет маппинг id→index после загрузки каждого файла.
+- Все `GetXxx(id)` используют `getByIndex()` — O(1) доступ вместо O(n) линейного поиска.
+
+### Проблема 34: play_state.cpp — объединение level-up блоков
+`game/states/play_state.cpp`:
+- Три идентичных блока (STR/DEX/CON) заменены на лямбду `applyLevelUp(statName, oldValue, newValue)`.
+- Каждая кнопка вызывает лямбду с соответствующим параметром (+2 к STR/DEX/CON).
+
+### Проблема 37: Портативная fopen/fread обёртка
+`core/file_io.h/.cpp` — созданы:
+- `FileReadBytes(path)` — читает файл в `std::vector<uint8_t>`
+- `FileReadString(path)` — читает текстовый файл в `std::string`
+- `FileWriteBytes(path, data, size)` — пишет байты в файл
+- Внутренняя `openFile()` — единый `#ifdef _MSC_VER` для `fopen_s`/`fopen`.
+
+### Проблема 38: Устранение дублирования fopen/fread/fclose
+Все ручные fopen/fseek/ftell/fread/fclose заменены на `FileReadString`/`FileWriteBytes`:
+- `json_data_manager.cpp:loadFile()` — переписан через `FileReadString(path)`
+- `settings_state.cpp:readJsonFile()`/`writeJsonFile()` — переписаны
+- `play_state.cpp:SaveGame()` — через `FileWriteBytes()`
+- `play_state.cpp:LoadGame()` — через `FileReadString()`
+- `play_state.cpp:renderOptionsWindow()` — через `FileReadString()`/`FileWriteBytes()`
+
+### Проблема 41: Централизованный using json alias
+`core/json_alias.h` — создан, содержит единственное `using json = nlohmann::json;`.
+- Все файлы с дублирующимися `using json = ...` переведены на `#include "core/json_alias.h"`:
+  - `json_data_manager.h`, `skill_manager.h`, `spell_manager.h`, `ability_manager.h`, `class_manager.h`, `item_stat_calculator.h`, `serialization.h`, `settings_state.cpp`
+
+### Проблема 43: Унифицированный DataManager
+`core/data_manager.h/.cpp` — создан единый `DataManager` struct вместо 4 статических классов:
+- Содержит методы: `GetClass()`, `ApplyStartingStats()`, `GetSkill()`, `GetSkillsForClass()`, `GetSkillsForClassAtLevel()`, `GetPassiveSkillsForClassAtLevel()`, `GetSkillIdsForClassAtLevel()`, `GetNewSkillIdsForLevel()`, `GetAbility()`, `GetAbilitiesByClass()`, `GetSpell()`, `GetSpellsByClass()`, `CalculateItemStats()`
+- Определения типов `Skill`, `ActionSlot`, `ItemStats` перенесены в `data_manager.h`
+- Старые заголовки (`skill_manager.h`, `spell_manager.h`, `ability_manager.h`, `class_manager.h`, `item_stat_calculator.h`) — теперь просто `using X = DataManager;`
+- Старые `.cpp` файлы опустошены (имплементация в `data_manager.cpp`)
+- Все caller'ы работают без изменений через type alias'ы
+
+### Проблема 44: GameStateMachine — m_isPaused флаг
+`engine/game_state.h/.cpp`:
+- Добавлен `bool m_isPaused = false`.
+- `applyPush()`: устанавливает `m_isPaused = true` перед пушем, сбрасывает в `false` после.
+- `applyPop()`: сбрасывает `m_isPaused = false` перед `OnResume()`.
+- При исключении в `OnEnter()`: `m_isPaused` корректно сбрасывается.
+- `OnPause()`/`OnResume()` теперь корректны при любом размере стека.
+
+### Проблема 45: Monster entity-ID
+`game/combat/monster.h`:
+- Добавлено `uint32_t id = 0` (первое поле структуры).
+
+`game/combat/monster_manager.h/.cpp`:
+- Добавлен `uint32_t m_nextId = 1` (автоинкремент).
+- `Spawn()`: присваивает `monster.id = m_nextId++` перед вставкой.
+- Добавлены `FindById(uint32_t id)` — const и non-const версии, проход по всем монстрам в `m_monsters`.
+
+---
+
 ## Исправления по аудиту (Phase 4: проблемы 2,3,4,6,7,8,9,10) ✅
 
 ### Проблема 2: State machine exception safety

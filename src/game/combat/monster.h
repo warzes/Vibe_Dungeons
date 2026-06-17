@@ -12,6 +12,7 @@ enum class MonsterAI : uint8_t
 
 struct Monster final
 {
+	uint32_t id = 0;
 	std::string name = "Rat";
 	std::string typeId = "slime";
 	int32_t level = 1;

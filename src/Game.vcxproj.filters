@@ -36,6 +36,12 @@
     <ClCompile Include="3rdparty\stb\stb.cpp">
       <Filter>3rdparty\stb</Filter>
     </ClCompile>
+    <ClCompile Include="core\data_manager.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="core\file_io.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\json_data_manager.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -226,6 +232,15 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\exception.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\data_manager.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\file_io.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\json_alias.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\json_data_manager.h">

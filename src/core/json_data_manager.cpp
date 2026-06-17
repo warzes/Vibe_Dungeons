@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "core/json_data_manager.h"
+#include "core/file_io.h"
 #include "core/logger.h"
 #include "core/exception.h"
 
@@ -49,43 +50,32 @@ bool JsonDataManager::LoadAll(const char* dataDir)
 		}
 	}
 
+	// Build lookup indices for O(1) findById
+	buildIndex(m_classes,     m_classIndex,     "id");
+	buildIndex(m_monsters,    m_monsterIndex,   "id");
+	buildIndex(m_itemsBase,   m_itemBaseIndex,  "id");
+	buildIndex(m_weaponTypes, m_weaponTypeIndex,"id");
+	buildIndex(m_armorTypes,  m_armorTypeIndex, "id");
+	buildIndex(m_materials,   m_materialIndex,  "id");
+	buildIndex(m_prefixes,    m_prefixIndex,    "id");
+	buildIndex(m_postfixes,   m_postfixIndex,   "id");
+	buildIndex(m_spells,      m_spellIndex,     "id");
+	buildIndex(m_abilities,   m_abilityIndex,   "id");
+
 	return allOk;
 }
 
 bool JsonDataManager::loadFile(const char* path, json& out, const char* rootKey)
 {
-	FILE* fp = nullptr;
-#if defined(_MSC_VER)
-	auto errn = fopen_s(&fp, path, "rb");
-	if (errn) return false;
-#else
-	fp = fopen(path, "rb");
-#endif
-	if (!fp) return false;
-
-	fseek(fp, 0, SEEK_END);
-	long size = ftell(fp);
-	rewind(fp);
-
-	if (size <= 0)
-	{
-		fclose(fp);
-		return false;
-	}
-
-	std::string buffer;
-	buffer.resize(static_cast<size_t>(size));
-	size_t readBytes = fread(buffer.data(), 1, static_cast<size_t>(size), fp);
-	fclose(fp);
-
-	if (static_cast<long>(readBytes) != size)
+	std::string text = FileReadString(path);
+	if (text.empty())
 	{
 		return false;
 	}
 
 	try
 	{
-		json parsed = json::parse(buffer);
+		json parsed = json::parse(text);
 		if (rootKey != nullptr && parsed.contains(rootKey))
 		{
 			out = parsed[rootKey];
@@ -104,70 +94,79 @@ bool JsonDataManager::loadFile(const char* path, json& out, const char* rootKey)
 	return true;
 }
 
-static const json& findById(const json& array, const std::string& id, const char* key)
+void JsonDataManager::buildIndex(const json& array, std::unordered_map<std::string, size_t>& out, const char* key) noexcept
 {
+	out.clear();
 	if (!array.is_array())
 	{
-		return array;
+		return;
 	}
-
-	for (const auto& item : array)
+	for (size_t i = 0; i < array.size(); ++i)
 	{
-		if (item.is_object() && item.value(key, std::string()) == id)
+		const json& item = array[i];
+		if (item.is_object() && item.contains(key))
 		{
-			return item;
+			out[item[key].get<std::string>()] = i;
 		}
 	}
+}
 
+static const json& getByIndex(const json& array, const std::unordered_map<std::string, size_t>& index, const std::string& id)
+{
+	auto it = index.find(id);
+	if (it != index.end() && it->second < array.size())
+	{
+		return array[it->second];
+	}
 	return array;
 }
 
 const json& JsonDataManager::GetClassData(const std::string& classId) const
 {
-	return findById(m_classes, classId, "id");
+	return getByIndex(m_classes, m_classIndex, classId);
 }
 
 const json& JsonDataManager::GetMonsterData(const std::string& monsterId) const
 {
-	return findById(m_monsters, monsterId, "id");
+	return getByIndex(m_monsters, m_monsterIndex, monsterId);
 }
 
 const json& JsonDataManager::GetItemBaseData(const std::string& itemId) const
 {
-	return findById(m_itemsBase, itemId, "id");
+	return getByIndex(m_itemsBase, m_itemBaseIndex, itemId);
 }
 
 const json& JsonDataManager::GetWeaponType(const std::string& id) const
 {
-	return findById(m_weaponTypes, id, "id");
+	return getByIndex(m_weaponTypes, m_weaponTypeIndex, id);
 }
 
 const json& JsonDataManager::GetArmorType(const std::string& id) const
 {
-	return findById(m_armorTypes, id, "id");
+	return getByIndex(m_armorTypes, m_armorTypeIndex, id);
 }
 
 const json& JsonDataManager::GetMaterial(const std::string& id) const
 {
-	return findById(m_materials, id, "id");
+	return getByIndex(m_materials, m_materialIndex, id);
 }
 
 const json& JsonDataManager::GetPrefix(const std::string& id) const
 {
-	return findById(m_prefixes, id, "id");
+	return getByIndex(m_prefixes, m_prefixIndex, id);
 }
 
 const json& JsonDataManager::GetPostfix(const std::string& id) const
 {
-	return findById(m_postfixes, id, "id");
+	return getByIndex(m_postfixes, m_postfixIndex, id);
 }
 
 const json& JsonDataManager::GetSpellData(const std::string& spellId) const
 {
-	return findById(m_spells, spellId, "id");
+	return getByIndex(m_spells, m_spellIndex, spellId);
 }
 
 const json& JsonDataManager::GetAbilityData(const std::string& abilityId) const
 {
-	return findById(m_abilities, abilityId, "id");
+	return getByIndex(m_abilities, m_abilityIndex, abilityId);
 }

@@ -26,7 +26,7 @@
 | # | Файл | Проблема |
 |--|------|----------|
 | 14 | `game/states/play_state.cpp:940-1051` | `SaveGame()`/`LoadGame()` — ручная fopen/fread/fwrite сериализация. Весь блок кода (110 строк) использует сырые FILE*, повторяет fopen_s #ifdef, не использует `JsonDataManager` |
-| 18 | `engine/resource_manager.cpp:150-154` | `CleanupUnused()` — **пустая** (no-op). Ранее была `Clear()`, теперь ничего не делает. Ресурсы никогда не выгружаются. Комментарий обновлён, поясняет необходимость shared_ptr |
+| 18 | `engine/resource_manager.cpp` | ~~no-op~~ ✅ Исправлено: добавлен reference counting (`Retain()`/`ReleaseResource()`/`CleanupUnused()` удаляет неиспользуемые) |
 
 ---
 
@@ -39,7 +39,7 @@
 | 27 | `game/states/play_state.cpp:1867-1891` | `processActionSlot()` — получает `Skill s = SkillManager::GetSkill(slot.id)` каждый раз при использовании. Нет кэширования |
 | 29 | `game/combat/combat_system.cpp:114-117` | `UseAbility()`: хардкод `Dice::Roll(4, 8)` при healMax/healMin == 0 — магическое число |
 | 31 | `engine/renderer/shader.h:41` | `m_uniformCache` — `mutable` + `std::unordered_map<std::string, int32_t>`. Поиск по строке каждый раз при `SetUniform()`. Для известных uniform'ов лучше enum |
-| 32 | `core/json_data_manager.cpp:107-123` | `findById()` — линейный поиск по массиву JSON каждый запрос. Для 50+ записей — ок, для 500+ — медленно |
+| 32 | `core/json_data_manager.cpp` | ~~линейный поиск~~ ✅ Исправлено: добавлен `std::unordered_map<std::string, size_t>` индекс для O(1) доступа |
 
 ---
 
@@ -47,10 +47,10 @@
 
 | # | Что дублируется | Где |
 |---|-----------------|-----|
-| 34 | Level-up логика (STR/DEX/CON) — три идентичных блока по 9 строк, различаются только именем стата | `play_state.cpp:1595-1641` (решено: убрано дублирование hp = maxHp) |
-| 37 | fopen_s / fopen #ifdef паттерн | Повторяется ~6+ раз: `save_game.cpp:967-973`, `load_game.cpp:997-1003`, `renderOptions:1263-1286, 1306-1326, 1340`, `json_data_manager:58-63` |
-| 38 | Чтение JSON из файла (fseek/ftell/read/parse) | `json_data_manager.cpp:57-80` и `play_state.cpp:997-1017, 1272-1285` |
-| 41 | `using json = nlohmann::json;` в глобальном namespace | `json_data_manager.h:3`, `skill_manager.h:8`, `serialization.h:12` — трижды |
+| 34 | Level-up логика (STR/DEX/CON) | ✅ Исправлено: три блока объединены в лямбду `applyLevelUp()` |
+| 37 | fopen_s / fopen #ifdef паттерн | ✅ Исправлено: создан `core/file_io.h/.cpp` (`FileReadBytes`/`FileReadString`/`FileWriteBytes`), все callers обновлены |
+| 38 | Чтение JSON из файла (fseek/ftell/read/parse) | ✅ Исправлено: все чтения заменены на `FileReadString()` из `core/file_io.h` |
+| 41 | `using json = nlohmann::json;` в глобальном namespace | ✅ Исправлено: создан `core/json_alias.h`, все 8 файлов переведены на него |
 
 ---
 
@@ -59,9 +59,9 @@
 | # | Проблема | Описание |
 |---|----------|----------|
 | 42 | Нет слоя абстракции данных | JSON загружается в `nlohmann::json` объекты, к ним обращаются по строкам напрямую. Нет типизированных C++ структур для классов/монстров/предметов |
-| 43 | `SkillManager`, `SpellManager`, `AbilityManager`, `ClassManager` — статические классы | Каждый со своей `static` имплементацией. Нет единого интерфейса для "data managers". Дублирование логики поиска |
-| 44 | `GameStateMachine` не поддерживает стек более 2 уровней | `applyPush` вызывает `OnPause()` у текущего, но `applyPop` вызывает `OnResume()` только у оставшегося. При глубоком стеке (3+) — неверные колбэки |
-| 45 | Отсутствие entity-ID | Монстры идентифицируются по позиции в векторе. При удалении монстра из середины вектора — все ссылки/указатели на него инвалидируются |
+| 43 | `SkillManager`, `SpellManager`, `AbilityManager`, `ClassManager` — статические классы | ✅ Исправлено: создан единый `DataManager` в `core/data_manager.h/.cpp`, старые классы — type alias'ы |
+| 44 | `GameStateMachine` не поддерживает стек более 2 уровней | ✅ Исправлено: добавлен `m_isPaused` флаг, `OnPause()`/`OnResume()` корректны при любом размере стека |
+| 45 | Отсутствие entity-ID | ✅ Исправлено: добавлен `uint32_t Monster::id`, автоинкремент в `MonsterManager::Spawn()`, `FindById()` |
 | 46 | `TurnQueue` — заглушка | Всегда 1 актор (игрок), `Advance()` — no-op. `SetActorCount()` не вызывается никогда. Вся очередь — мёртвый код для будущих нужд |
 | 47 | Нет системы частиц/эффектов | Анимация заклинаний, атаки, смерти — отсутствуют. Только текстовые сообщения в лог |
 | 48 | ImGui-UI и игровая логика **перемешаны** | `PlayState::Render()` содержит условные переходы, открытие попапов, изменения состояния персонажа — всё в одном методе |
@@ -139,7 +139,7 @@
 ### По цифрам
 - **Критических багов**: 1 (сохранение)
 - **Крупных проблем**: 1 (God-класс)
-- **Дублирований**: 3 места
+- **Дублирований**: 0 (решены через file_io, json_alias, data_manager)
 - **Мёртвого кода**: 0 (tile.h переведён в комментарий)
 - **Неисправленных из старого аудита**: 4 пункта
 

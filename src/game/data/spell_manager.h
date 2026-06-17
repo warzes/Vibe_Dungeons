@@ -1,13 +1,6 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <nlohmann/json.hpp>
+#include "core/data_manager.h"
 
-using json = nlohmann::json;
-
-struct SpellManager final
-{
-	[[nodiscard]] static const json& GetSpell(const std::string& spellId);
-	[[nodiscard]] static std::vector<std::string> GetSpellsByClass(const std::string& classId);
-};
+// Delegated to DataManager
+using SpellManager = DataManager;
