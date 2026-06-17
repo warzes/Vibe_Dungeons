@@ -141,13 +141,13 @@ echo.
 echo Linking...
 set "OBJ_FILES="
 for /f "usebackq delims=" %%F in ("%ALL_SRCS%") do (
-	set "SRC=%%~F"
+	set "SRC=%%F"
+	set "SRC=!SRC:"=!"
 	set "REL=!SRC:%ROOT%\=!"
 	set "REL=!REL:\=.!"
 	set "OBJ=%OBJ_DIR%\!REL!.o"
 	if exist "!OBJ!" set "OBJ_FILES=!OBJ_FILES! "!OBJ!""
 )
-
 %CXX% !OBJ_FILES! %LDFLAGS% -o "%OUT_EXE%"
 if %ERRORLEVEL% neq 0 (
     echo [FAILED] Link failed with error code %ERRORLEVEL%
