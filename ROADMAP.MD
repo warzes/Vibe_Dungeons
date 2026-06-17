@@ -3,6 +3,8 @@
 > **Выполнено (фаза 1–3, шаги 1–55)**: см. [FINISH.md](./FINISH.md)
 > **Архив**: `_archived/old_phase2_61_120.md`
 > **Текущая работа**: Фаза 4, шаг 56
+>
+> **Refactoring progress** (2026-06-17): PlayState разбит на `TurnManager`, `SaveManager`, `CombatHandler`, `ItemHandler`. Строк кода: 2073 → 1449. Исправлены: CRIT-1 (inventory loop), CRIT-3 (applyRegen), P3 (duplicate json), N4 (cooldownRemaining). Новые файлы: `src/game/turn_manager.{h,cpp}`, `src/game/save_manager.{h,cpp}`, `src/game/combat/combat_handler.{h,cpp}`, `src/game/combat/item_handler.{h,cpp}`.
 
 ---
 
@@ -508,3 +510,6 @@
 - Оптимизация: порталинг dungeon, инстансинг стен
 - Emscripten-сборка: fopen/fwrite уже WASM-safe, но нужен virtual FS
 - Профилирование: FPS ≥ 60 в dungeon с 35×35+ клетками
+- **UIHandler** — извлечь из PlayState UI-рендеринг (inventory, map, options, hotbar, skills, level-up)
+- **Save/Load** — переписать через `JsonDataManager::SaveToFile()`/`LoadFromFile()`
+- **ResourceManager** — мигрировать на shared_ptr для автоматического lifetime management

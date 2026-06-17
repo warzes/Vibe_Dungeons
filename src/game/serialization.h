@@ -9,8 +9,6 @@
 #include "game/combat/monster.h"
 #include "game/dungeon/chunk.h"
 
-using json = nlohmann::json;
-
 // ---- GridPosition ----
 inline void to_json(json& j, const GridPosition& p)
 {

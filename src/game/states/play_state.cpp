@@ -10,10 +10,8 @@
 #include "engine/renderer/renderer.h"
 #include "game/states/settings_state.h"
 #include "game/serialization.h"
+#include "game/save_manager.h"
 #include "core/file_io.h"
-#include "core/json_data_manager.h"
-#include "game/data/monster_factory.h"
-#include "game/data/item_factory.h"
 #include "game/data/experience_system.h"
 #include "game/data/skill_manager.h"
 #include "game/states/class_selection_state.h"
@@ -46,7 +44,7 @@ void PlayState::OnEnter() noexcept
 		m_input.ResetState();
 		m_renderer = nullptr;
 		m_showDebug = false;
-		m_gameMode = GameMode::Exploring;
+		m_turnManager.SetGameMode(GameMode::Exploring);
 
 		m_debugRenderer.Init();
 		Logger::Info("PlayState: debug renderer initialized");
@@ -111,113 +109,38 @@ void PlayState::OnEnter() noexcept
 		m_character.SetFacing(Direction::North);
 		Logger::Info("PlayState: character created");
 
-		// ---- Monster textures (loaded from JSON data) ----
-		{
-			const json& monstersJson = JsonDataManager::Instance().AllMonsters();
-			for (const auto& entry : monstersJson)
-			{
-				std::string typeId = entry.value("id", std::string());
-				if (typeId.empty()) { continue; }
-
-				std::string texPath = entry.value("texture", std::string());
-				if (texPath.empty()) { continue; }
-
-				std::string texKey = "tex_monster_" + typeId;
-				std::string matKey = "mat_monster_" + typeId;
-
-				Texture* tex = m_resources.LoadTexture(texKey.c_str(), texPath.c_str(), false);
-				if (!tex)
-				{
-					Logger::Warn(std::string("Failed to load texture for monster: ") + typeId + " at " + texPath);
-					continue;
-				}
-
-				Material* mat = m_resources.GetOrCreateMaterial(matKey.c_str(), *m_dungeonShader, *tex);
-				if (!mat)
-				{
-					Logger::Warn(std::string("Failed to create material for monster: ") + typeId);
-					continue;
-				}
-
-				m_monsterTextures[typeId] = tex;
-				m_monsterMaterials[typeId] = mat;
-			}
-		}
-		Logger::Info("PlayState: monster textures loaded");
-
-		// ---- Monster renderer ----
+		// ---- Combat handler init ----
+		m_combatHandler.Init(
+			m_character,
+			m_monsterManager,
+			m_monsterRenderer,
+			m_combatSystem,
+			m_combatLog,
+			m_turnManager,
+			m_camera,
+			m_dungeon,
+			m_resources,
+			*m_dungeonShader,
+			m_pendingLevelUp
+		);
+		m_combatHandler.LoadMonsterTextures();
 		m_monsterRenderer.Init();
-
-		// ---- Spawn monsters from data ----
-		spawnDefaultMonsters();
+		m_combatHandler.SpawnDefault();
 		Logger::Info("PlayState: monsters spawned");
 
-		// ---- Item textures ----
-		auto loadOrMakeTex = [&](const char* key, const char* file,
-			int r1, int g1, int b1, int r2, int g2, int b2) -> Texture*
-		{
-			Texture* tex = m_resources.LoadTexture(key, file, false);
-			if (!tex)
-			{
-				tex = m_resources.CreateCheckerboard(
-					(std::string(key) + "_cb").c_str(), 32, 4,
-					r1, g1, b1, 255, r2, g2, b2, 255);
-			}
-			return tex;
-		};
-
-		m_texItemHeal   = loadOrMakeTex("tex_item_heal",   "data/item_potion_heal.png", 255, 60, 60, 180, 0, 0);
-		m_texItemMana   = loadOrMakeTex("tex_item_mana",   "data/item_potion_mana.png", 60, 120, 255, 0, 40, 180);
-		m_texItemKey    = loadOrMakeTex("tex_item_key",    "data/item_key.png",          255, 215, 0, 180, 140, 0);
-		m_texItemGold   = loadOrMakeTex("tex_item_gold",   "data/item_gold.png",         255, 200, 50, 200, 140, 0);
-		m_texItemScroll = loadOrMakeTex("tex_item_scroll", "data/item_scroll.png",       240, 230, 200, 200, 180, 140);
-		m_texItemSword  = loadOrMakeTex("tex_item_sword",  "data/item_sword.png",        180, 180, 200, 100, 100, 130);
-		m_texItemArmor  = loadOrMakeTex("tex_item_armor",  "data/item_armor.png",        120, 120, 140, 70, 70, 90);
-		m_texItemShield = loadOrMakeTex("tex_item_shield", "data/item_shield.png",       160, 120, 80, 110, 80, 50);
-		m_texItemQuest  = loadOrMakeTex("tex_item_quest",  "data/item_quest.png",        180, 60, 200, 120, 20, 140);
-
-		if (!m_texItemHeal || !m_texItemKey || !m_texItemGold)
-		{
-			throw std::runtime_error("Failed to create item textures");
-		}
-
-		auto makeMat = [&](const char* key, Texture& tex) -> Material*
-		{
-			return m_resources.GetOrCreateMaterial(key, *m_dungeonShader, tex);
-		};
-
-		auto* matHeal   = makeMat("mat_item_heal",   *m_texItemHeal);
-		auto* matMana   = makeMat("mat_item_mana",   *m_texItemMana);
-		auto* matKey    = makeMat("mat_item_key",    *m_texItemKey);
-		auto* matGold   = makeMat("mat_item_gold",   *m_texItemGold);
-		auto* matScroll = makeMat("mat_item_scroll", *m_texItemScroll);
-		auto* matSword  = makeMat("mat_item_sword",  *m_texItemSword);
-		auto* matArmor  = makeMat("mat_item_armor",  *m_texItemArmor);
-		auto* matShield = makeMat("mat_item_shield", *m_texItemShield);
-		auto* matQuest  = makeMat("mat_item_quest",  *m_texItemQuest);
-
-		if (!matHeal || !matKey || !matGold)
-		{
-			throw std::runtime_error("Failed to create item materials");
-		}
-		Logger::Info("PlayState: item textures loaded");
-
-		// ---- Item renderer ----
-		m_itemRenderer.Init();
-		m_itemRenderer.SetMaterial(ItemType::PotionHeal,  *matHeal);
-		m_itemRenderer.SetMaterial(ItemType::PotionMana,  *matMana);
-		m_itemRenderer.SetMaterial(ItemType::Key,          *matKey);
-		m_itemRenderer.SetMaterial(ItemType::Gold,         *matGold);
-		m_itemRenderer.SetMaterial(ItemType::Scroll,       *matScroll);
-		m_itemRenderer.SetMaterial(ItemType::Weapon,       *matSword);
-		m_itemRenderer.SetMaterial(ItemType::Armor,        *matArmor);
-		m_itemRenderer.SetMaterial(ItemType::Shield,       *matShield);
-		m_itemRenderer.SetMaterial(ItemType::QuestItem,    *matQuest);
+		// ---- Item handler init ----
+		m_itemHandler.Init(
+			m_character,
+			m_combatLog,
+			m_turnManager,
+			m_camera,
+			m_resources,
+			*m_dungeonShader
+		);
 
 		m_showInventory = false;
 
-		// ---- Spawn item drops from data ----
-		spawnDefaultItems();
+		m_itemHandler.SpawnDefault();
 		Logger::Info("PlayState: item drops spawned");
 
 		// ---- Input actions for grid movement ----
@@ -320,7 +243,7 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 		if (k >= SDLK_1 && k <= SDLK_9)
 		{
 			int32_t slot = static_cast<int32_t>(k - SDLK_1);
-			processActionSlot(slot);
+			m_combatHandler.ProcessActionSlot(slot);
 		}
 	}
 
@@ -378,37 +301,7 @@ void PlayState::exitDebugMode() noexcept
 
 //=============================================================================
 
-void PlayState::spawnDefaultMonsters() noexcept
-{
-	{
-		Monster skelly = MonsterFactory::Create("skeleton", 1);
-		skelly.position = {16, 17, 0};
-		skelly.facing = Direction::South;
-		m_monsterManager.Spawn(std::move(skelly));
-	}
-	{
-		Monster slime = MonsterFactory::Create("slime", 1);
-		slime.position = {13, 17, 0};
-		slime.facing = Direction::South;
-		m_monsterManager.Spawn(std::move(slime));
-	}
-}
 
-void PlayState::spawnDefaultItems() noexcept
-{
-	{
-		ItemDrop drop;
-		drop.item = ItemFactory::CreatePotion("heal", 10);
-		drop.position = {16, 17, 0};
-		m_itemDrops.push_back(std::move(drop));
-	}
-	{
-		ItemDrop drop;
-		drop.item = ItemFactory::CreateGold(25);
-		drop.position = {14, 17, 0};
-		m_itemDrops.push_back(std::move(drop));
-	}
-}
 
 //=============================================================================
 
@@ -432,7 +325,7 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		return;
 	}
 
-	if (m_gameMode == GameMode::GameOver)
+	if (m_turnManager.GetGameMode() == GameMode::GameOver)
 	{
 		// No input processing during GameOver
 		m_camera.UpdateAnimation(static_cast<float>(dt.Seconds()));
@@ -480,10 +373,10 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		processAttack();
 		processHeldRepeat(dt);
 
-		// If animation finished while in TurnAnimating, go back to Exploring
-		if (m_gameMode == GameMode::TurnAnimating && !m_camera.IsAnimating())
+	// If animation finished while in TurnAnimating, go back to Exploring
+		if (m_turnManager.GetGameMode() == GameMode::TurnAnimating && !m_camera.IsAnimating())
 		{
-			m_gameMode = GameMode::Exploring;
+			m_turnManager.SetGameMode(GameMode::Exploring);
 		}
 	}
 
@@ -559,7 +452,7 @@ void PlayState::processEdgeActions() noexcept
 	// Edge-triggered actions are processed during Exploring and TurnAnimating.
 	// TurnWaiting processes instantly (same frame), so this runs in Exploring
 	// the next frame. TurnWaiting itself blocks new input.
-	if (m_gameMode != GameMode::Exploring && m_gameMode != GameMode::TurnAnimating)
+	if (m_turnManager.GetGameMode() != GameMode::Exploring && m_turnManager.GetGameMode() != GameMode::TurnAnimating)
 	{
 		return;
 	}
@@ -592,7 +485,7 @@ void PlayState::processEdgeActions() noexcept
 		// Movement actions consume a turn
 		if (movement)
 		{
-			m_gameMode = GameMode::TurnWaiting;
+			m_turnManager.SetGameMode(GameMode::TurnWaiting);
 		}
 
 		break;
@@ -604,7 +497,7 @@ void PlayState::processEdgeActions() noexcept
 void PlayState::processHeldRepeat(const DeltaTime& dt) noexcept
 {
 	// Auto-repeat only during Exploring, when camera is idle
-	if (m_gameMode != GameMode::Exploring)
+	if (m_turnManager.GetGameMode() != GameMode::Exploring)
 	{
 		return;
 	}
@@ -651,7 +544,7 @@ void PlayState::processHeldRepeat(const DeltaTime& dt) noexcept
 
 			if (movement)
 			{
-				m_gameMode = GameMode::TurnWaiting;
+				m_turnManager.SetGameMode(GameMode::TurnWaiting);
 			}
 		}
 		m_moveRepeatTimer = 0.0f;
@@ -662,35 +555,20 @@ void PlayState::processHeldRepeat(const DeltaTime& dt) noexcept
 
 void PlayState::processTurnWaiting() noexcept
 {
-	if (m_gameMode != GameMode::TurnWaiting)
+	if (m_turnManager.GetGameMode() != GameMode::TurnWaiting)
 	{
 		return;
 	}
 
-	// Advance turn queue (no-op with only player)
-	m_turnQueue.Advance();
-
-	// Class regen: applied at start of each player turn
-	applyRegen();
-
-	// Future: process enemy actions here
-
-	// Transition to Exploring or TurnAnimating depending on camera state
-	if (m_camera.IsAnimating())
-	{
-		m_gameMode = GameMode::TurnAnimating;
-	}
-	else
-	{
-		m_gameMode = GameMode::Exploring;
-	}
+	m_turnManager.ApplyRegen(m_character);
+	m_turnManager.EndPlayerTurn(m_camera.IsAnimating());
 }
 
 //=============================================================================
 
 void PlayState::processAttack() noexcept
 {
-	if (m_gameMode != GameMode::Exploring && m_gameMode != GameMode::TurnAnimating)
+	if (m_turnManager.GetGameMode() != GameMode::Exploring && m_turnManager.GetGameMode() != GameMode::TurnAnimating)
 	{
 		return;
 	}
@@ -707,139 +585,17 @@ void PlayState::processAttack() noexcept
 
 	if (target)
 	{
-		performCombat();
+		m_combatHandler.PerformCombat();
 	}
 	else
 	{
-		processPickup();
+		m_itemHandler.ProcessPickup();
 	}
 }
 
 //=============================================================================
 
-void PlayState::performCombat() noexcept
-{
-	Monster* target = m_monsterManager.FindInFront(
-		m_camera.GetGridPosition(),
-		m_camera.Facing()
-	);
 
-	if (!target)
-	{
-		m_combatLog.Add("Nothing to attack.", glm::vec3(0.6f));
-		return;
-	}
-
-	// Player attacks
-	bool behind = (DirectionToTarget(target->position, m_character.GetPosition()) == Opposite(target->facing));
-	AttackResult playerResult = m_combatSystem.MeleeAttack(m_character, *target, behind);
-
-	if (playerResult.critical)
-	{
-		m_combatLog.Add("Critical hit!", glm::vec3(1.0f, 0.2f, 0.2f));
-	}
-
-	if (playerResult.hit)
-	{
-		std::string msg = "Hero hits " + target->name + " for " +
-			std::to_string(playerResult.damage) + " damage!";
-		m_combatLog.Add(msg, glm::vec3(1.0f));
-	}
-	else
-	{
-		std::string msg = "Hero missed " + target->name + "!";
-		m_combatLog.Add(msg, glm::vec3(0.7f, 0.7f, 0.7f));
-	}
-
-	if (playerResult.killed)
-	{
-		std::string msg = target->name + " dies!";
-		m_combatLog.Add(msg, glm::vec3(0.2f, 1.0f, 0.2f));
-
-		// Award XP
-		ExperienceSystem::AwardKill(m_character, *target);
-		m_combatLog.Add("Gained " + std::to_string(target->xpReward) + " XP.",
-			glm::vec3(0.3f, 0.6f, 1.0f));
-
-		m_monsterManager.RemoveDead();
-		m_gameMode = GameMode::TurnWaiting;
-		m_pendingLevelUp = ExperienceSystem::CheckLevelUp(m_character);
-		return;
-	}
-
-	// Monster counter-attacks
-	AttackResult monsterResult = m_combatSystem.MonsterMeleeAttack(*target, m_character);
-
-	if (monsterResult.critical)
-	{
-		m_combatLog.Add("Critical hit!", glm::vec3(1.0f, 0.2f, 0.2f));
-	}
-
-	if (monsterResult.hit)
-	{
-		std::string msg = target->name + " hits Hero for " +
-			std::to_string(monsterResult.damage) + " damage!";
-		m_combatLog.Add(msg, glm::vec3(1.0f, 0.8f, 0.2f));
-	}
-	else
-	{
-		std::string msg = target->name + " missed Hero!";
-		m_combatLog.Add(msg, glm::vec3(0.7f, 0.7f, 0.7f));
-	}
-
-	if (m_character.GetHp() <= 0)
-	{
-		m_combatLog.Add("Hero has fallen!", glm::vec3(1.0f, 0.0f, 0.0f));
-		m_gameMode = GameMode::GameOver;
-		return;
-	}
-
-	m_gameMode = GameMode::TurnWaiting;
-}
-
-//=============================================================================
-
-void PlayState::processPickup() noexcept
-{
-	GridPosition heroPos = m_camera.GetGridPosition();
-
-	glm::ivec2 fwdDelta = DirectionToVec(m_camera.Facing());
-	GridPosition frontPos(
-		heroPos.row + fwdDelta.x,
-		heroPos.col + fwdDelta.y,
-		heroPos.floor
-	);
-
-	// Check the player's own cell first, then the cell in front
-	GridPosition checkPositions[] = {heroPos, frontPos};
-
-	for (const GridPosition& checkPos : checkPositions)
-	{
-		for (auto it = m_itemDrops.begin(); it != m_itemDrops.end(); ++it)
-		{
-			if (it->position.row == checkPos.row
-				&& it->position.col == checkPos.col
-				&& it->position.floor == checkPos.floor)
-			{
-				if (m_character.GetInventory().Add(it->item) == AddResult::Success)
-				{
-					std::string msg = "Picked up " + it->item.name + "!";
-					m_combatLog.Add(msg, glm::vec3(0.2f, 0.8f, 1.0f));
-					m_itemDrops.erase(it);
-					m_gameMode = GameMode::TurnWaiting;
-					return;
-				}
-				else
-				{
-					m_combatLog.Add("Inventory full!", glm::vec3(1.0f, 0.5f, 0.0f));
-					return;
-				}
-			}
-		}
-	}
-
-	m_combatLog.Add("Nothing to attack or pick up.", glm::vec3(0.6f));
-}
 
 //=============================================================================
 
@@ -871,16 +627,20 @@ void PlayState::renderInventoryWindow() noexcept
 	}
 	else
 	{
-		for (size_t i = 0; i < m_character.GetInventory().Size(); ++i)
+		int32_t i = 0;
+		while (i < static_cast<int32_t>(m_character.GetInventory().Size()))
 		{
 			const Item* item = m_character.GetInventory().Get(i);
 			if (!item)
 			{
+				++i;
 				continue;
 			}
 
-			ImGui::PushID(static_cast<int>(i));
+			ImGui::PushID(i);
 			ImGui::Text("%s", item->name.c_str());
+
+			bool removed = false;
 
 			if (item->type == ItemType::PotionHeal
 				|| item->type == ItemType::PotionMana
@@ -896,6 +656,7 @@ void PlayState::renderInventoryWindow() noexcept
 							"Used " + item->name + " (healed " + std::to_string(item->value) + " HP)!",
 							glm::vec3(0.2f, 1.0f, 0.2f));
 						m_character.GetInventory().Remove(i);
+						removed = true;
 					}
 					else if (item->type == ItemType::PotionMana)
 					{
@@ -910,17 +671,27 @@ void PlayState::renderInventoryWindow() noexcept
 				}
 			}
 
-			ImGui::SameLine();
-			if (ImGui::SmallButton("Drop"))
+			if (!removed)
 			{
-				ItemDrop drop;
-				drop.item = *item;
-				drop.position = m_camera.GetGridPosition();
-				m_itemDrops.push_back(std::move(drop));
-				m_combatLog.Add("Dropped " + item->name + ".", glm::vec3(0.6f));
-				m_character.GetInventory().Remove(i);
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Drop"))
+				{
+					ItemDrop drop;
+					drop.item = *item;
+					drop.position = m_camera.GetGridPosition();
+					m_itemHandler.Drops().push_back(std::move(drop));
+					m_combatLog.Add("Dropped " + item->name + ".", glm::vec3(0.6f));
+					m_character.GetInventory().Remove(i);
+					removed = true;
+				}
 			}
+
 			ImGui::PopID();
+
+			if (!removed)
+			{
+				++i;
+			}
 		}
 	}
 
@@ -931,89 +702,16 @@ void PlayState::renderInventoryWindow() noexcept
 
 void PlayState::SaveGame(const char* path) noexcept
 {
-	try
-	{
-		json j;
-
-		// Character
-		j["character"] = m_character;
-
-		// Dungeon
-		json dungeonJson;
-		to_json(dungeonJson, m_dungeon.GetChunk());
-		j["dungeon"] = dungeonJson;
-
-		// Monsters
-		json monstersJson = json::array();
-		for (const Monster& m : m_monsterManager.All())
-		{
-			monstersJson.push_back(m);
-		}
-		j["monsters"] = monstersJson;
-
-		// Item drops
-		j["itemDrops"] = m_itemDrops;
-
-		std::string dumped = j.dump(2);
-
-		if (!FileWriteBytes(path, dumped.data(), dumped.size()))
-		{
-			m_combatLog.Add("Save failed: cannot open file.", glm::vec3(1.0f, 0.3f, 0.0f));
-			return;
-		}
-
-		m_combatLog.Add("Game saved.", glm::vec3(0.3f, 0.8f, 1.0f));
-	}
-	catch (const std::exception& e)
-	{
-		m_combatLog.Add("Save error: " + std::string(e.what()), glm::vec3(1.0f, 0.3f, 0.0f));
-	}
+	SaveManager::SaveGame(path, m_character, m_dungeon, m_monsterManager, m_itemHandler.Drops(), m_combatLog);
 }
 
 //=============================================================================
 
 void PlayState::LoadGame(const char* path) noexcept
 {
-	try
+	if (SaveManager::LoadGame(path, m_character, m_dungeon, m_monsterManager, m_itemHandler.Drops(), m_camera, m_dungeonRenderer, m_combatLog))
 	{
-		std::string buffer = FileReadString(path);
-		if (buffer.empty())
-		{
-			m_combatLog.Add("Load failed: file not found.", glm::vec3(1.0f, 0.3f, 0.0f));
-			return;
-		}
-
-		json j = json::parse(buffer);
-
-		// Character
-		m_character = j.at("character").get<Character>();
-
-		// Synchronize camera with loaded character position
-		m_camera.SetGridPosition(m_character.GetPosition(), m_character.GetFacing());
-		m_camera.SnapToGrid();
-
-		// Dungeon
-		Chunk loadedChunk;
-		from_json(j.at("dungeon"), loadedChunk);
-		m_dungeon.SetChunk(loadedChunk);
-		m_dungeonRenderer.SetNeedsRebuild(true);
-
-		// Monsters
-		m_monsterManager.Clear();
-		for (const auto& monsterJson : j.at("monsters"))
-		{
-			m_monsterManager.Spawn(monsterJson.get<Monster>());
-		}
-
-		// Item drops
-		m_itemDrops = j.at("itemDrops").get<std::vector<ItemDrop>>();
-
-		m_gameMode = GameMode::Exploring;
-		m_combatLog.Add("Game loaded.", glm::vec3(0.3f, 0.8f, 1.0f));
-	}
-	catch (const std::exception& e)
-	{
-		m_combatLog.Add("Load error: " + std::string(e.what()), glm::vec3(1.0f, 0.3f, 0.0f));
+		m_turnManager.SetGameMode(GameMode::Exploring);
 	}
 }
 
@@ -1078,7 +776,7 @@ void PlayState::renderMapWindow() noexcept
 	}
 
 	// Draw items as small blue dots
-	for (const ItemDrop& drop : m_itemDrops)
+	for (const ItemDrop& drop : m_itemHandler.Drops())
 	{
 		ImVec2 center = origin + ImVec2(
 			(static_cast<float>(drop.position.col) + 0.5f) * cellSize,
@@ -1144,7 +842,7 @@ void PlayState::renderMapWindow() noexcept
 
 void PlayState::RestartGame() noexcept
 {
-	m_gameMode = GameMode::Exploring;
+	m_turnManager.SetGameMode(GameMode::Exploring);
 	m_showInventory = false;
 	m_showMap = false;
 	m_combatLog.Clear();
@@ -1166,33 +864,11 @@ void PlayState::RestartGame() noexcept
 
 	// Respawn monsters
 	m_monsterManager.Clear();
-	{
-		Monster skelly = MonsterFactory::Create("skeleton", 1);
-		skelly.position = {16, 17, 0};
-		skelly.facing = Direction::South;
-		m_monsterManager.Spawn(std::move(skelly));
-	}
-	{
-		Monster slime = MonsterFactory::Create("slime", 1);
-		slime.position = {13, 17, 0};
-		slime.facing = Direction::South;
-		m_monsterManager.Spawn(std::move(slime));
-	}
+	m_combatHandler.SpawnDefault();
 
 	// Respawn items
-	m_itemDrops.clear();
-	{
-		ItemDrop drop;
-		drop.item = ItemFactory::CreatePotion("heal", 10);
-		drop.position = {16, 17, 0};
-		m_itemDrops.push_back(std::move(drop));
-	}
-	{
-		ItemDrop drop;
-		drop.item = ItemFactory::CreateGold(25);
-		drop.position = {14, 17, 0};
-		m_itemDrops.push_back(std::move(drop));
-	}
+	m_itemHandler.ClearDrops();
+	m_itemHandler.SpawnDefault();
 
 	m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
 	m_renderHeight = GetRenderHeightFromConfig();
@@ -1298,9 +974,9 @@ void PlayState::RenderScene(Renderer& renderer) noexcept
 
 	m_dungeonRenderer.Submit(renderer);
 
-	m_monsterRenderer.Submit(renderer, m_camera, m_monsterManager.All(), m_monsterMaterials);
+	m_combatHandler.SubmitRender(renderer);
 
-	m_itemRenderer.Submit(renderer, m_camera, m_itemDrops);
+	m_itemHandler.SubmitRender(renderer);
 
 	m_debugRenderer.SetEnabled(m_showDebug);
 
@@ -1459,9 +1135,9 @@ void PlayState::Render() noexcept
 			}
 			return "Unknown";
 		};
-		ImGui::Text("Game Mode: %s", modeName(m_gameMode));
-		ImGui::Text("Turn Queue: %d", m_turnQueue.CurrentActor());
-		ImGui::Text("Player Turn: %s", m_turnQueue.IsPlayerTurn() ? "yes" : "no");
+		ImGui::Text("Game Mode: %s", modeName(m_turnManager.GetGameMode()));
+		ImGui::Text("Turn Queue: %d", m_turnManager.CurrentActor());
+		ImGui::Text("Player Turn: %s", m_turnManager.IsPlayerTurn() ? "yes" : "no");
 		ImGui::Text("Repeat Delay: %.3f s", m_moveRepeatDelay);
 		ImGui::End();
 
@@ -1551,7 +1227,7 @@ void PlayState::Render() noexcept
 	}
 
 	// ---- Game Over overlay ----
-	if (m_gameMode == GameMode::GameOver)
+	if (m_turnManager.GetGameMode() == GameMode::GameOver)
 	{
 		ImGui::OpenPopup("Game Over");
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
@@ -1770,207 +1446,4 @@ void PlayState::renderSkillsWindow() noexcept
 	ImGui::End();
 }
 
-//=============================================================================
-void PlayState::processActionSlot(int32_t slotIndex) noexcept
-{
-	if (slotIndex < 0 || slotIndex >= Character::NUM_ACTION_SLOTS)
-	{
-		return;
-	}
 
-	auto& slot = m_character.GetActionSlots()[slotIndex];
-	if (slot.id.empty())
-	{
-		return;
-	}
-
-	if (slot.cooldownRemaining > 0)
-	{
-		m_combatLog.Add("Ability on cooldown.", glm::vec3(0.8f, 0.4f, 0.4f));
-		return;
-	}
-
-	useAbility(slot.id);
-
-	// Set cooldown
-	Skill s = SkillManager::GetSkill(slot.id);
-	slot.cooldownRemaining = s.cooldown;
-}
-
-//=============================================================================
-void PlayState::useAbility(const std::string& abilityId) noexcept
-{
-	if (m_gameMode != GameMode::Exploring && m_gameMode != GameMode::TurnWaiting)
-	{
-		return;
-	}
-
-	Skill skill = SkillManager::GetSkill(abilityId);
-	if (skill.id.empty())
-	{
-		m_combatLog.Add("Unknown ability!", glm::vec3(1.0f, 0.2f, 0.2f));
-		return;
-	}
-
-	// Check MP
-	if (skill.mpCost > m_character.GetMp())
-	{
-		m_combatLog.Add("Not enough MP!", glm::vec3(0.8f, 0.4f, 0.8f));
-		return;
-	}
-
-	if (skill.type == "self" || skill.type == "heal")
-	{
-		// Self-targeted ability
-		m_character.SetMp(m_character.GetMp() - skill.mpCost);
-		AttackResult result = m_combatSystem.UseAbility(m_character, nullptr, skill);
-		if (result.damage < 0)
-		{
-			m_combatLog.Add(skill.name + " restored " + std::to_string(-result.damage) + " HP.",
-				glm::vec3(0.2f, 1.0f, 0.2f));
-		}
-		m_gameMode = GameMode::TurnWaiting;
-		return;
-	}
-
-	if (skill.type == "melee")
-	{
-		// Find monster in front
-		glm::ivec2 fwd = DirectionToVec(m_character.GetFacing());
-		GridPosition targetPos = {
-			m_character.GetPosition().row + fwd.x,
-			m_character.GetPosition().col + fwd.y,
-			m_character.GetPosition().floor
-		};
-
-		Monster* target = m_monsterManager.At(targetPos);
-		if (!target || !target->alive)
-		{
-			m_combatLog.Add("No enemy in front!", glm::vec3(0.8f, 0.4f, 0.2f));
-			return;
-		}
-		m_character.SetMp(m_character.GetMp() - skill.mpCost);
-
-		bool behind = (DirectionToTarget(target->position, m_character.GetPosition()) == Opposite(target->facing));
-
-		AttackResult result = m_combatSystem.UseAbility(m_character, target, skill, behind);
-
-		if (result.hit)
-		{
-			std::string msg = skill.name + " hits " + target->name + " for " +
-				std::to_string(result.damage) + " damage!";
-			glm::vec3 color = result.critical ? glm::vec3(1.0f, 0.2f, 0.2f) : glm::vec3(1.0f, 1.0f, 0.2f);
-			m_combatLog.Add(msg, color);
-		}
-		else
-		{
-			m_combatLog.Add(skill.name + " missed!", glm::vec3(0.6f, 0.6f, 0.6f));
-		}
-
-		if (result.killed)
-		{
-			m_combatLog.Add(target->name + " dies!", glm::vec3(0.2f, 1.0f, 0.2f));
-			ExperienceSystem::AwardKill(m_character, *target);
-			m_combatLog.Add("Gained " + std::to_string(target->xpReward) + " XP.",
-				glm::vec3(0.3f, 0.6f, 1.0f));
-			m_monsterManager.RemoveDead();
-			m_pendingLevelUp = ExperienceSystem::CheckLevelUp(m_character);
-		}
-
-		m_gameMode = GameMode::TurnWaiting;
-		return;
-	}
-
-	if (skill.type == "movement")
-	{
-		// Teleport: move to target position
-		glm::ivec2 fwd = DirectionToVec(m_character.GetFacing());
-		GridPosition targetPos = {
-			m_character.GetPosition().row + fwd.x,
-			m_character.GetPosition().col + fwd.y,
-			m_character.GetPosition().floor
-		};
-
-		if (m_dungeon.IsWalkable(targetPos) && !m_monsterManager.At(targetPos))
-		{
-			m_character.SetMp(m_character.GetMp() - skill.mpCost);
-			m_character.GetPosition() = targetPos;
-			doGridAction("MoveForward");
-			m_combatLog.Add(skill.name + " activated!", glm::vec3(0.6f, 0.3f, 1.0f));
-		}
-		else
-		{
-			m_combatLog.Add("Cannot shadow step there!", glm::vec3(0.8f, 0.4f, 0.2f));
-		}
-		return;
-	}
-
-	// Ranged / AoE — placeholder for future targeting system
-	if (skill.type == "ranged" || skill.type == "aoe")
-	{
-		// Simple forward-target for now
-		glm::ivec2 fwd = DirectionToVec(m_character.GetFacing());
-		GridPosition targetPos = {
-			m_character.GetPosition().row + fwd.x,
-			m_character.GetPosition().col + fwd.y,
-			m_character.GetPosition().floor
-		};
-
-		Monster* target = m_monsterManager.At(targetPos);
-		if (!target || !target->alive)
-		{
-			m_combatLog.Add("No valid target!", glm::vec3(0.8f, 0.4f, 0.2f));
-			return;
-		}
-
-		m_character.SetMp(m_character.GetMp() - skill.mpCost);
-		bool behind = (DirectionToTarget(target->position, m_character.GetPosition()) == Opposite(target->facing));
-		AttackResult result = m_combatSystem.UseAbility(m_character, target, skill, behind);
-
-		if (result.hit)
-		{
-			std::string msg = skill.name + " hits " + target->name + " for " +
-				std::to_string(result.damage) + " damage!";
-			m_combatLog.Add(msg, glm::vec3(1.0f, 0.6f, 0.2f));
-		}
-		else
-		{
-			m_combatLog.Add(skill.name + " missed!", glm::vec3(0.6f, 0.6f, 0.6f));
-		}
-
-		if (result.killed)
-		{
-			m_combatLog.Add(target->name + " dies!", glm::vec3(0.2f, 1.0f, 0.2f));
-			ExperienceSystem::AwardKill(m_character, *target);
-			m_monsterManager.RemoveDead();
-			m_pendingLevelUp = ExperienceSystem::CheckLevelUp(m_character);
-		}
-
-		m_gameMode = GameMode::TurnWaiting;
-		return;
-	}
-
-	m_combatLog.Add("Cannot use that ability here.", glm::vec3(0.8f, 0.4f, 0.2f));
-}
-
-//=============================================================================
-void PlayState::applyRegen() noexcept
-{
-	const json& classData = JsonDataManager::Instance().GetClassData(m_character.GetClass());
-	int32_t hpRegen = classData.value("regenHpPerTurn", 0);
-	int32_t mpRegen = classData.value("regenMpPerTurn", 0);
-
-	if (hpRegen > 0)
-	{
-		m_character.Heal(hpRegen);
-	}
-
-	if (mpRegen > 0)
-	{
-		m_character.SetMp(m_character.GetMp() + mpRegen);
-		if (m_character.GetMp() > m_character.GetMaxMp())
-		{
-			m_character.SetMp(m_character.GetMaxMp());
-		}
-	}
-}

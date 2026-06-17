@@ -16,7 +16,6 @@ struct Skill final
 
 	int32_t mpCost = 0;
 	int32_t cooldown = 0;
-	int32_t cooldownRemaining = 0;
 
 	int32_t damageMin = 0;
 	int32_t damageMax = 0;

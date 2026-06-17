@@ -192,9 +192,11 @@
     <ClCompile Include="engine\resource_manager.cpp" />
     <ClCompile Include="engine\window.cpp" />
     <ClCompile Include="game\combat\character.cpp" />
+    <ClCompile Include="game\combat\combat_handler.cpp" />
     <ClCompile Include="game\combat\combat_system.cpp" />
     <ClCompile Include="game\combat\dice.cpp" />
     <ClCompile Include="game\combat\inventory.cpp" />
+    <ClCompile Include="game\combat\item_handler.cpp" />
     <ClCompile Include="game\combat\item_renderer.cpp" />
     <ClCompile Include="game\combat\monster_manager.cpp" />
     <ClCompile Include="game\combat\monster_renderer.cpp" />
@@ -210,7 +212,9 @@
     <ClCompile Include="game\dungeon\dungeon.cpp" />
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp" />
     <ClCompile Include="game\game_app.cpp" />
+    <ClCompile Include="game\save_manager.cpp" />
     <ClCompile Include="game\serialization.cpp" />
+    <ClCompile Include="game\turn_manager.cpp" />
     <ClCompile Include="game\states\class_selection_state.cpp" />
     <ClCompile Include="game\states\main_menu_state.cpp" />
     <ClCompile Include="game\states\play_state.cpp" />
@@ -269,10 +273,12 @@
     <ClInclude Include="engine\window.h" />
     <ClInclude Include="game\combat\action.h" />
     <ClInclude Include="game\combat\character.h" />
+    <ClInclude Include="game\combat\combat_handler.h" />
     <ClInclude Include="game\combat\combat_system.h" />
     <ClInclude Include="game\combat\dice.h" />
     <ClInclude Include="game\combat\inventory.h" />
     <ClInclude Include="game\combat\item.h" />
+    <ClInclude Include="game\combat\item_handler.h" />
     <ClInclude Include="game\combat\item_renderer.h" />
     <ClInclude Include="game\combat\monster.h" />
     <ClInclude Include="game\combat\monster_manager.h" />
@@ -294,6 +300,8 @@
     <ClInclude Include="game\dungeon\tile.h" />
     <ClInclude Include="game\game_app.h" />
     <ClInclude Include="game\game_mode.h" />
+    <ClInclude Include="game\save_manager.h" />
+    <ClInclude Include="game\turn_manager.h" />
     <ClInclude Include="game\grid_position.h" />
     <ClInclude Include="game\serialization.h" />
     <ClInclude Include="game\states\class_selection_state.h" />

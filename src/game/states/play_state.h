@@ -14,14 +14,13 @@
 #include "game/direction.h"
 #include "game/dungeon/dungeon.h"
 #include "game/dungeon/dungeon_renderer.h"
-#include "game/game_mode.h"
-#include "game/combat/turn_queue.h"
+#include "game/turn_manager.h"
 #include "game/combat/character.h"
 #include "game/combat/monster_manager.h"
 #include "game/combat/monster_renderer.h"
+#include "game/combat/combat_handler.h"
 #include "game/combat/combat_system.h"
-#include "game/combat/item_renderer.h"
-#include "game/combat/item.h"
+#include "game/combat/item_handler.h"
 #include "game/ui/combat_log.h"
 
 class GameStateMachine;
@@ -73,9 +72,6 @@ private:
 	void enterDebugMode() noexcept;
 	void exitDebugMode() noexcept;
 
-	void spawnDefaultMonsters() noexcept;
-	void spawnDefaultItems() noexcept;
-
 	void processEdgeActions() noexcept;
 	void processHeldRepeat(const DeltaTime& dt) noexcept;
 	void processTurnWaiting() noexcept;
@@ -84,7 +80,6 @@ private:
 	void doGridAction(std::string_view name) noexcept;
 
 	void processAttack() noexcept;
-	void performCombat() noexcept;
 
 	GameStateMachine& m_machine;
 	const Window& m_window;
@@ -111,8 +106,7 @@ private:
 	bool m_showDebug = false;
 
 	// Turn system
-	GameMode m_gameMode = GameMode::Exploring;
-	TurnQueue m_turnQueue;
+	TurnManager m_turnManager;
 
 	bool m_initialized = false;
 	const Renderer* m_renderer = nullptr;
@@ -122,8 +116,7 @@ private:
 	int32_t m_renderHeight = 480;
 
 	// Combat
-	std::unordered_map<std::string, Texture*> m_monsterTextures;
-	std::unordered_map<std::string, Material*> m_monsterMaterials;
+	CombatHandler m_combatHandler;
 
 	Character m_character;
 	MonsterManager m_monsterManager;
@@ -132,20 +125,9 @@ private:
 	CombatLog m_combatLog;
 
 	// Items
-	Texture* m_texItemHeal = nullptr;
-	Texture* m_texItemMana = nullptr;
-	Texture* m_texItemKey = nullptr;
-	Texture* m_texItemGold = nullptr;
-	Texture* m_texItemScroll = nullptr;
-	Texture* m_texItemSword = nullptr;
-	Texture* m_texItemArmor = nullptr;
-	Texture* m_texItemShield = nullptr;
-	Texture* m_texItemQuest = nullptr;
-	ItemRenderer m_itemRenderer;
-	std::vector<ItemDrop> m_itemDrops;
+	ItemHandler m_itemHandler;
 	bool m_showInventory = false;
 
-	void processPickup() noexcept;
 	void renderInventoryWindow() noexcept;
 
 	static constexpr std::string_view GRID_ACTION_NAMES[] =
@@ -176,7 +158,4 @@ private:
 
 	void renderHotbar() noexcept;
 	void renderSkillsWindow() noexcept;
-	void processActionSlot(int32_t slotIndex) noexcept;
-	void applyRegen() noexcept;
-	void useAbility(const std::string& abilityId) noexcept;
 };
