@@ -12,7 +12,8 @@ enum class ItemType : uint8_t
 	Key,
 	Gold,
 	Scroll,
-	QuestItem
+	QuestItem,
+	Accessory
 };
 
 enum class ItemRarity : uint8_t
@@ -23,6 +24,19 @@ enum class ItemRarity : uint8_t
 	Legendary
 };
 
+enum class EquipmentSlot : uint8_t
+{
+	None,
+	Weapon,
+	Shield,
+	Head,
+	Body,
+	Hands,
+	Feet,
+	Ring,
+	Amulet
+};
+
 struct Item final
 {
 	std::string name;
@@ -30,6 +44,21 @@ struct Item final
 	ItemRarity rarity = ItemRarity::Common;
 	int32_t value = 0;
 	int32_t bonus = 0;
+	EquipmentSlot slot = EquipmentSlot::None;
+
+	int32_t damageMin = 0;
+	int32_t damageMax = 0;
+	int32_t ac = 0;
+	int32_t atkBonus = 0;
+	int32_t strBonus = 0;
+	int32_t dexBonus = 0;
+	int32_t conBonus = 0;
+	int32_t hpBonus = 0;
+	int32_t mpBonus = 0;
+	int32_t elementDamageMin = 0;
+	int32_t elementDamageMax = 0;
+	std::string elementType;
+	int32_t lifeStealPercent = 0;
 
 	[[nodiscard]] const char* SpritePath() const noexcept
 	{
@@ -44,6 +73,7 @@ struct Item final
 			case ItemType::Armor:       return "data/item_armor.png";
 			case ItemType::Shield:      return "data/item_shield.png";
 			case ItemType::QuestItem:   return "data/item_quest.png";
+			case ItemType::Accessory:   return "data/item_gold.png";
 		}
 		return "data/item_default.png";
 	}

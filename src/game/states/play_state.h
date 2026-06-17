@@ -158,4 +158,8 @@ private:
 
 	void renderHotbar() noexcept;
 	void renderSkillsWindow() noexcept;
+
+	// Equipment
+	bool m_showEquipment = false;
+	void renderEquipmentWindow() noexcept;
 };

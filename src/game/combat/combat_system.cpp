@@ -44,18 +44,18 @@ AttackResult CombatSystem::MeleeAttack(const Character& attacker, Monster& defen
 	int32_t roll = Dice::Roll(20);
 	result.critical = (roll == 20);
 
-	int32_t totalRoll = roll + attacker.GetAtkBonus() + ClassAtkBonus(attacker, behind);
+	int32_t totalRoll = roll + attacker.GetEquippedAtkBonus() + ClassAtkBonus(attacker, behind);
 	result.hit = (totalRoll >= defender.ac) || result.critical;
 
 	if (result.hit)
 	{
 		if (result.critical)
 		{
-			result.damage = Dice::Roll(2, attacker.GetDamageMax()) + ClassDamageBonus(attacker, behind);
+			result.damage = Dice::Roll(2, attacker.GetEquippedDamageMax()) + ClassDamageBonus(attacker, behind);
 		}
 		else
 		{
-			result.damage = Dice::Roll(attacker.GetDamageMin(), attacker.GetDamageMax()) + ClassDamageBonus(attacker, behind);
+			result.damage = Dice::Roll(attacker.GetEquippedDamageMin(), attacker.GetEquippedDamageMax()) + ClassDamageBonus(attacker, behind);
 		}
 
 		defender.hp -= result.damage;
@@ -77,7 +77,7 @@ AttackResult CombatSystem::MonsterMeleeAttack(const Monster& attacker, Character
 	int32_t roll = Dice::Roll(20);
 	result.critical = (roll == 20);
 
-	int32_t effectiveAc = defender.GetAc() + ClassAcBonus(defender);
+	int32_t effectiveAc = defender.GetEquippedAc() + ClassAcBonus(defender);
 	int32_t totalRoll = roll + attacker.atkBonus;
 	result.hit = (totalRoll >= effectiveAc) || result.critical;
 
@@ -127,7 +127,7 @@ AttackResult CombatSystem::UseAbility(Character& attacker, Monster* defender,
 		int32_t roll = Dice::Roll(20);
 		result.critical = (roll == 20);
 
-		int32_t totalRoll = roll + attacker.GetAtkBonus() + skill.atkBonus + ClassAtkBonus(attacker, behind);
+		int32_t totalRoll = roll + attacker.GetEquippedAtkBonus() + skill.atkBonus + ClassAtkBonus(attacker, behind);
 		result.hit = (totalRoll >= defender->ac) || result.critical;
 
 		if (result.hit)
@@ -140,7 +140,7 @@ AttackResult CombatSystem::UseAbility(Character& attacker, Monster* defender,
 			else
 			{
 				dmg = static_cast<int32_t>(
-					Dice::Roll(attacker.GetDamageMin(), attacker.GetDamageMax()) * skill.damageMult);
+					Dice::Roll(attacker.GetEquippedDamageMin(), attacker.GetEquippedDamageMax()) * skill.damageMult);
 			}
 			dmg += ClassDamageBonus(attacker, behind);
 

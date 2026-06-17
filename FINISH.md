@@ -1,4 +1,4 @@
-# Реализовано (Phase 1–3: steps 1–55)
+# Реализовано (Phase 1–4: steps 1–90)
 
 > Всё завершённое из ROADMAP.md, перемещено сюда.
 > Актуальный план оставшихся задач — в [ROADMAP.md](./ROADMAP.md).
@@ -594,3 +594,43 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 `engine/audio_system.cpp`:
 - Добавлена проверка `output == nullptr` после `stb_vorbis_decode_filename`.
 - Конверсия S16→F32 переписана с `std::transform` и предвычисленным `inv32768` вместо цикла с поэлементным делением.
+
+---
+
+## Фаза 4: Система снаряжения (шаги 56–90) ✅
+
+### Шаг 56–57: EquipmentSlot + Equipment
+- `EquipmentSlot` enum в `item.h`: Weapon, Shield, Head, Body, Hands, Feet, Ring, Amulet
+- `Item` struct расширен полями статов: `damageMin/Max`, `ac`, `atkBonus`, `strBonus`, `dexBonus`, `conBonus`, `hpBonus`, `mpBonus`, `elementDamageMin/Max`, `elementType`, `lifeStealPercent`, `slot`
+- `Equipment` класс в `game/combat/equipment.h/.cpp`: `std::array<Item, 8>` с `m_occupied[]`, методы `Equip()`, `Unequip()`, `GetTotalStats()`, `Clear()`, сериализация
+
+### Шаг 58–61: Character equipment + Equip/Unequip + GetEquippedStats
+- `Character` добавлен `Equipment m_equipment` + getter `GetEquipment()`
+- `Character::GetEquippedAc/AtkBonus/DamageMin/DamageMax()` — базовый стат + оборудование
+- `Equipment::Equip()` возвращает предыдущий предмет, `Unequip()` в инвентарь
+
+### Шаг 62: CombatSystem использует equipped stats
+- `combat_system.cpp`: все вызовы `GetAtkBonus()` → `GetEquippedAtkBonus()`, аналогично для `GetAc()`, `GetDamageMin/Max()`
+
+### Шаг 63: UI экипировки
+- Окно "Equipment (E)" с 8 слотами, тултипы с полными статами, кнопка Unequip
+- Total Equipment Stats внизу окна
+- Кнопка "Equip" в инвентаре для предметов с ненулевым `slot`
+- Хоткей E для открытия/закрытия
+
+### Шаг 64–73: Prefix-Material-Postfix генерация
+- `ItemGenerator` в `game/data/item_generator.h/.cpp`: `GenerateWeapon()`, `GenerateArmorItem()`, `GenerateAccessory()`, `GenerateEquipment()`
+- Алгоритм: выбрать base (random из JsonDataManager) → префикс/материал/постфикс по tierCap (уровень игрока / 3)
+- `determineRarity()` по maxTier из трёх частей
+- Имя: "Prefix Material BaseName of Postfix"
+- Использует `DataManager::CalculateItemStats()` для финальных статов
+- ElementDamage и lifeSteal из префикса/постфикса
+
+### Шаг 74–82: Расчёт статов (существующий)
+- `ItemStats` и `DataManager::CalculateItemStats()` уже существовали, используются напрямую
+- ElementDamage/lifeSteal добавляются в `ItemGenerator`
+
+### Шаг 83–90 (UI — частично)
+- Окно экипировки с просмотром/тултипами/снятием
+- Equip через кнопку в инвентаре
+- **Не сделано**: drag-n-drop, сравнение статов (зелёным), визуальное отображение на персонаже, `GetEquippableItems()` фильтр

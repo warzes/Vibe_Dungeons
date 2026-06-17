@@ -236,6 +236,11 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 		m_showSkills = !m_showSkills;
 	}
 
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_E)
+	{
+		m_showEquipment = !m_showEquipment;
+	}
+
 	// Hotbar 1-9
 	if (event.type == SDL_EVENT_KEY_DOWN)
 	{
@@ -642,9 +647,24 @@ void PlayState::renderInventoryWindow() noexcept
 
 			bool removed = false;
 
-			if (item->type == ItemType::PotionHeal
+			if (item->slot != EquipmentSlot::None)
+			{
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Equip"))
+				{
+					std::optional<Item> prev = m_character.GetEquipment().Equip(*item);
+					m_character.GetInventory().Remove(i);
+					if (prev.has_value())
+					{
+						m_character.GetInventory().Add(std::move(prev.value()));
+					}
+					removed = true;
+				}
+			}
+
+			if (!removed && (item->type == ItemType::PotionHeal
 				|| item->type == ItemType::PotionMana
-				|| item->type == ItemType::Scroll)
+				|| item->type == ItemType::Scroll))
 			{
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Use"))
@@ -1115,6 +1135,9 @@ void PlayState::Render() noexcept
 	// ===== Skills window (toggle with K) =====
 	renderSkillsWindow();
 
+	// ===== Equipment window (toggle with E) =====
+	renderEquipmentWindow();
+
 	// ===== Debug windows (only when debug is on) =====
 
 	if (m_showDebug)
@@ -1442,6 +1465,139 @@ void PlayState::renderSkillsWindow() noexcept
 		}
 		ImGui::PopStyleColor();
 	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+void PlayState::renderEquipmentWindow() noexcept
+{
+	if (!m_showEquipment)
+	{
+		return;
+	}
+
+	ImGui::SetNextWindowPos(ImVec2(
+		ImGui::GetMainViewport()->WorkSize.x * 0.5f - 175.0f,
+		ImGui::GetMainViewport()->WorkSize.y * 0.5f - 200.0f
+	), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(350, 400), ImGuiCond_FirstUseEver);
+
+	if (!ImGui::Begin("Equipment (E)", &m_showEquipment))
+	{
+		ImGui::End();
+		return;
+	}
+
+	Equipment& eq = m_character.GetEquipment();
+
+	struct SlotInfo final
+	{
+		const char* label;
+		EquipmentSlot slot;
+	};
+
+	const SlotInfo slots[] =
+	{
+		{"Weapon",  EquipmentSlot::Weapon},
+		{"Shield",  EquipmentSlot::Shield},
+		{"Head",    EquipmentSlot::Head},
+		{"Body",    EquipmentSlot::Body},
+		{"Hands",   EquipmentSlot::Hands},
+		{"Feet",    EquipmentSlot::Feet},
+		{"Ring",    EquipmentSlot::Ring},
+		{"Amulet",  EquipmentSlot::Amulet}
+	};
+
+	ItemStats totals = eq.GetTotalStats();
+
+	for (const auto& si : slots)
+	{
+		const Item* item = eq.Get(si.slot);
+
+		ImGui::PushID(si.label);
+
+		ImGui::Text("%s: ", si.label);
+		ImGui::SameLine();
+
+		if (item)
+		{
+			ImGui::TextColored(ImVec4(0.3f, 0.8f, 1.0f, 1.0f), "%s", item->name.c_str());
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text("Rarity: ");
+				ImGui::SameLine();
+				switch (item->rarity)
+				{
+					case ItemRarity::Common:    ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), "Common"); break;
+					case ItemRarity::Uncommon:  ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "Uncommon"); break;
+					case ItemRarity::Rare:      ImGui::TextColored(ImVec4(0.3f, 0.5f, 1.0f, 1.0f), "Rare"); break;
+					case ItemRarity::Legendary: ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.0f, 1.0f), "Legendary"); break;
+				}
+				if (item->damageMin > 0 || item->damageMax > 0)
+				{
+					ImGui::Text("Damage: %d-%d", item->damageMin, item->damageMax);
+				}
+				if (item->ac > 0)
+				{
+					ImGui::Text("AC: +%d", item->ac);
+				}
+				if (item->atkBonus > 0)
+				{
+					ImGui::Text("ATK: +%d", item->atkBonus);
+				}
+				if (item->strBonus > 0)  { ImGui::Text("STR: +%d", item->strBonus); }
+				if (item->dexBonus > 0)  { ImGui::Text("DEX: +%d", item->dexBonus); }
+				if (item->conBonus > 0)  { ImGui::Text("CON: +%d", item->conBonus); }
+				if (item->hpBonus > 0)   { ImGui::Text("HP: +%d", item->hpBonus); }
+				if (item->mpBonus > 0)   { ImGui::Text("MP: +%d", item->mpBonus); }
+				if (!item->elementType.empty())
+				{
+					ImGui::Text("Element: %s (%d-%d)",
+						item->elementType.c_str(),
+						item->elementDamageMin,
+						item->elementDamageMax);
+				}
+				if (item->lifeStealPercent > 0)
+				{
+					ImGui::Text("Life Steal: %d%%", item->lifeStealPercent);
+				}
+				ImGui::Text("Value: %d", item->value);
+				ImGui::EndTooltip();
+			}
+
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Unequip"))
+			{
+				std::optional<Item> unequipped = eq.Unequip(si.slot);
+				if (unequipped.has_value())
+				{
+					m_character.GetInventory().Add(std::move(unequipped.value()));
+				}
+			}
+		}
+		else
+		{
+			ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "(empty)");
+		}
+
+		ImGui::PopID();
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Total Equipment Stats:");
+	if (totals.damageMin > 0 || totals.damageMax > 0)
+	{
+		ImGui::Text("  Damage: +%d-%d", totals.damageMin, totals.damageMax);
+	}
+	if (totals.ac > 0)      { ImGui::Text("  AC: +%d", totals.ac); }
+	if (totals.atkBonus > 0){ ImGui::Text("  ATK: +%d", totals.atkBonus); }
+	if (totals.strBonus > 0){ ImGui::Text("  STR: +%d", totals.strBonus); }
+	if (totals.dexBonus > 0){ ImGui::Text("  DEX: +%d", totals.dexBonus); }
+	if (totals.conBonus > 0){ ImGui::Text("  CON: +%d", totals.conBonus); }
+	if (totals.hpBonus > 0) { ImGui::Text("  HP: +%d", totals.hpBonus); }
+	if (totals.mpBonus > 0) { ImGui::Text("  MP: +%d", totals.mpBonus); }
 
 	ImGui::End();
 }

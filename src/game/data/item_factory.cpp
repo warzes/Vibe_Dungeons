@@ -27,6 +27,24 @@ Item ItemFactory::CreateBase(const std::string& itemId)
 
 	item.bonus = data.value("bonus", 0);
 
+	item.damageMin = data.value("damageMin", 0);
+	item.damageMax = data.value("damageMax", 0);
+	item.ac = data.value("ac", 0);
+	item.atkBonus = data.value("atkBonus", 0);
+	item.hpBonus = data.value("hpBonus", 0);
+	item.mpBonus = data.value("mpBonus", 0);
+
+	// Map slot string to EquipmentSlot
+	std::string slotStr = data.value("slot", "");
+	if (slotStr == "weapon")       { item.slot = EquipmentSlot::Weapon; }
+	else if (slotStr == "shield")  { item.slot = EquipmentSlot::Shield; }
+	else if (slotStr == "head")    { item.slot = EquipmentSlot::Head; }
+	else if (slotStr == "body")    { item.slot = EquipmentSlot::Body; }
+	else if (slotStr == "hands")   { item.slot = EquipmentSlot::Hands; }
+	else if (slotStr == "feet")    { item.slot = EquipmentSlot::Feet; }
+	else if (slotStr == "ring")    { item.slot = EquipmentSlot::Ring; }
+	else if (slotStr == "amulet")  { item.slot = EquipmentSlot::Amulet; }
+
 	return item;
 }
 

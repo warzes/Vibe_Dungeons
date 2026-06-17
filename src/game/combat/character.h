@@ -3,6 +3,7 @@
 #include "game/grid_position.h"
 #include "game/direction.h"
 #include "game/combat/inventory.h"
+#include "game/combat/equipment.h"
 #include "game/data/skill_manager.h"
 
 class Character final
@@ -35,6 +36,7 @@ public:
 	void SetMaxMp(int32_t v) noexcept { m_maxMp = v; }
 
 	[[nodiscard]] int32_t GetAc() const noexcept { return m_ac; }
+	[[nodiscard]] int32_t GetEquippedAc() const noexcept { return m_ac + m_equipment.GetTotalStats().ac; }
 	void SetAc(int32_t v) noexcept { m_ac = v; }
 
 	[[nodiscard]] int32_t GetStr() const noexcept { return m_str; }
@@ -50,15 +52,18 @@ public:
 	void SetIntel(int32_t v) noexcept { m_intel = v; }
 
 	[[nodiscard]] int32_t GetAtkBonus() const noexcept { return m_atkBonus; }
+	[[nodiscard]] int32_t GetEquippedAtkBonus() const noexcept { return m_atkBonus + m_equipment.GetTotalStats().atkBonus; }
 	void SetAtkBonus(int32_t v) noexcept { m_atkBonus = v; }
 
 	[[nodiscard]] int32_t GetDamageBonus() const noexcept { return m_damageBonus; }
 	void SetDamageBonus(int32_t v) noexcept { m_damageBonus = v; }
 
 	[[nodiscard]] int32_t GetDamageMin() const noexcept { return m_damageMin; }
+	[[nodiscard]] int32_t GetEquippedDamageMin() const noexcept { return m_damageMin + m_equipment.GetTotalStats().damageMin; }
 	void SetDamageMin(int32_t v) noexcept { m_damageMin = v; }
 
 	[[nodiscard]] int32_t GetDamageMax() const noexcept { return m_damageMax; }
+	[[nodiscard]] int32_t GetEquippedDamageMax() const noexcept { return m_damageMax + m_equipment.GetTotalStats().damageMax; }
 	void SetDamageMax(int32_t v) noexcept { m_damageMax = v; }
 
 	[[nodiscard]] int32_t GetXp() const noexcept { return m_xp; }
@@ -78,6 +83,10 @@ public:
 	// ---- Inventory ----
 	[[nodiscard]] Inventory& GetInventory() noexcept { return m_inventory; }
 	[[nodiscard]] const Inventory& GetInventory() const noexcept { return m_inventory; }
+
+	// ---- Equipment ----
+	[[nodiscard]] Equipment& GetEquipment() noexcept { return m_equipment; }
+	[[nodiscard]] const Equipment& GetEquipment() const noexcept { return m_equipment; }
 
 	// ---- Skills ----
 	[[nodiscard]] std::vector<std::string>& GetUnlockedSkills() noexcept { return m_unlockedSkills; }
@@ -115,6 +124,7 @@ private:
 	GridPosition m_position;
 	Direction m_facing = Direction::North;
 	Inventory m_inventory;
+	Equipment m_equipment;
 	std::vector<std::string> m_unlockedSkills;
 	std::array<ActionSlot, NUM_ACTION_SLOTS> m_actionSlots{};
 	std::vector<std::string> m_learnedSpells;

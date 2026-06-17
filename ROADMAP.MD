@@ -1,63 +1,8 @@
 # Roadmap: Dungeon Crawlers — новый план развития
 
-> **Выполнено (фаза 1–3, шаги 1–55)**: см. [FINISH.md](./FINISH.md)
+> **Выполнено (фаза 1–4, шаги 1–90)**: см. [FINISH.md](./FINISH.md)
 > **Архив**: `_archived/old_phase2_61_120.md`
-> **Текущая работа**: Фаза 4, шаг 56
->
-> **Refactoring progress** (2026-06-17): PlayState разбит на `TurnManager`, `SaveManager`, `CombatHandler`, `ItemHandler`. Строк кода: 2073 → 1449. Исправлены: CRIT-1 (inventory loop), CRIT-3 (applyRegen), P3 (duplicate json), N4 (cooldownRemaining). Новые файлы: `src/game/turn_manager.{h,cpp}`, `src/game/save_manager.{h,cpp}`, `src/game/combat/combat_handler.{h,cpp}`, `src/game/combat/item_handler.{h,cpp}`.
-
----
-
-##  Фаза 4: Система снаряжения (шаги 56–90)
-
-> Цель: полноценная экипировка с генерацией из префикс-материал-постфикс, слоты, статы.
-
-### Слоты экипировки (шаги 56–63)
-
-56. `EquipmentSlot` — enum: Weapon, Shield, Head, Body, Hands, Feet, Ring, Amulet
-57. `Equipment` — структура с массивом из 8 слотов, каждый может быть пуст или содержать Item
-58. `Character::equipment` — заменить Inventory для экипировки, отдельно `Inventory` для сумки
-59. `EquipItem(item, slot)` — надеть предмет, старый снять в инвентарь
-60. `UnequipItem(slot)` — снять в инвентарь
-61. `GetEquippedStats()` — сумма статов со всего надетого: totalAC, totalDamage, totalATK
-62. `CombatSystem` использует `character.GetEquippedStats()` вместо голых полей character
-63. UI экипировки: окно "Equipment" (клавиша E) — 8 слотов, показывают надетые предметы
-
-### Prefix-Material-Postfix генерация (шаги 64–73)
-
-64. `data/item_names.json` — словарь названий для частей генерации
-65. `ItemGenerator` — класс, создающий полное имя из частей: prefix + material + base + postfix
-66. Алгоритм генерации: выбрать base → выбрать material → выбрать prefix → выбрать postfix
-67. Каждая часть модифицирует статы: prefix умножает базу, material задаёт базовый уровень, postfix добавляет
-68. `ItemGenerator::Generate(baseType, qualityLevel)` — создаёт случайный предмет указанного качества
-69. Качество (qualityLevel) влияет на шанс хороших префиксов/постфиксов
-70. Уникальные имена: если все части совпали, имя "Unique [prefix] [material] [base] of [postfix]"
-71. Редкость: Common (без частей) < Uncommon (1 часть) < Rare (2 части) < Legendary (3+ части)
-72. `data/rarity_colors.json` — цвета редкости для UI
-73. Пример: "Vicious Steel Sword of Fire" — Rare, +3 damage (Vicious), Steel base, +1d4 fire (of Fire)
-
-### Расчёт статов (шаги 74–82)
-
-74. `ItemStats` — структура: damageMin, damageMax, ac, atkBonus, strBonus, dexBonus, conBonus, hpBonus, mpBonus, elementalDamage (тип + кол-во)
-75. `ItemStatCalculator::Calculate(baseItem, prefix, material, postfix)` → `ItemStats`
-76. Материал влияет: Wood — лёгкое (-1 damage), Steel — среднее, Adamant — тяжёлое (+2 damage, -1 speed)
-77. Постфикс "of Fire": +1d4 fire damage к атаке. "of Protection": +2 AC. "of Vampire": 10% вампиризм
-78. Префикс "Sharp": +1 damage. "Vicious": +2 damage. "Blessed": +1 ATK, +1d4 holy vs undead
-79. ElementalDamage: атака наносит дополнительный elemental damage, монстры могут иметь резисты
-80. `GetEquippedStats()` суммирует все `ItemStats` со всех надетых предметов
-81. Статы персонажа (STR/DEX/CON) влияют на требования к экипировке
-82. Если требования не выполнены — предмет надет, но даёт штрафы (-2 ATK, -2 AC)
-
-### UI экипировки (шаги 83–90)
-
-83. Окно "Equipment" (E): слева 8 слотов с иконками/текстом, справа инвентарь
-84. Drag-n-drop или клик: предмет из инвентаря → на слот
-85. Сравнение статов: подсвечено зелёным если новый предмет лучше по данному стату
-86. `ItemTooltip` — всплывающая подсказка при наведении: полные статы, префикс/материал/постфикс описание
-87. Оружие в руках отображается в руке персонажа (биллборд, как сейчас предметы на полу)
-88. Броня визуально меняет цвет/форму биллборда персонажа (пока задел)
-89. `Inventory::GetEquippableItems(slot)` — фильтр инвентаря по типу слота
-90. Тест: надеть/снять каждый тип предмета, проверить изменение статов в HUD
+> **Текущая работа**: Фаза 5, шаг 91
 
 ---
 
@@ -510,6 +455,3 @@
 - Оптимизация: порталинг dungeon, инстансинг стен
 - Emscripten-сборка: fopen/fwrite уже WASM-safe, но нужен virtual FS
 - Профилирование: FPS ≥ 60 в dungeon с 35×35+ клетками
-- **UIHandler** — извлечь из PlayState UI-рендеринг (inventory, map, options, hotbar, skills, level-up)
-- **Save/Load** — переписать через `JsonDataManager::SaveToFile()`/`LoadFromFile()`
-- **ResourceManager** — мигрировать на shared_ptr для автоматического lifetime management

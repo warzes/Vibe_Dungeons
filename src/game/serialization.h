@@ -57,6 +57,17 @@ inline void from_json(const json& j, ItemRarity& r)
 	r = static_cast<ItemRarity>(j.get<uint8_t>());
 }
 
+// ---- EquipmentSlot ----
+inline void to_json(json& j, EquipmentSlot s)
+{
+	j = static_cast<uint8_t>(s);
+}
+
+inline void from_json(const json& j, EquipmentSlot& s)
+{
+	s = static_cast<EquipmentSlot>(j.get<uint8_t>());
+}
+
 // ---- Item ----
 inline void to_json(json& j, const Item& item)
 {
@@ -65,7 +76,17 @@ inline void to_json(json& j, const Item& item)
 		{"type", item.type},
 		{"rarity", item.rarity},
 		{"value", item.value},
-		{"bonus", item.bonus}
+		{"bonus", item.bonus},
+		{"slot", item.slot},
+		{"damageMin", item.damageMin},
+		{"damageMax", item.damageMax},
+		{"ac", item.ac},
+		{"atkBonus", item.atkBonus},
+		{"strBonus", item.strBonus},
+		{"dexBonus", item.dexBonus},
+		{"conBonus", item.conBonus},
+		{"hpBonus", item.hpBonus},
+		{"mpBonus", item.mpBonus}
 	};
 }
 
@@ -76,6 +97,16 @@ inline void from_json(const json& j, Item& item)
 	j.at("rarity").get_to(item.rarity);
 	j.at("value").get_to(item.value);
 	j.at("bonus").get_to(item.bonus);
+	if (j.contains("slot")) { j.at("slot").get_to(item.slot); }
+	if (j.contains("damageMin")) { j.at("damageMin").get_to(item.damageMin); }
+	if (j.contains("damageMax")) { j.at("damageMax").get_to(item.damageMax); }
+	if (j.contains("ac")) { j.at("ac").get_to(item.ac); }
+	if (j.contains("atkBonus")) { j.at("atkBonus").get_to(item.atkBonus); }
+	if (j.contains("strBonus")) { j.at("strBonus").get_to(item.strBonus); }
+	if (j.contains("dexBonus")) { j.at("dexBonus").get_to(item.dexBonus); }
+	if (j.contains("conBonus")) { j.at("conBonus").get_to(item.conBonus); }
+	if (j.contains("hpBonus")) { j.at("hpBonus").get_to(item.hpBonus); }
+	if (j.contains("mpBonus")) { j.at("mpBonus").get_to(item.mpBonus); }
 }
 
 // ---- ItemDrop ----
@@ -195,6 +226,17 @@ inline void from_json(const json& j, ActionSlot& s)
 	j.at("cooldownRemaining").get_to(s.cooldownRemaining);
 }
 
+// ---- Equipment ----
+inline void to_json(json& j, const Equipment& eq)
+{
+	eq.to_json(j);
+}
+
+inline void from_json(const json& j, Equipment& eq)
+{
+	eq.from_json(j);
+}
+
 // ---- Character (with inventory) ----
 inline void to_json(json& j, const Character& c)
 {
@@ -236,6 +278,7 @@ inline void to_json(json& j, const Character& c)
 		{"position", c.m_position},
 		{"facing", c.m_facing},
 		{"inventory", std::move(invJson)},
+		{"equipment", c.m_equipment},
 		{"unlockedSkills", c.m_unlockedSkills},
 		{"actionSlots", std::move(slotsJson)},
 		{"learnedSpells", c.m_learnedSpells}
@@ -270,6 +313,11 @@ inline void from_json(const json& j, Character& c)
 	for (const auto& itemJson : invJson)
 	{
 		c.m_inventory.Add(itemJson.get<Item>());
+	}
+
+	if (j.contains("equipment"))
+	{
+		c.m_equipment.from_json(j.at("equipment"));
 	}
 
 	c.m_unlockedSkills.clear();
