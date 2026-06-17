@@ -91,22 +91,6 @@ static void from_json(const json& j, PlayerConfig& c)
 		return written == contents.size();
 	}
 
-	int32_t GetRenderHeightFromConfig() noexcept
-	{
-		auto maybeJson = readJsonFile(configFilePath());
-		if (maybeJson.has_value())
-		{
-			auto& j = *maybeJson;
-			if (j.contains("renderHeight") && j["renderHeight"].is_number_integer())
-			{
-				int32_t h = j["renderHeight"].get<int32_t>();
-				Logger::Info("Got renderHeight=" + std::to_string(h) + " from config");
-				return h;
-			}
-		}
-		return 480;
-	}
-
 	float GetGridMoveRepeatDelayFromConfig() noexcept
 	{
 		auto maybeJson = readJsonFile(configFilePath());
@@ -120,6 +104,20 @@ static void from_json(const json& j, PlayerConfig& c)
 			}
 		}
 		return 0.1f;
+	}
+
+	int32_t GetRenderHeightFromConfig() noexcept
+	{
+		auto maybeJson = readJsonFile(configFilePath());
+		if (maybeJson.has_value())
+		{
+			auto& j = *maybeJson;
+			if (j.contains("renderHeight") && j["renderHeight"].is_number_integer())
+			{
+				return j["renderHeight"].get<int32_t>();
+			}
+		}
+		return 480;
 	}
 
 // ── SettingsState ─────────────────────────────────────────────────────────

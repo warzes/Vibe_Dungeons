@@ -431,6 +431,60 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 
 ---
 
+## Исправления по аудиту (Phase 4.1: проблемы 11-33) ✅
+
+### Проблема 11: MonsterManager::At() O(1)
+`game/combat/monster_manager.h/.cpp` — внутреннее хранилище заменено с `std::vector<Monster>` на `std::unordered_map<GridPosition, Monster>`. `At()` теперь O(1) по хешу позиции. `All()` возвращает `std::vector<Monster>` по значению.
+
+### Проблема 12: Дублирование спавна
+`game/states/play_state.h/.cpp` — выделены методы `spawnDefaultMonsters()` и `spawnDefaultItems()`, вызываемые из `OnEnter()` и `RestartGame()`.
+
+### Проблема 13: camera.h — мёртвые поля
+Проверено: `m_animStartPosition` и `m_animStartYaw` используются в `UpdateAnimation()` для интерполяции анимации движения/поворота. Не мёртвый код.
+
+### Проблема 15: renderOptionsWindow() — чтение конфига
+Вынесено: оба поля (`gridMoveRepeatDelay`, `renderHeight`) загружаются один раз в `OnEnter()` и `RestartGame()` через `GetGridMoveRepeatDelayFromConfig()` / `GetRenderHeightFromConfig()`. `renderOptionsWindow()` использует кэшированные `m_moveRepeatDelay` и `m_renderHeight`.
+
+### Проблема 16: renderer.cpp — uint64_t sort key
+`engine/renderer/renderer.cpp:96-106` — компаратор сортировки `DrawCommand` заменён на единый uint64_t ключ `(materialId << 32) | meshId`, устранив два условных перехода.
+
+### Проблема 17: profiler.cpp — unordered_map
+`core/profiler.h/.cpp` — добавлен `std::unordered_map<std::string, size_t> m_sampleMap`. `BeginSample()` теперь ищет сэмпл за O(1), а не O(n) через `find_if`.
+
+### Проблема 18: resource_manager.cpp — CleanupUnused()
+Комментарий обновлён, описывает необходимость миграции на `shared_ptr` для отслеживания внешних ссылок. Функция остаётся no-op безопасно.
+
+### Проблема 19: inventory.cpp — AddResult enum
+`game/combat/inventory.h/.cpp` — возвращаемое значение `Inventory::Add()` изменено с `bool` на `AddResult` (Success/Full). Вызывающий код в `play_state.cpp` обновлён на `== AddResult::Success`.
+
+### Проблема 20: ACTION_NAMES — устранение дублирования
+`game/states/play_state.h` — `GRID_ACTION_NAMES[]` объявлен единожды как `static constexpr std::string_view[]`. Оригинальные дублирующиеся статические массивы в `processEdgeActions()` и `processHeldRepeat()` удалены.
+
+### Проблема 21: main_menu_state.h — unused fields
+Удалены неиспользуемые поля `m_window` и `m_input`. Конструктор `MainMenuState` принимает только `GameStateMachine&`.
+
+### Проблема 22: tile.h — dead file
+`src/game/dungeon/tile.h` — содержимое заменено на комментарий о том, что файл мёртв. `Tile`/`TileType` не используются (в проекте `Cell` из `chunk.h`).
+
+### Проблема 25: serialization.h — ItemDrop в .cpp
+`src/game/serialization.cpp` — создан; `to_json`/`from_json` для `ItemDrop` перемещены из заголовка в .cpp. Файл добавлен в `Game.vcxproj` и `.filters`.
+
+### Проблема 26: audio_system.cpp — LoadWAV аллокация
+`LoadWAV()` оптимизирован:
+- F32: `clip.samples.assign()` вместо `resize()` + `memcpy()`
+- S16: `converted` копируется через `assign()` вместо предварительного `resize()`
+
+### Проблема 28: combat_system.cpp — const
+Проверено: `ClassDamageBonus`, `ClassAtkBonus`, `ClassAcBonus` уже объявлены как `static` в заголовке, не изменяют состояние. Проблема отсутствует.
+
+### Проблема 30: profiler.h — CONCAT макросы
+Макросы переименованы из `CONCAT`/`CONCAT2` в `detail_CONCAT`/`detail_CONCAT2` во избежание конфликтов с другими библиотеками.
+
+### Проблема 33: settings_state.h — PlayerConfig
+Структура `PlayerConfig` помечена комментарием `// @internal` и остаётся в заголовке (необходима как член `SettingsState` по значению).
+
+---
+
 ## Исправления по аудиту (Phase 4: проблемы 2,3,4,6,7,8,9,10) ✅
 
 ### Проблема 2: State machine exception safety

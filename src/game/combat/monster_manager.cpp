@@ -3,23 +3,17 @@
 
 void MonsterManager::Spawn(Monster monster)
 {
-	m_monsters.push_back(std::move(monster));
+	m_monsters.insert_or_assign(monster.position, std::move(monster));
 }
 
 void MonsterManager::Despawn(GridPosition pos)
 {
-	std::erase_if(m_monsters, [&](const Monster& m)
-	{
-		return m.alive
-			&& m.position.row == pos.row
-			&& m.position.col == pos.col
-			&& m.position.floor == pos.floor;
-	});
+	m_monsters.erase(pos);
 }
 
 void MonsterManager::RemoveDead()
 {
-	std::erase_if(m_monsters, [](const Monster& m) { return !m.alive; });
+	std::erase_if(m_monsters, [](const auto& pair) { return !pair.second.alive; });
 }
 
 void MonsterManager::Clear()
@@ -29,32 +23,25 @@ void MonsterManager::Clear()
 
 Monster* MonsterManager::At(GridPosition pos)
 {
-	for (auto& m : m_monsters)
-	{
-		if (m.alive
-			&& m.position.row == pos.row
-			&& m.position.col == pos.col
-			&& m.position.floor == pos.floor)
-		{
-			return &m;
-		}
-	}
-	return nullptr;
+	auto it = m_monsters.find(pos);
+	return (it != m_monsters.end() && it->second.alive) ? &it->second : nullptr;
 }
 
 const Monster* MonsterManager::At(GridPosition pos) const
 {
-	for (const auto& m : m_monsters)
+	auto it = m_monsters.find(pos);
+	return (it != m_monsters.end() && it->second.alive) ? &it->second : nullptr;
+}
+
+std::vector<Monster> MonsterManager::All() const
+{
+	std::vector<Monster> result;
+	result.reserve(m_monsters.size());
+	for (const auto& pair : m_monsters)
 	{
-		if (m.alive
-			&& m.position.row == pos.row
-			&& m.position.col == pos.col
-			&& m.position.floor == pos.floor)
-		{
-			return &m;
-		}
+		result.push_back(pair.second);
 	}
-	return nullptr;
+	return result;
 }
 
 Monster* MonsterManager::FindInFront(GridPosition playerPos, Direction playerFacing)

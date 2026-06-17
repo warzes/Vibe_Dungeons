@@ -17,15 +17,12 @@ public:
 	[[nodiscard]] Monster* At(GridPosition pos);
 	[[nodiscard]] const Monster* At(GridPosition pos) const;
 
-	[[nodiscard]] const std::vector<Monster>& All() const noexcept
-	{
-		return m_monsters;
-	}
+	[[nodiscard]] std::vector<Monster> All() const;
 
 	[[nodiscard]] Monster* FindInFront(GridPosition playerPos, Direction playerFacing);
 
 	void UpdateAI(const Dungeon& dungeon);
 
 private:
-	std::vector<Monster> m_monsters;
+	std::unordered_map<GridPosition, Monster> m_monsters;
 };

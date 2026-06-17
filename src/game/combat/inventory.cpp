@@ -1,15 +1,15 @@
 #include "stdafx.h"
 #include "game/combat/inventory.h"
 
-bool Inventory::Add(const Item& item)
+AddResult Inventory::Add(const Item& item)
 {
 	if (m_size >= MAX_ITEMS)
 	{
-		return false;
+		return AddResult::Full;
 	}
 	m_items[m_size] = item;
 	++m_size;
-	return true;
+	return AddResult::Success;
 }
 
 bool Inventory::Remove(size_t index)

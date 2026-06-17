@@ -24,37 +24,22 @@
 ##  Проблемы средней тяжести
 
 | # | Файл | Проблема |
-|---|------|----------|
-| 11 | `game/combat/monster_manager.h` | `At(GridPosition)` — **линейный поиск** O(n) в векторе по всем монстрам. Для 2-5 монстров ок, но при 50+ на этаже — станет узким местом |
-| 12 | `game/states/play_state.cpp:150-160, 1201-1214` | **Дублирование спавна монстров**: один и тот же код в `OnEnter()` и `RestartGame()`. Аналогично для дропа предметов |
-| 13 | `engine/renderer/camera.h:130-131` | `m_animStartPosition`, `m_animStartYaw` — хранят состояние анимации, но в `updateFromYawPitch()` (стр. 60-80) **не вызывается `updateVectors()`** (которого вообще нет) — мёртвый код, упомянутый в старом аудите, не исправлен |
+|--|------|----------|
 | 14 | `game/states/play_state.cpp:940-1051` | `SaveGame()`/`LoadGame()` — ручная fopen/fread/fwrite сериализация. Весь блок кода (110 строк) использует сырые FILE*, повторяет fopen_s #ifdef, не использует `JsonDataManager` |
-| 15 | `game/states/play_state.cpp:1260-1358` | `renderOptionsWindow()` — **читает конфиг напрямую fopen каждую отрисовку кадра**, а не один раз при открытии окна. Потенциальная проблема производительности |
-| 16 | `engine/renderer/renderer.cpp:96-106` | Сортировка `DrawCommand` по `getMaterialId`/`getMeshId` — теперь детерминированна, но **два прохода** по командам (сортировка + биндинг) + аллокация `m_instanceData`. Для малого числа команд — норма |
-| 17 | `core/profiler.cpp:26-37` | `BeginSample()` — ищет сэмпл по имени (`std::ranges::find_if`) каждый раз. Для 20+ сэмплов в кадре — O(n) на каждый. Лучше `std::unordered_map` |
-| 18 | `engine/resource_manager.cpp:150-154` | `CleanupUnused()` — **пустая** (no-op). Ранее была `Clear()`, теперь ничего не делает. Ресурсы никогда не выгружаются |
-| 19 | `game/combat/inventory.cpp:4-12` | `Inventory::Add()` — при переполнении возвращает `false`, но **не говорит, какой именно предмет не поместился**. Вызывающий код просто считает инвентарь полным |
-| 20 | `game/states/play_state.cpp:550-593, 610-663` | Два массива `ACTION_NAMES[]` дублированы в `processEdgeActions()` и `processHeldRepeat()` — идентичные списки из 6 имён |
+| 18 | `engine/resource_manager.cpp:150-154` | `CleanupUnused()` — **пустая** (no-op). Ранее была `Clear()`, теперь ничего не делает. Ресурсы никогда не выгружаются. Комментарий обновлён, поясняет необходимость shared_ptr |
 
 ---
 
 ##  Мелкие проблемы
 
 | # | Файл | Проблема |
-|---|------|----------|
-| 21 | `game/states/main_menu_state.h:29-30` | `[[maybe_unused]]` на `m_window` и `m_input` — поля не используются, только хранятся. Лишний мусор в состоянии |
-| 22 | `game/dungeon/tile.h` | `Tile`, `TileType` — **мёртвый код**: нигде не используется. В проекте используется `Cell` из `chunk.h` |
+|--|------|----------|
 | 23 | `game/data/spell_manager.h:12` | `GetSpellsByClass()` — декларирован, но бросает `"not implemented"`? Надо проверить .cpp |
 | 24 | `game/data/ability_manager.h:12` | `GetAbilitiesByClass()` — возвращает пустой массив или что-то подобное? |
-| 25 | `game/serialization.h:86-96` | `to_json`/`from_json` для `ItemDrop` — определены в заголовке как `inline`, но используются только в `play_state.cpp`. Лучше в .cpp |
-| 26 | `engine/audio_system.cpp:84-111` | `LoadWAV`: копирование сэмплов через `std::memcpy` при `SDL_AUDIO_F32` и через `SDL_ConvertAudioSamples` при S16. `SDL_ConvertAudioSamples` сам выделяет память, потом копируем — лишняя аллокация |
 | 27 | `game/states/play_state.cpp:1867-1891` | `processActionSlot()` — получает `Skill s = SkillManager::GetSkill(slot.id)` каждый раз при использовании. Нет кэширования |
-| 28 | `game/combat/combat_system.cpp:40-71` | `MeleeAttack()` — принимает `Character` **по const** &, но изменяет `defender` (Monster&). Хорошо, но тогда `ClassDamageBonus` и `ClassAtkBonus` должны быть `const` — и они есть. OK |
 | 29 | `game/combat/combat_system.cpp:114-117` | `UseAbility()`: хардкод `Dice::Roll(4, 8)` при healMax/healMin == 0 — магическое число |
-| 30 | `core/profiler.h:88-92` | Макросы `CONCAT`, `CONCAT2` — определены в хедере, могут конфликтовать с другими библиотеками |
 | 31 | `engine/renderer/shader.h:41` | `m_uniformCache` — `mutable` + `std::unordered_map<std::string, int32_t>`. Поиск по строке каждый раз при `SetUniform()`. Для известных uniform'ов лучше enum |
 | 32 | `core/json_data_manager.cpp:107-123` | `findById()` — линейный поиск по массиву JSON каждый запрос. Для 50+ записей — ок, для 500+ — медленно |
-| 33 | `game/states/settings_state.h:8-17` | `PlayerConfig` — определение в `.h` для структуры, которая используется только в `settings_state.cpp`. Можно вынести в .cpp |
 
 ---
 
@@ -63,11 +48,8 @@
 | # | Что дублируется | Где |
 |---|-----------------|-----|
 | 34 | Level-up логика (STR/DEX/CON) — три идентичных блока по 9 строк, различаются только именем стата | `play_state.cpp:1595-1641` (решено: убрано дублирование hp = maxHp) |
-| 35 | Спавн монстров (skeleton + slime) | `play_state.cpp:148-160` и `play_state.cpp:1201-1213` |
-| 36 | Спавн предметов (heal potion + gold) | `play_state.cpp:226-239` и `play_state.cpp:1216-1228` |
 | 37 | fopen_s / fopen #ifdef паттерн | Повторяется ~6+ раз: `save_game.cpp:967-973`, `load_game.cpp:997-1003`, `renderOptions:1263-1286, 1306-1326, 1340`, `json_data_manager:58-63` |
 | 38 | Чтение JSON из файла (fseek/ftell/read/parse) | `json_data_manager.cpp:57-80` и `play_state.cpp:997-1017, 1272-1285` |
-| 39 | ACTION_NAMES[] массив из 6 имён | `play_state.cpp:551-559` и `play_state.cpp:610-618` |
 | 41 | `using json = nlohmann::json;` в глобальном namespace | `json_data_manager.h:3`, `skill_manager.h:8`, `serialization.h:12` — трижды |
 
 ---
@@ -90,13 +72,11 @@
 
 ### Рендерер
 - **Uniform cache**: заменить `std::unordered_map<std::string, int32_t>` на `std::array<int32_t, KNOWN_COUNT>` с enum-индексами
-- **Сортировка команд**: перейти на `uint64_t sortKey = (materialId << 32) | meshId` для одной сортировки по ключу вместо парного сравнения
 - **Frustum culling**: иерархический culling для чанков > 35×35
 
 ### Память
 - **ResourceManager**: внедрить reference counting или `std::shared_ptr` для автоматической выгрузки
 - **Profiler**: добавить лимит записей (кольцевой буфер)
-- **MonsterManager::At()**: заменить на `std::unordered_map<GridPosition, Monster*, hash>` для O(1) доступа
 
 ### Аудио
 - **OGG Load**: использовать `stb_vorbis_get_samples_short_interleaved()` с прямым буфером, или стриминг для больших файлов
@@ -159,15 +139,13 @@
 ### По цифрам
 - **Критических багов**: 1 (сохранение)
 - **Крупных проблем**: 1 (God-класс)
-- **Дублирований**: 7 мест
-- **Мёртвого кода**: 2 файла/структуры (tile.h, TileType)
+- **Дублирований**: 3 места
+- **Мёртвого кода**: 0 (tile.h переведён в комментарий)
 - **Неисправленных из старого аудита**: 4 пункта
 
 ### Рекомендации к немедленному исправлению
 1. Строка 973: `"rb"` → `"wb"` в `SaveGame()` для non-MSVC
-2. Вынести спавн монстров/предметов в методы `spawnDefaultMonsters()` и `spawnDefaultItems()`
 
 ### Рекомендации к рефакторингу
 1. **PlayState** — разбить на отдельные модули: `CombatHandler`, `ItemHandler`, `UIHandler`, `SaveManager`
 2. **Data Managers** — объединить в единый кэширующий слой с типизированными структурами
-3. **MonsterManager** — заменить вектор на хеш-таблицу по `GridPosition`

@@ -4,10 +4,16 @@
 
 #include <array>
 
+enum class AddResult : uint8_t
+{
+	Success,
+	Full
+};
+
 class Inventory final
 {
 public:
-	bool Add(const Item& item);
+	AddResult Add(const Item& item);
 	bool Remove(size_t index);
 	void Clear() noexcept;
 

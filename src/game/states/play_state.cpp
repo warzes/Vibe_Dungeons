@@ -90,6 +90,7 @@ void PlayState::OnEnter() noexcept
 
 		// ---- Config ----
 		m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
+		m_renderHeight = GetRenderHeightFromConfig();
 
 		// ---- Grid camera ----
 		m_camera.SetGridPosition({17, 17, 0}, Direction::North);
@@ -147,18 +148,7 @@ void PlayState::OnEnter() noexcept
 		m_monsterRenderer.Init();
 
 		// ---- Spawn monsters from data ----
-		{
-			Monster skelly = MonsterFactory::Create("skeleton", 1);
-			skelly.position = {16, 17, 0};
-			skelly.facing = Direction::South;
-			m_monsterManager.Spawn(std::move(skelly));
-		}
-		{
-			Monster slime = MonsterFactory::Create("slime", 1);
-			slime.position = {13, 17, 0};
-			slime.facing = Direction::South;
-			m_monsterManager.Spawn(std::move(slime));
-		}
+		spawnDefaultMonsters();
 		Logger::Info("PlayState: monsters spawned");
 
 		// ---- Item textures ----
@@ -226,18 +216,7 @@ void PlayState::OnEnter() noexcept
 		m_showInventory = false;
 
 		// ---- Spawn item drops from data ----
-		{
-			ItemDrop drop;
-			drop.item = ItemFactory::CreatePotion("heal", 10);
-			drop.position = {16, 17, 0};
-			m_itemDrops.push_back(std::move(drop));
-		}
-		{
-			ItemDrop drop;
-			drop.item = ItemFactory::CreateGold(25);
-			drop.position = {14, 17, 0};
-			m_itemDrops.push_back(std::move(drop));
-		}
+		spawnDefaultItems();
 		Logger::Info("PlayState: item drops spawned");
 
 		// ---- Input actions for grid movement ----
@@ -398,6 +377,40 @@ void PlayState::exitDebugMode() noexcept
 
 //=============================================================================
 
+void PlayState::spawnDefaultMonsters() noexcept
+{
+	{
+		Monster skelly = MonsterFactory::Create("skeleton", 1);
+		skelly.position = {16, 17, 0};
+		skelly.facing = Direction::South;
+		m_monsterManager.Spawn(std::move(skelly));
+	}
+	{
+		Monster slime = MonsterFactory::Create("slime", 1);
+		slime.position = {13, 17, 0};
+		slime.facing = Direction::South;
+		m_monsterManager.Spawn(std::move(slime));
+	}
+}
+
+void PlayState::spawnDefaultItems() noexcept
+{
+	{
+		ItemDrop drop;
+		drop.item = ItemFactory::CreatePotion("heal", 10);
+		drop.position = {16, 17, 0};
+		m_itemDrops.push_back(std::move(drop));
+	}
+	{
+		ItemDrop drop;
+		drop.item = ItemFactory::CreateGold(25);
+		drop.position = {14, 17, 0};
+		m_itemDrops.push_back(std::move(drop));
+	}
+}
+
+//=============================================================================
+
 void PlayState::FixedUpdate(float fixedDt) noexcept
 {
 	PROFILE_FUNCTION();
@@ -550,17 +563,7 @@ void PlayState::processEdgeActions() noexcept
 		return;
 	}
 
-	static constexpr std::string_view ACTION_NAMES[] =
-	{
-		"GridMoveForward",
-		"GridMoveBackward",
-		"TurnLeft",
-		"TurnRight",
-		"StrafeLeft",
-		"StrafeRight"
-	};
-
-	for (std::string_view name : ACTION_NAMES)
+	for (std::string_view name : GRID_ACTION_NAMES)
 	{
 		if (!m_input.IsActionPressed(name))
 		{
@@ -609,18 +612,8 @@ void PlayState::processHeldRepeat(const DeltaTime& dt) noexcept
 		return;
 	}
 
-	static constexpr std::string_view ACTION_NAMES[] =
-	{
-		"GridMoveForward",
-		"GridMoveBackward",
-		"TurnLeft",
-		"TurnRight",
-		"StrafeLeft",
-		"StrafeRight"
-	};
-
 	// If any key is freshly pressed (edge), skip repeat this frame
-	for (std::string_view name : ACTION_NAMES)
+	for (std::string_view name : GRID_ACTION_NAMES)
 	{
 		if (m_input.IsActionPressed(name))
 		{
@@ -630,7 +623,7 @@ void PlayState::processHeldRepeat(const DeltaTime& dt) noexcept
 
 	// Find a held key
 	std::string_view heldAction;
-	for (std::string_view name : ACTION_NAMES)
+	for (std::string_view name : GRID_ACTION_NAMES)
 	{
 		if (m_input.IsActionDown(name))
 		{
@@ -827,7 +820,7 @@ void PlayState::processPickup() noexcept
 				&& it->position.col == checkPos.col
 				&& it->position.floor == checkPos.floor)
 			{
-				if (m_character.GetInventory().Add(it->item))
+				if (m_character.GetInventory().Add(it->item) == AddResult::Success)
 				{
 					std::string msg = "Picked up " + it->item.name + "!";
 					m_combatLog.Add(msg, glm::vec3(0.2f, 0.8f, 1.0f));
@@ -1226,6 +1219,7 @@ void PlayState::RestartGame() noexcept
 	}
 
 	m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
+	m_renderHeight = GetRenderHeightFromConfig();
 
 	m_combatLog.Add("Game restarted.", glm::vec3(0.3f, 0.8f, 1.0f));
 }
@@ -1255,33 +1249,7 @@ void PlayState::renderOptionsWindow() noexcept
 	ImGui::Separator();
 
 	float repeatDelay = m_moveRepeatDelay;
-	int rh = 480;
-
-	// Load current config to populate fields
-	{
-		FILE* fp = nullptr;
-#if defined(_MSC_VER)
-		auto errn = fopen_s(&fp, "player_config.json", "rb");
-		if (errn && fp)
-#else
-		fp = fopen("player_config.json", "rb");
-		if (fp)
-#endif
-		{
-			fseek(fp, 0, SEEK_END);
-			long len = ftell(fp);
-			rewind(fp);
-			std::string buf(static_cast<size_t>(len), '\0');
-			fread(buf.data(), 1, static_cast<size_t>(len), fp);
-			fclose(fp);
-			json j = json::parse(buf, nullptr, false);
-			if (!j.is_discarded())
-			{
-				repeatDelay = j.value("gridMoveRepeatDelay", repeatDelay);
-				rh = j.value("renderHeight", rh);
-			}
-		}
-	}
+	int rh = m_renderHeight;
 
 	if (ImGui::SliderFloat("Move Repeat Delay", &repeatDelay, 0.05f, 0.5f, "%.2f s"))
 	{

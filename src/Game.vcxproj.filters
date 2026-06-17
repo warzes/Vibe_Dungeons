@@ -96,6 +96,9 @@
     <ClCompile Include="game\game_app.cpp">
       <Filter>game</Filter>
     </ClCompile>
+    <ClCompile Include="game\serialization.cpp">
+      <Filter>game</Filter>
+    </ClCompile>
     <ClCompile Include="game\combat\dice.cpp">
       <Filter>game\combat</Filter>
     </ClCompile>

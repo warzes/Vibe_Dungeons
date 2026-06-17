@@ -4,6 +4,7 @@
 
 class GameStateMachine;
 
+// @internal — used only within settings_state.cpp
 struct PlayerConfig
 {
 	std::string playerName = "Player1";
@@ -11,9 +12,9 @@ struct PlayerConfig
 	float soundVolume = 0.8f;
 	int32_t resolutionWidth = 1280;
 	int32_t resolutionHeight = 720;
-	int32_t renderHeight = 480; //< retro FBO height; width = height * aspect
+	int32_t renderHeight = 480;
 	bool fullscreen = false;
-	float gridMoveRepeatDelay = 0.1f; //< seconds between auto-repeat steps
+	float gridMoveRepeatDelay = 0.1f;
 };
 
 [[nodiscard]] int32_t GetRenderHeightFromConfig() noexcept;

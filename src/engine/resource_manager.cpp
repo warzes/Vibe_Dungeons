@@ -149,6 +149,8 @@ void ResourceManager::Clear() noexcept
 
 void ResourceManager::CleanupUnused() noexcept
 {
-	// No-op: resources persist across state transitions.
-	// TODO: implement reference counting for proper unused resource cleanup.
+	// No-op: unique_ptr ownership cannot track external raw-pointer references.
+	// Proper implementation requires migration to std::shared_ptr for
+	// automatic use_count tracking, or explicit Acquire()/Release() ref-counting.
+	// TODO: migrate to shared_ptr
 }

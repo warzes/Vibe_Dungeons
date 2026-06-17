@@ -73,6 +73,9 @@ private:
 	void enterDebugMode() noexcept;
 	void exitDebugMode() noexcept;
 
+	void spawnDefaultMonsters() noexcept;
+	void spawnDefaultItems() noexcept;
+
 	void processEdgeActions() noexcept;
 	void processHeldRepeat(const DeltaTime& dt) noexcept;
 	void processTurnWaiting() noexcept;
@@ -116,6 +119,7 @@ private:
 
 	float m_moveRepeatDelay = 0.1f;
 	float m_moveRepeatTimer = 0.0f;
+	int32_t m_renderHeight = 480;
 
 	// Combat
 	std::unordered_map<std::string, Texture*> m_monsterTextures;
@@ -143,6 +147,16 @@ private:
 
 	void processPickup() noexcept;
 	void renderInventoryWindow() noexcept;
+
+	static constexpr std::string_view GRID_ACTION_NAMES[] =
+	{
+		"GridMoveForward",
+		"GridMoveBackward",
+		"TurnLeft",
+		"TurnRight",
+		"StrafeLeft",
+		"StrafeRight"
+	};
 	void renderMapWindow() noexcept;
 	void renderOptionsWindow() noexcept;
 

@@ -92,17 +92,15 @@ void Renderer::EndFrame() noexcept
 		return;
 	}
 
-	// Sort by (material, mesh) via stable numeric IDs (not pointers)
+	// Sort by (material, mesh) via combined uint64_t key (single comparison)
 	std::sort(m_commands.begin(), m_commands.end(),
 		[this](const DrawCommand& a, const DrawCommand& b) noexcept
 		{
-			const uint32_t matA = getMaterialId(a.material);
-			const uint32_t matB = getMaterialId(b.material);
-			if (matA != matB)
-			{
-				return matA < matB;
-			}
-			return getMeshId(a.mesh) < getMeshId(b.mesh);
+			const uint64_t keyA = (static_cast<uint64_t>(getMaterialId(a.material)) << 32)
+				| getMeshId(a.mesh);
+			const uint64_t keyB = (static_cast<uint64_t>(getMaterialId(b.material)) << 32)
+				| getMeshId(b.mesh);
+			return keyA < keyB;
 		});
 
 	// First pass: build batch ranges and collect all instance transforms

@@ -208,6 +208,7 @@
     <ClCompile Include="game\dungeon\dungeon.cpp" />
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp" />
     <ClCompile Include="game\game_app.cpp" />
+    <ClCompile Include="game\serialization.cpp" />
     <ClCompile Include="game\states\class_selection_state.cpp" />
     <ClCompile Include="game\states\main_menu_state.cpp" />
     <ClCompile Include="game\states\play_state.cpp" />

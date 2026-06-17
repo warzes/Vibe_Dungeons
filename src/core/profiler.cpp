@@ -23,16 +23,16 @@ void Profiler::BeginSample(std::string_view name) noexcept
 
 	m_sampleStart[m_sampleDepth] = Clock::now();
 
-	auto it = std::ranges::find_if(m_samples,
-		[&](const ProfileSample& s) { return s.name == name; });
-
-	if (it != m_samples.end())
+	std::string key(name);
+	auto it = m_sampleMap.find(key);
+	if (it != m_sampleMap.end())
 	{
-		m_sampleIndex[m_sampleDepth] = static_cast<size_t>(std::distance(m_samples.begin(), it));
+		m_sampleIndex[m_sampleDepth] = it->second;
 	}
 	else
 	{
 		m_sampleIndex[m_sampleDepth] = m_samples.size();
+		m_sampleMap[std::move(key)] = m_samples.size();
 		m_samples.push_back(ProfileSample{ .name = std::string(name) });
 	}
 

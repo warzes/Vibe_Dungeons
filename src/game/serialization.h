@@ -81,19 +81,8 @@ inline void from_json(const json& j, Item& item)
 }
 
 // ---- ItemDrop ----
-inline void to_json(json& j, const ItemDrop& drop)
-{
-	j = json{
-		{"item", drop.item},
-		{"position", drop.position}
-	};
-}
-
-inline void from_json(const json& j, ItemDrop& drop)
-{
-	j.at("item").get_to(drop.item);
-	j.at("position").get_to(drop.position);
-}
+void to_json(json& j, const ItemDrop& drop);
+void from_json(const json& j, ItemDrop& drop);
 
 // ---- MonsterAI ----
 inline void to_json(json& j, MonsterAI ai)

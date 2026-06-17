@@ -8,11 +8,7 @@ class InputManager;
 class MainMenuState final : public GameState
 {
 public:
-	MainMenuState(
-		GameStateMachine& machine,
-		const Window& window,
-		InputManager& input
-	) noexcept;
+	explicit MainMenuState(GameStateMachine& machine) noexcept;
 
 	void OnEnter() noexcept override;
 	void OnExit() noexcept override;
@@ -27,6 +23,4 @@ public:
 
 private:
 	GameStateMachine& m_machine;
-	[[maybe_unused]] const Window& m_window;
-	[[maybe_unused]] InputManager& m_input;
 };

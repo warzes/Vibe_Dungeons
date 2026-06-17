@@ -1,17 +1,2 @@
-#pragma once
-
-#include "game/grid_position.h"
-
-enum class TileType : uint8_t
-{
-	Void,
-	Floor,
-	Wall,
-	DoorClosed,
-	DoorOpen
-};
-
-struct Tile final
-{
-	TileType type = TileType::Void;
-};
+// tile.h — removed. Tile/TileType were dead code (Cell from chunk.h used instead).
+// File kept as placeholder to avoid breaking includes. Remove once confirmed.

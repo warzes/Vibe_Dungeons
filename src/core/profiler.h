@@ -66,6 +66,7 @@ private:
 	size_t m_sampleIndex[MAX_DEPTH]{};
 
 	std::vector<ProfileSample> m_samples;
+	std::unordered_map<std::string, size_t> m_sampleMap;
 };
 
 class ScopedProfile final
@@ -85,8 +86,8 @@ public:
 	ScopedProfile& operator=(const ScopedProfile&) = delete;
 };
 
-#define PROFILE_SCOPE(name) ScopedProfile CONCAT(profScope_, __LINE__)(name)
+#define PROFILE_SCOPE(name) ScopedProfile detail_CONCAT(profScope_, __LINE__)(name)
 #define PROFILE_FUNCTION() PROFILE_SCOPE(__func__)
 
-#define CONCAT2(a, b) a##b
-#define CONCAT(a, b) CONCAT2(a, b)
+#define detail_CONCAT2(a, b) a##b
+#define detail_CONCAT(a, b) detail_CONCAT2(a, b)

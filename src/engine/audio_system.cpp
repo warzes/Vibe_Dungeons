@@ -81,12 +81,11 @@ AudioClip* AudioSystem::LoadWAV(std::string_view path)
 	clip.sampleRate = spec.freq;
 	clip.channels = spec.channels;
 
-	const int32_t frameCount = static_cast<int32_t>(len / (SDL_AUDIO_BYTESIZE(spec.format) * spec.channels));
-	clip.samples.resize(static_cast<size_t>(frameCount) * spec.channels);
-
 	if (spec.format == SDL_AUDIO_F32)
 	{
-		std::memcpy(clip.samples.data(), buf, len);
+		const float* fbuf = reinterpret_cast<const float*>(buf);
+		const size_t sampleCount = len / sizeof(float);
+		clip.samples.assign(fbuf, fbuf + sampleCount);
 	}
 	else if (spec.format == SDL_AUDIO_S16)
 	{
@@ -101,11 +100,9 @@ AudioClip* AudioSystem::LoadWAV(std::string_view path)
 		if (SDL_ConvertAudioSamples(&srcSpec, buf, static_cast<int>(len),
 			&dstSpec, &converted, &convertedLen))
 		{
+			const float* fbuf = reinterpret_cast<const float*>(converted);
 			const size_t sampleCount = static_cast<size_t>(convertedLen) / sizeof(float);
-			if (sampleCount == clip.samples.size())
-			{
-				std::memcpy(clip.samples.data(), converted, static_cast<size_t>(convertedLen));
-			}
+			clip.samples.assign(fbuf, fbuf + sampleCount);
 			SDL_free(converted);
 		}
 	}

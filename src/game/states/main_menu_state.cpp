@@ -1,17 +1,9 @@
 ﻿#include "stdafx.h"
 #include "game/states/main_menu_state.h"
 #include "engine/delta_time.h"
-#include "engine/window.h"
-#include "engine/input_manager.h"
 
-MainMenuState::MainMenuState(
-	GameStateMachine& machine,
-	const Window& window,
-	InputManager& input
-) noexcept
+MainMenuState::MainMenuState(GameStateMachine& machine) noexcept
 	: m_machine(machine)
-	, m_window(window)
-	, m_input(input)
 {}
 
 void MainMenuState::OnEnter() noexcept
