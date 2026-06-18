@@ -175,6 +175,7 @@ void CombatHandler::PerformCombat() noexcept
 			std::string msg = target->name + " hits Hero for " +
 				std::to_string(monsterResult.damage) + " damage!";
 			m_combatLog->Add(msg, glm::vec3(1.0f, 0.8f, 0.2f));
+			reduceArmorDurability();
 		}
 		else
 		{
@@ -475,6 +476,7 @@ void CombatHandler::ProcessMonsterTurns() noexcept
 						m_combatLog->Add(mon.name + " shoots Hero for " +
 							std::to_string(result.damage) + " damage!",
 							glm::vec3(1.0f, 0.4f, 0.2f));
+						reduceArmorDurability();
 					}
 					else
 					{
@@ -505,6 +507,7 @@ void CombatHandler::ProcessMonsterTurns() noexcept
 				m_combatLog->Add(mon.name + " hits Hero for " +
 					std::to_string(result.damage) + " damage!",
 					glm::vec3(1.0f, 0.8f, 0.2f));
+				reduceArmorDurability();
 			}
 			else
 			{
@@ -664,6 +667,32 @@ void CombatHandler::reduceWeaponDurability() noexcept
 		{
 			m_combatLog->Add(weapon->name + " breaks!", glm::vec3(1.0f, 0.0f, 0.0f));
 			weapon->durability = 0;
+		}
+	}
+}
+
+//=============================================================================
+
+void CombatHandler::reduceArmorDurability() noexcept
+{
+	// Step 188: reduce durability on all equipped armor when hit
+	EquipmentSlot slots[] = {
+		EquipmentSlot::Head, EquipmentSlot::Body, EquipmentSlot::Hands,
+		EquipmentSlot::Feet, EquipmentSlot::Shield
+	};
+
+	for (EquipmentSlot slot : slots)
+	{
+		Item* armor = m_character->GetEquipment().Get(slot);
+		if (armor && armor->durability > 0)
+		{
+			armor->durability -= 1;
+
+			if (armor->durability <= 0)
+			{
+				m_combatLog->Add(armor->name + " is destroyed!", glm::vec3(1.0f, 0.0f, 0.0f));
+				armor->durability = 0;
+			}
 		}
 	}
 }

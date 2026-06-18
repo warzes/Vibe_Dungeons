@@ -188,6 +188,7 @@ private:
 	bool m_showCrafting = false;
 	void renderCraftingWindow() noexcept;
 	void renderWeaponsmithOperations() noexcept;
+	void renderArmorsmithOperations() noexcept;
 
 	// Hunger system (step 211)
 	int32_t m_hungerTurns = 0;

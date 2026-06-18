@@ -501,3 +501,262 @@ int32_t CraftingSystem::GetSmithingLevel() const noexcept
 {
 	return m_craftingLevel;
 }
+
+//=============================================================================
+//  Armorsmith operations (steps 183-190)
+//=============================================================================
+
+bool CraftingSystem::IsArmor(const Item& item) noexcept
+{
+	return item.slot == EquipmentSlot::Head
+		|| item.slot == EquipmentSlot::Body
+		|| item.slot == EquipmentSlot::Hands
+		|| item.slot == EquipmentSlot::Feet
+		|| item.slot == EquipmentSlot::Shield
+		|| item.type == ItemType::Armor
+		|| item.type == ItemType::Shield;
+}
+
+//=============================================================================
+
+// Steps 183-184: Create armor from baseType + material
+bool CraftingSystem::CreateArmor(
+	Inventory& inventory,
+	const std::string& baseTypeId,
+	const std::string& materialId) noexcept
+{
+	if (!HasIngredients(inventory, "iron_ingot", 1))
+	{
+		return false;
+	}
+
+	const json& armorData = JsonDataManager::Instance().GetArmorType(baseTypeId);
+	if (armorData.is_null() || armorData.empty())
+	{
+		return false;
+	}
+
+	const json& materialData = JsonDataManager::Instance().GetMaterial(materialId);
+	if (materialData.is_null() || materialData.empty())
+	{
+		return false;
+	}
+
+	removeItems(inventory, "iron_ingot", 1);
+
+	ItemStats stats = DataManager::CalculateItemStats(armorData, materialData, json::object(), json::object());
+
+	std::string matName = materialData.value("name", materialId);
+	std::string baseName = armorData.value("name", baseTypeId);
+
+	Item armor;
+	armor.itemId = "crafted_" + materialId + "_" + baseTypeId;
+	armor.name = matName + " " + baseName;
+	armor.type = ItemType::Armor;
+	armor.materialId = materialId;
+	armor.value = armorData.value("baseValue", 5) + materialData.value("tier", 1) * 5;
+	armor.ac = stats.ac;
+	armor.atkBonus = stats.atkBonus;
+	armor.hpBonus = stats.hpBonus;
+	armor.durability = 100;
+	armor.maxDurability = 100;
+
+	// Map slot
+	std::string slotStr = armorData.value("slot", "body");
+	if (slotStr == "head")       { armor.slot = EquipmentSlot::Head; }
+	else if (slotStr == "body")  { armor.slot = EquipmentSlot::Body; }
+	else if (slotStr == "hands") { armor.slot = EquipmentSlot::Hands; }
+	else if (slotStr == "feet")  { armor.slot = EquipmentSlot::Feet; }
+	else if (slotStr == "shield") { armor.slot = EquipmentSlot::Shield; }
+	else                         { armor.slot = EquipmentSlot::Body; }
+
+	inventory.Add(armor);
+	AddArmorsmithXp(10 + materialData.value("tier", 1) * 5);
+
+	return true;
+}
+
+//=============================================================================
+
+// Step 185: Upgrade armor — +AC via material prefix
+bool CraftingSystem::UpgradeArmor(Item& item, const std::string& materialId) noexcept
+{
+	if (!IsArmor(item))
+	{
+		return false;
+	}
+
+	const json& matData = JsonDataManager::Instance().GetMaterial(materialId);
+	if (matData.is_null() || matData.empty())
+	{
+		return false;
+	}
+
+	int32_t matTier = matData.value("tier", 1);
+
+	if (!item.prefixId.empty())
+	{
+		return false; // already upgraded
+	}
+
+	item.prefixId = materialId;
+
+	std::string matName = matData.value("name", materialId);
+	item.name = matName + " " + item.name;
+
+	item.ac += matTier;
+	item.atkBonus += matTier / 2;
+
+	AddArmorsmithXp(15 + matTier * 5);
+	return true;
+}
+
+//=============================================================================
+
+// Step 186: Add armor postfix — essence → of Protection (+AC), of Vitality (+HP)
+bool CraftingSystem::AddArmorPostfix(Item& item, const std::string& essenceId) noexcept
+{
+	if (!IsArmor(item))
+	{
+		return false;
+	}
+
+	std::string postfixName;
+	int32_t acBonus = 0;
+	int32_t hpBonus = 0;
+
+	if (essenceId == "essence_fire" || essenceId == "fire_essence")
+	{
+		postfixName = "of Fire Resistance";
+		acBonus = 1;
+	}
+	else if (essenceId == "essence_ice" || essenceId == "ice_essence")
+	{
+		postfixName = "of Ice Resistance";
+		acBonus = 1;
+	}
+	else if (essenceId == "essence_poison" || essenceId == "poison_essence")
+	{
+		postfixName = "of Poison Resistance";
+		acBonus = 1;
+	}
+	else if (essenceId == "holy_essence")
+	{
+		postfixName = "of Vitality";
+		hpBonus = 5;
+	}
+	else
+	{
+		return false;
+	}
+
+	if (!item.postfixId.empty())
+	{
+		auto pos = item.name.rfind(" ");
+		if (pos != std::string::npos)
+		{
+			item.name = item.name.substr(0, pos);
+		}
+	}
+
+	item.postfixId = essenceId;
+	item.name += " " + postfixName;
+	item.ac += acBonus;
+	item.hpBonus += hpBonus;
+
+	AddArmorsmithXp(20);
+	return true;
+}
+
+//=============================================================================
+
+// Step 187: Repair armor — restore durability
+bool CraftingSystem::RepairArmor(Item& item) noexcept
+{
+	if (!IsArmor(item))
+	{
+		return false;
+	}
+
+	if (item.durability >= item.maxDurability)
+	{
+		return false;
+	}
+
+	item.durability = item.maxDurability;
+	AddArmorsmithXp(5);
+	return true;
+}
+
+//=============================================================================
+
+// Step 189: Enchant armor — scroll + essence → magical prefix
+bool CraftingSystem::EnchantArmor(Item& item, const std::string& scrollId, const std::string& essenceId) noexcept
+{
+	if (!IsArmor(item))
+	{
+		return false;
+	}
+
+	// Determine enchantment from scroll+essence combo
+	std::string enchantName;
+	int32_t acBonus = 0;
+	int32_t hpBonus = 0;
+	int32_t mpBonus = 0;
+
+	if (scrollId == "scroll_fireball" && essenceId == "fire_essence")
+	{
+		enchantName = "Imbued Fire";
+		acBonus = 2;
+	}
+	else if (scrollId == "scroll_frost_bolt" && essenceId == "ice_essence")
+	{
+		enchantName = "Imbued Frost";
+		acBonus = 2;
+	}
+	else if (scrollId == "scroll_heal" && essenceId == "holy_essence")
+	{
+		enchantName = "Sanctified";
+		hpBonus = 10;
+	}
+	else if (scrollId == "scroll_fireball" && essenceId == "holy_essence")
+	{
+		enchantName = "Blessed";
+		acBonus = 1;
+		hpBonus = 5;
+	}
+	else
+	{
+		return false; // unknown enchant combo
+	}
+
+	// Append enchant to name (overwrites old enchant)
+	item.prefixId = enchantName;
+	item.name = enchantName + " " + item.name;
+	item.ac += acBonus;
+	item.hpBonus += hpBonus;
+	item.mpBonus += mpBonus;
+
+	AddArmorsmithXp(40);
+	return true;
+}
+
+//=============================================================================
+
+void CraftingSystem::AddArmorsmithXp(int32_t amount) noexcept
+{
+	m_armorsmithXp += amount;
+
+	int32_t newLevel = 1 + m_armorsmithXp / 100;
+	if (newLevel > m_craftingLevel)
+	{
+		m_craftingLevel = newLevel;
+	}
+}
+
+//=============================================================================
+
+int32_t CraftingSystem::GetArmorsmithLevel() const noexcept
+{
+	return 1 + m_armorsmithXp / 100;
+}

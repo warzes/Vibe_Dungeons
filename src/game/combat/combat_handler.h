@@ -72,6 +72,7 @@ private:
 	void useSelfAbility(const Skill& skill) noexcept;
 	void onKill(Monster& target) noexcept;
 	void reduceWeaponDurability() noexcept;
+	void reduceArmorDurability() noexcept;
 	bool hasAmmo() const noexcept;
 	void consumeAmmo() noexcept;
 

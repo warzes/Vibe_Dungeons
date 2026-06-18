@@ -170,6 +170,87 @@
 			"skillReq": 2,
 			"ingredients": [{"id": "leather", "count": 3}],
 			"resultItem": {"id": "leather_armor", "count": 1}
+		},
+		{
+			"id": "craft_iron_armor",
+			"name": "Iron Armor",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 3,
+			"ingredients": [{"id": "iron_ingot", "count": 4}, {"id": "coal", "count": 2}],
+			"result": {"id": "iron_armor", "count": 1}
+		},
+		{
+			"id": "craft_steel_armor",
+			"name": "Steel Armor",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 5,
+			"ingredients": [{"id": "steel_ingot", "count": 4}, {"id": "coal", "count": 2}],
+			"result": {"id": "steel_armor", "count": 1}
+		},
+		{
+			"id": "craft_iron_helmet",
+			"name": "Iron Helmet",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 2,
+			"ingredients": [{"id": "iron_ingot", "count": 2}, {"id": "coal", "count": 1}],
+			"result": {"id": "iron_helmet", "count": 1}
+		},
+		{
+			"id": "craft_steel_helmet",
+			"name": "Steel Helmet",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 4,
+			"ingredients": [{"id": "steel_ingot", "count": 2}, {"id": "coal", "count": 1}],
+			"result": {"id": "steel_helmet", "count": 1}
+		},
+		{
+			"id": "craft_iron_boots",
+			"name": "Iron Boots",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 2,
+			"ingredients": [{"id": "iron_ingot", "count": 2}, {"id": "coal", "count": 1}],
+			"result": {"id": "iron_boots", "count": 1}
+		},
+		{
+			"id": "craft_steel_boots",
+			"name": "Steel Boots",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 4,
+			"ingredients": [{"id": "steel_ingot", "count": 2}, {"id": "coal", "count": 1}],
+			"result": {"id": "steel_boots", "count": 1}
+		},
+		{
+			"id": "craft_iron_gloves",
+			"name": "Iron Gloves",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 2,
+			"ingredients": [{"id": "iron_ingot", "count": 1}, {"id": "coal", "count": 1}],
+			"result": {"id": "iron_gloves", "count": 1}
+		},
+		{
+			"id": "craft_steel_gloves",
+			"name": "Steel Gloves",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 4,
+			"ingredients": [{"id": "steel_ingot", "count": 1}, {"id": "coal", "count": 1}],
+			"result": {"id": "steel_gloves", "count": 1}
+		},
+		{
+			"id": "craft_steel_shield",
+			"name": "Steel Shield",
+			"category": "armorsmith",
+			"stationType": "anvil",
+			"skillReq": 4,
+			"ingredients": [{"id": "steel_ingot", "count": 3}, {"id": "coal", "count": 1}],
+			"result": {"id": "steel_shield", "count": 1}
 		}
 	]
 }

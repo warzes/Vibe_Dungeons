@@ -2340,6 +2340,12 @@ void PlayState::renderCraftingWindow() noexcept
 		{
 			renderWeaponsmithOperations();
 		}
+
+		// ---- Armorsmith operations (steps 183-190) ----
+		if (catId == "armorsmith")
+		{
+			renderArmorsmithOperations();
+		}
 	}
 
 	ImGui::End();
@@ -2650,6 +2656,165 @@ void PlayState::renderWeaponsmithOperations() noexcept
 	ImGui::Text("Smithing XP: %d | Level: %d",
 		m_craftingSystem.m_smithingXp,
 		m_craftingSystem.GetSmithingLevel());
+}
+
+//=============================================================================
+
+void PlayState::renderArmorsmithOperations() noexcept
+{
+	ImGui::Separator();
+	ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "--- Armorsmith Operations ---");
+
+	Inventory& inv = m_character.GetInventory();
+
+	// Step 183-184: Create armor from baseType + material
+	ImGui::Text("Create Armor:");
+	static int createArmorTypeIdx = 0;
+	static int createArmorMatIdx = 0;
+
+	const char* armorTypes[] = {"Helmet", "Armor", "Shield", "Boots", "Gloves"};
+	const char* armorTypeIds[] = {"helmet", "plate", "shield", "boots", "gloves"};
+	const char* materials[] = {"Iron", "Steel"};
+	const char* materialIds[] = {"iron", "steel"};
+
+	ImGui::Combo("Armor Type", &createArmorTypeIdx, armorTypes, IM_ARRAYSIZE(armorTypes));
+	ImGui::Combo("Material", &createArmorMatIdx, materials, IM_ARRAYSIZE(materials));
+
+	if (ImGui::Button("Create Armor"))
+	{
+		if (m_craftingSystem.HasIngredients(inv, "iron_ingot", 1))
+		{
+			if (m_craftingSystem.CreateArmor(inv, armorTypeIds[createArmorTypeIdx], materialIds[createArmorMatIdx]))
+			{
+				m_combatLog.Add("Created armor!", glm::vec3(0.2f, 1.0f, 0.2f));
+			}
+		}
+		else
+		{
+			m_combatLog.Add("Need 1 Iron Ingot to forge!", glm::vec3(1.0f, 0.3f, 0.0f));
+		}
+	}
+	ImGui::Separator();
+
+	// Steps 185-187, 189: Operations on equipped armor pieces
+	ImGui::Text("Equipped Armor:");
+	EquipmentSlot armorSlots[] = {
+		EquipmentSlot::Head, EquipmentSlot::Body, EquipmentSlot::Shield,
+		EquipmentSlot::Hands, EquipmentSlot::Feet
+	};
+	const char* slotNames[] = {"Head", "Body", "Shield", "Hands", "Feet"};
+
+	static int selectedArmorSlot = 0;
+	ImGui::Combo("Slot", &selectedArmorSlot, slotNames, IM_ARRAYSIZE(slotNames));
+
+	if (selectedArmorSlot >= 0 && selectedArmorSlot < 5)
+	{
+		EquipmentSlot slot = armorSlots[selectedArmorSlot];
+		const Item* armor = m_character.GetEquipment().Get(slot);
+
+		if (armor && CraftingSystem::IsArmor(*armor))
+		{
+			ImGui::Text("  %s", armor->name.c_str());
+			ImGui::Text("  AC: %d  |  Durability: %d/%d",
+				armor->ac, armor->durability, armor->maxDurability);
+
+			float durPct = armor->maxDurability > 0
+				? static_cast<float>(armor->durability) / armor->maxDurability
+				: 0.0f;
+			ImGui::ProgressBar(durPct, ImVec2(-1, 0), "");
+
+			// Step 185: Upgrade
+			if (ImGui::Button("Upgrade (use Iron Ingot)"))
+			{
+				Item* a = m_character.GetEquipment().Get(slot);
+				if (a && m_craftingSystem.UpgradeArmor(*a, "steel"))
+				{
+					m_combatLog.Add("Armor upgraded!", glm::vec3(0.2f, 1.0f, 0.2f));
+				}
+				else
+				{
+					m_combatLog.Add("Upgrade failed.", glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+			ImGui::SameLine();
+
+			// Step 187: Repair
+			if (ImGui::Button("Repair"))
+			{
+				Item* a = m_character.GetEquipment().Get(slot);
+				if (a && m_craftingSystem.RepairArmor(*a))
+				{
+					m_combatLog.Add("Armor repaired!", glm::vec3(0.2f, 1.0f, 0.2f));
+				}
+				else
+				{
+					m_combatLog.Add("Repair failed.", glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+
+			// Step 186: Postfix
+			ImGui::Text("Add Postfix:");
+			static int armorEssenceIdx = 0;
+			const char* essences[] = {"Fire Essence", "Ice Essence", "Poison Essence", "Holy Essence"};
+			const char* essenceIds[] = {"fire_essence", "ice_essence", "poison_essence", "holy_essence"};
+			ImGui::Combo("Essence", &armorEssenceIdx, essences, IM_ARRAYSIZE(essences));
+			ImGui::SameLine();
+			if (ImGui::Button("Apply"))
+			{
+				Item* a = m_character.GetEquipment().Get(slot);
+				if (a && m_craftingSystem.AddArmorPostfix(*a, essenceIds[armorEssenceIdx]))
+				{
+					m_combatLog.Add("Postfix applied!", glm::vec3(0.2f, 1.0f, 0.2f));
+				}
+				else
+				{
+					m_combatLog.Add("Failed.", glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+
+			// Step 189: Enchant (scroll + essence)
+			ImGui::Text("Enchant:");
+			static int enchantScrollIdx = 0;
+			static int enchantEssenceIdx = 0;
+			const char* scrolls[] = {"Fireball Scroll", "Frost Bolt Scroll", "Heal Scroll"};
+			const char* scrollIds[] = {"scroll_fireball", "scroll_frost_bolt", "scroll_heal"};
+			const char* enchantEssences[] = {"Fire Essence", "Ice Essence", "Holy Essence"};
+			const char* enchantEssenceIds[] = {"fire_essence", "ice_essence", "holy_essence"};
+			ImGui::Combo("Scroll", &enchantScrollIdx, scrolls, IM_ARRAYSIZE(scrolls));
+			ImGui::Combo("Essence##enchant", &enchantEssenceIdx, enchantEssences, IM_ARRAYSIZE(enchantEssences));
+			ImGui::SameLine();
+			if (ImGui::Button("Enchant"))
+			{
+				if (m_craftingSystem.HasIngredients(inv, scrollIds[enchantScrollIdx], 1)
+					&& m_craftingSystem.HasIngredients(inv, enchantEssenceIds[enchantEssenceIdx], 1))
+				{
+					Item* a = m_character.GetEquipment().Get(slot);
+					if (a && m_craftingSystem.EnchantArmor(*a, scrollIds[enchantScrollIdx], enchantEssenceIds[enchantEssenceIdx]))
+					{
+						m_combatLog.Add("Armor enchanted!", glm::vec3(0.2f, 1.0f, 0.2f));
+					}
+					else
+					{
+						m_combatLog.Add("Enchant failed.", glm::vec3(1.0f, 0.3f, 0.0f));
+					}
+				}
+				else
+				{
+					m_combatLog.Add("Need scroll + essence!", glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+		}
+		else
+		{
+			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "  No armor in this slot.");
+		}
+	}
+
+	// Step 190: Armorsmith level
+	ImGui::Separator();
+	ImGui::Text("Armorsmith XP: %d | Level: %d",
+		m_craftingSystem.m_armorsmithXp,
+		m_craftingSystem.GetArmorsmithLevel());
 }
 
 //=============================================================================

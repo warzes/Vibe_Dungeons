@@ -52,6 +52,34 @@ public:
 	int32_t m_craftingLevel = 1;
 	int32_t m_smithingXp = 0;
 
+	// ---- Armorsmith operations (steps 183-190) ----
+	int32_t m_armorsmithXp = 0;
+
+	// Step 183-184: Create armor from baseType + material + ingot
+	bool CreateArmor(
+		Inventory& inventory,
+		const std::string& baseTypeId,
+		const std::string& materialId) noexcept;
+
+	// Step 185: Upgrade armor — add/improve prefix, +AC
+	bool UpgradeArmor(Item& item, const std::string& materialId) noexcept;
+
+	// Step 186: Add postfix — armor + essence → of Protection (+AC), of Vitality (+HP)
+	bool AddArmorPostfix(Item& item, const std::string& essenceId) noexcept;
+
+	// Step 187: Repair armor — restore durability
+	bool RepairArmor(Item& item) noexcept;
+
+	// Step 189: Enchant — armor + scroll + essence → magical effect
+	bool EnchantArmor(Item& item, const std::string& scrollId, const std::string& essenceId) noexcept;
+
+	// Step 190: Gain armorsmith XP
+	void AddArmorsmithXp(int32_t amount) noexcept;
+	int32_t GetArmorsmithLevel() const noexcept;
+
+	// Check if an item is armor (equippable armor piece)
+	[[nodiscard]] static bool IsArmor(const Item& item) noexcept;
+
 	// ---- Weaponsmith operations (steps 174-182) ----
 
 	// Step 174: Create weapon from base type + material + ingot

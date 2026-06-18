@@ -731,6 +731,17 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 181. ✅ **Плавка в инготы** — рецепты в recipes.json: `smelt_iron` (2 iron_ore + coal → 1 iron_ingot), `smelt_steel` (2 iron_ingot + 2 coal → 1 steel_ingot). Добавлены `steel_ingot`, `coal`, `whetstone` в `items_base.json`.
 182. ✅ **Кузнечный уровень** — `CraftingSystem::m_smithingXp` растёт с каждой операцией (Create: 10-25, Upgrade: 15-30, Sharpen: 20, Postfix: 25, Repair: 5). Каждые 100 XP → +1 уровень. Отображается в UI.
 
+### Armorsmith (шаги 183–190)
+
+183. Аналогично weaponsmith, но для брони: baseType + material + ingot
+184. Создание брони каждого типа (Helm, Body, Shield, Hands, Feet)
+185. Улучшение брони: +material → +AC
+186. Добавление постфикса: броня + essence → of Protection (+AC), of Vitality (+HP)
+187. Починка брони: броня + material → восстановление прочности
+188. Прочность брони: при получении урона броня теряет прочность
+189. Зачарование: броня + scroll + essence → добавляет магический эффект
+190. Уровень бронирования растёт отдельно от кузни
+
 ### Ключевые изменения
 
 - `src/game/combat/item.h` — добавлены `maxDurability`, `durability`, `sharpnessLevel`, `prefixId`, `postfixId`, `materialId`
