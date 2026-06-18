@@ -21,6 +21,14 @@
 		{"id": "honey", "name": "Honey", "type": "food", "value": 8, "description": "Sweet honey from bees."},
 		{"id": "spice", "name": "Spice Mix", "type": "food", "value": 6, "description": "A blend of aromatic spices."},
 		{"id": "fruit", "name": "Fruit", "type": "food", "value": 4, "description": "A ripe fruit."},
-		{"id": "vegetable", "name": "Vegetable", "type": "food", "value": 4, "description": "A fresh vegetable."}
+		{"id": "vegetable", "name": "Vegetable", "type": "food", "value": 4, "description": "A fresh vegetable."},
+		{"id": "silver_ore", "name": "Silver Ore", "type": "ore", "value": 10, "description": "Raw silver ore. Smelt into bars."},
+		{"id": "gold_ore", "name": "Gold Ore", "type": "ore", "value": 20, "description": "Raw gold ore. Valuable and rare."},
+		{"id": "gem", "name": "Gem", "type": "gem", "value": 30, "description": "A precious gem. Used in powerful elixirs."},
+		{"id": "poison_herb", "name": "Poison Herb", "type": "herb", "value": 6, "description": "A toxic herb. Used for poisons."},
+		{"id": "oil", "name": "Oil Flask", "type": "liquid", "value": 8, "description": "Flammable oil. Used for oils and bombs."},
+		{"id": "catalyst", "name": "Alchemical Catalyst", "type": "material", "value": 15, "description": "A rare catalyst. Used to craft essences."},
+		{"id": "salt", "name": "Salt", "type": "food", "value": 3, "description": "Common salt. Preserves food and adds flavour."},
+		{"id": "fish", "name": "Raw Fish", "type": "food", "value": 5, "description": "A fresh fish. Cook before eating."}
 	]
 }

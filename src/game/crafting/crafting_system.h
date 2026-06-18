@@ -55,6 +55,16 @@ public:
 	// ---- Armorsmith operations (steps 183-190) ----
 	int32_t m_armorsmithXp = 0;
 
+	// ---- Alchemy operations (steps 191-198) ----
+	int32_t m_alchemyXp = 0;
+	void AddAlchemyXp(int32_t amount) noexcept;
+	int32_t GetAlchemyLevel() const noexcept;
+
+	// ---- Cooking operations (steps 199-204) ----
+	int32_t m_cookingXp = 0;
+	void AddCookingXp(int32_t amount) noexcept;
+	int32_t GetCookingLevel() const noexcept;
+
 	// Step 183-184: Create armor from baseType + material + ingot
 	bool CreateArmor(
 		Inventory& inventory,
@@ -110,6 +120,9 @@ public:
 	// Check for ingredients in inventory
 	[[nodiscard]] bool HasIngredients(Inventory& inv, const std::string& itemId, int32_t count) noexcept;
 
+	// Remove items from inventory (used by alchemy operations)
+	bool removeItems(Inventory& inventory, const std::string& itemId, int32_t count) noexcept;
+
 private:
 	std::vector<CraftingRecipe> m_recipes;
 	std::vector<CraftingCategory> m_categories;
@@ -118,5 +131,4 @@ private:
 
 	[[nodiscard]] CraftingRecipe* findRecipe(const std::string& id) noexcept;
 	[[nodiscard]] int32_t countItem(const Inventory& inventory, const std::string& itemId) const noexcept;
-	bool removeItems(Inventory& inventory, const std::string& itemId, int32_t count) noexcept;
 };

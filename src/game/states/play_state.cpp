@@ -14,6 +14,7 @@
 #include "core/file_io.h"
 #include "game/data/experience_system.h"
 #include "game/data/skill_manager.h"
+#include "game/data/item_factory.h"
 #include "game/states/class_selection_state.h"
 
 //=============================================================================
@@ -734,7 +735,7 @@ void PlayState::processAttack() noexcept
 		return;
 	}
 
-	// Context-sensitive: monster in front → attack; item on tile → pickup
+	// Context-sensitive: monster in front → attack; resource node → gather; else → pickup
 	Monster* target = m_monsterManager.FindInFront(
 		m_camera.GetGridPosition(),
 		m_camera.Facing()
@@ -743,6 +744,10 @@ void PlayState::processAttack() noexcept
 	if (target)
 	{
 		m_combatHandler.PerformCombat();
+	}
+	else if (processGather())
+	{
+		// Gathering handled
 	}
 	else
 	{
@@ -2005,6 +2010,106 @@ void PlayState::ProcessSpellAction() noexcept
 }
 
 //=============================================================================
+bool PlayState::processGather() noexcept
+{
+	if (m_turnManager.GetGameMode() != GameMode::Exploring)
+	{
+		return false;
+	}
+
+	// Check the cell in front of the player
+	GridPosition playerPos = m_camera.GetGridPosition();
+	Direction facing = m_camera.Facing();
+	glm::ivec2 offset = DirectionToVec(facing);
+	GridPosition frontPos = {playerPos.row + offset.x, playerPos.col + offset.y, playerPos.floor};
+
+	if (!Chunk::InBounds(frontPos.row, frontPos.col))
+	{
+		return false;
+	}
+
+	Cell& cell = m_dungeon.GetCell(frontPos);
+	if (!cell.isResourceNode)
+	{
+		return false;
+	}
+
+	Inventory& inv = m_character.GetInventory();
+
+	// Determine resource type and tool requirement
+	// For now: random resource from a pool based on node type
+	// Future: resource type stored in cell
+	std::string resourceId;
+	int32_t xpGain = 0;
+
+	// Simple random: pick a mining/herbalism/fishing resource
+	// We'll use a basic deterministic approach based on position
+	int32_t posHash = frontPos.row * 31 + frontPos.col * 17;
+	int32_t roll = posHash % 10;
+
+	// Check if player has appropriate tool equipped
+	const Item* weapon = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+	bool hasPickaxe = weapon && weapon->itemId == "pickaxe";
+	bool hasFishingRod = weapon && weapon->itemId == "fishing_rod";
+
+	if (roll < 4) // Mining resources — need pickaxe
+	{
+		if (!hasPickaxe)
+		{
+			m_combatLog.Add("Need a pickaxe to mine here!", glm::vec3(1.0f, 0.6f, 0.0f));
+			return true; // consumed action but failed
+		}
+
+		int32_t oreRoll = posHash % 3;
+		if (oreRoll == 0)      { resourceId = "iron_ore"; xpGain = 5; }
+		else if (oreRoll == 1) { resourceId = "coal"; xpGain = 4; }
+		else                   { resourceId = "silver_ore"; xpGain = 8; }
+	}
+	else if (roll < 7) // Herbalism — no tool needed
+	{
+		int32_t herbRoll = posHash % 4;
+		if (herbRoll == 0)      { resourceId = "herb"; xpGain = 5; }
+		else if (herbRoll == 1) { resourceId = "flower"; xpGain = 3; }
+		else if (herbRoll == 2) { resourceId = "mushroom"; xpGain = 5; }
+		else                    { resourceId = "poison_herb"; xpGain = 6; }
+	}
+	else if (roll < 9) // Fishing — need fishing rod
+	{
+		if (!hasFishingRod)
+		{
+			m_combatLog.Add("Need a fishing rod to fish here!", glm::vec3(1.0f, 0.6f, 0.0f));
+			return true; // consumed action but failed
+		}
+		resourceId = "fish";
+		xpGain = 7;
+	}
+	else // Rare gem find
+	{
+		if (!hasPickaxe)
+		{
+			m_combatLog.Add("Need a pickaxe to mine this vein!", glm::vec3(1.0f, 0.6f, 0.0f));
+			return true;
+		}
+		resourceId = "gem";
+		xpGain = 15;
+	}
+
+	Item gathered = ItemFactory::CreateBase(resourceId);
+	inv.Add(gathered);
+
+	// Consume node (one-time use for now)
+	cell.isResourceNode = false;
+
+	m_combatLog.Add("Gathered " + gathered.name + "!", glm::vec3(0.2f, 0.9f, 0.2f));
+	m_turnManager.SetGameMode(GameMode::TurnWaiting);
+
+	// Award XP based on category
+	m_craftingSystem.AddCookingXp(xpGain); // Using cooking XP for gathering for now
+
+	return true;
+}
+
+//=============================================================================
 void PlayState::processSearch() noexcept
 {
 	if (m_turnManager.GetGameMode() != GameMode::Exploring)
@@ -2345,6 +2450,18 @@ void PlayState::renderCraftingWindow() noexcept
 		if (catId == "armorsmith")
 		{
 			renderArmorsmithOperations();
+		}
+
+		// ---- Alchemy operations (steps 191-198) ----
+		if (catId == "alchemy")
+		{
+			renderAlchemyOperations();
+		}
+
+		// ---- Cooking operations (steps 199-204) ----
+		if (catId == "cooking")
+		{
+			renderCookingOperations();
 		}
 	}
 
@@ -2815,6 +2932,91 @@ void PlayState::renderArmorsmithOperations() noexcept
 	ImGui::Text("Armorsmith XP: %d | Level: %d",
 		m_craftingSystem.m_armorsmithXp,
 		m_craftingSystem.GetArmorsmithLevel());
+}
+
+//=============================================================================
+
+void PlayState::renderAlchemyOperations() noexcept
+{
+	ImGui::Separator();
+	ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "--- Alchemy Operations ---");
+
+	Inventory& inv = m_character.GetInventory();
+
+	// Step 195: Apply poison to weapon
+	ImGui::Text("Apply Poison to Weapon:");
+	if (ImGui::Button("Apply Poison Vial") && m_craftingSystem.HasIngredients(inv, "poison_vial", 1))
+	{
+		Item* weapon = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+		if (weapon && CraftingSystem::IsWeapon(*weapon))
+		{
+			weapon->elementType = "poison";
+			weapon->elementDamageMin = 1;
+			weapon->elementDamageMax = 4;
+			m_craftingSystem.removeItems(inv, "poison_vial", 1);
+			m_combatLog.Add("Poison applied to weapon! (+1d4 poison for 5 hits)", glm::vec3(0.2f, 1.0f, 0.0f));
+			m_craftingSystem.AddAlchemyXp(10);
+		}
+		else
+		{
+			m_combatLog.Add("No weapon equipped!", glm::vec3(1.0f, 0.3f, 0.0f));
+		}
+	}
+
+	// Step 196: Apply oil to weapon
+	ImGui::Text("Apply Oil to Weapon:");
+	static int oilTypeIdx = 0;
+	const char* oils[] = {"Fire Oil", "Ice Oil"};
+	const char* oilIds[] = {"oil_fire", "oil_ice"};
+	ImGui::Combo("Oil Type", &oilTypeIdx, oils, IM_ARRAYSIZE(oils));
+	ImGui::SameLine();
+	if (ImGui::Button("Apply Oil"))
+	{
+		if (m_craftingSystem.HasIngredients(inv, oilIds[oilTypeIdx], 1))
+		{
+			Item* weapon = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+			if (weapon && CraftingSystem::IsWeapon(*weapon))
+			{
+				std::string elem = (oilTypeIdx == 0) ? "fire" : "ice";
+				weapon->elementType = elem;
+				weapon->elementDamageMin = 2;
+				weapon->elementDamageMax = 5;
+				m_craftingSystem.removeItems(inv, oilIds[oilTypeIdx], 1);
+				m_combatLog.Add("Weapon oiled with " + std::string(oils[oilTypeIdx]) + "!", glm::vec3(0.2f, 1.0f, 0.0f));
+				m_craftingSystem.AddAlchemyXp(12);
+			}
+			else
+			{
+				m_combatLog.Add("No weapon equipped!", glm::vec3(1.0f, 0.3f, 0.0f));
+			}
+		}
+		else
+		{
+			m_combatLog.Add("Missing oil!", glm::vec3(1.0f, 0.3f, 0.0f));
+		}
+	}
+
+	// Step 198: Alchemy level
+	ImGui::Separator();
+	ImGui::Text("Alchemy XP: %d | Level: %d",
+		m_craftingSystem.m_alchemyXp,
+		m_craftingSystem.GetAlchemyLevel());
+}
+
+//=============================================================================
+
+void PlayState::renderCookingOperations() noexcept
+{
+	ImGui::Separator();
+	ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "--- Cooking Operations ---");
+
+	ImGui::Text("Cooking Level affects dish quality and buff duration.");
+
+	// Step 204: Cooking level
+	ImGui::Separator();
+	ImGui::Text("Cooking XP: %d | Level: %d",
+		m_craftingSystem.m_cookingXp,
+		m_craftingSystem.GetCookingLevel());
 }
 
 //=============================================================================

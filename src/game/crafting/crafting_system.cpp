@@ -151,6 +151,17 @@ bool CraftingSystem::Craft(const CraftingRecipe& recipe, Inventory& inventory) n
 		inventory.Add(resultItem);
 	}
 
+	// Award XP based on category
+	int32_t xpGain = 5 + recipe.skillReq * 3;
+	if (recipe.category == "alchemy")
+	{
+		AddAlchemyXp(xpGain);
+	}
+	else if (recipe.category == "cooking")
+	{
+		AddCookingXp(xpGain);
+	}
+
 	return true;
 }
 
@@ -759,4 +770,42 @@ void CraftingSystem::AddArmorsmithXp(int32_t amount) noexcept
 int32_t CraftingSystem::GetArmorsmithLevel() const noexcept
 {
 	return 1 + m_armorsmithXp / 100;
+}
+
+//=============================================================================
+//  Alchemy XP (steps 191-198)
+//=============================================================================
+
+void CraftingSystem::AddAlchemyXp(int32_t amount) noexcept
+{
+	m_alchemyXp += amount;
+	int32_t newLevel = 1 + m_alchemyXp / 100;
+	if (newLevel > m_craftingLevel)
+	{
+		m_craftingLevel = newLevel;
+	}
+}
+
+int32_t CraftingSystem::GetAlchemyLevel() const noexcept
+{
+	return 1 + m_alchemyXp / 100;
+}
+
+//=============================================================================
+//  Cooking XP (steps 199-204)
+//=============================================================================
+
+void CraftingSystem::AddCookingXp(int32_t amount) noexcept
+{
+	m_cookingXp += amount;
+	int32_t newLevel = 1 + m_cookingXp / 100;
+	if (newLevel > m_craftingLevel)
+	{
+		m_craftingLevel = newLevel;
+	}
+}
+
+int32_t CraftingSystem::GetCookingLevel() const noexcept
+{
+	return 1 + m_cookingXp / 100;
 }

@@ -64,6 +64,36 @@ void Dungeon::GenerateTestRoom()
 	setWall(22, 12);
 	setWall(22, 22);
 	setWall(28, 17);
+
+	// ---- Resource nodes (steps 205-210) ----
+	// Place various resource nodes around the dungeon
+	auto setResource = [&](int32_t r, int32_t c)
+	{
+		if (Chunk::InBounds(r, c))
+		{
+			Cell& cell = m_chunk.At(r, c);
+			if (cell.IsWalkable() && !cell.isResourceNode)
+			{
+				cell.isResourceNode = true;
+			}
+		}
+	};
+
+	// Mining nodes (bottom room)
+	setResource(14, 12);
+	setResource(14, 22);
+	setResource(20, 18);
+
+	// Herbalism nodes (top-left room)
+	setResource(3, 3);
+	setResource(5, 5);
+	setResource(3, 18);
+
+	// Fishing spot (top-right corner near wall)
+	setResource(3, 30);
+
+	// Rare gem node
+	setResource(25, 25);
 }
 
 bool Dungeon::IsWalkable(GridPosition pos) const noexcept

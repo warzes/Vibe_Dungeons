@@ -189,6 +189,8 @@ private:
 	void renderCraftingWindow() noexcept;
 	void renderWeaponsmithOperations() noexcept;
 	void renderArmorsmithOperations() noexcept;
+	void renderAlchemyOperations() noexcept;
+	void renderCookingOperations() noexcept;
 
 	// Hunger system (step 211)
 	int32_t m_hungerTurns = 0;
@@ -199,6 +201,9 @@ private:
 
 	// Search action (step 291)
 	void processSearch() noexcept;
+
+	// Gathering (steps 205-210)
+	[[nodiscard]] bool processGather() noexcept;
 	bool m_showStatusEffects = false;
 
 	// Targeting mode for AoE (step 140)

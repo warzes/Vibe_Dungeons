@@ -47,6 +47,35 @@
 		{"id": "iron_shield", "name": "Iron Shield", "type": "armor", "subtype": "shield", "slot": "shield", "ac": 3, "value": 20},
 		{"id": "steel_shield", "name": "Steel Shield", "type": "armor", "subtype": "shield", "slot": "shield", "ac": 4, "value": 35},
 		{"id": "copper_ring", "name": "Copper Ring", "type": "accessory", "subtype": "ring", "slot": "ring", "value": 10},
-		{"id": "wooden_amulet", "name": "Wooden Amulet", "type": "accessory", "subtype": "amulet", "slot": "amulet", "value": 8}
+		{"id": "wooden_amulet", "name": "Wooden Amulet", "type": "accessory", "subtype": "amulet", "slot": "amulet", "value": 8},
+
+		{"id": "antidote_potion", "name": "Antidote Potion", "type": "potion", "subtype": "antidote", "value": 12, "bonus": 0, "usable": true, "consumable": true, "stackable": true, "maxStack": 10},
+		{"id": "fire_bomb", "name": "Fire Bomb", "type": "bomb", "subtype": "fire", "value": 25, "damageMin": 4, "damageMax": 8, "usable": true, "consumable": true, "stackable": true, "maxStack": 5},
+		{"id": "ice_bomb", "name": "Ice Bomb", "type": "bomb", "subtype": "ice", "value": 30, "damageMin": 3, "damageMax": 7, "usable": true, "consumable": true, "stackable": true, "maxStack": 5},
+		{"id": "poison_bomb", "name": "Poison Bomb", "type": "bomb", "subtype": "poison", "value": 28, "damageMin": 2, "damageMax": 6, "usable": true, "consumable": true, "stackable": true, "maxStack": 5},
+		{"id": "catalyst", "name": "Alchemical Catalyst", "type": "material", "subtype": "alchemy", "value": 15, "stackable": true, "maxStack": 10},
+		{"id": "poison_vial", "name": "Poison Vial", "type": "material", "subtype": "poison", "value": 12, "stackable": true, "maxStack": 5},
+		{"id": "oil_fire", "name": "Fire Oil", "type": "material", "subtype": "oil", "element": "fire", "value": 18, "stackable": true, "maxStack": 5},
+		{"id": "oil_ice", "name": "Ice Oil", "type": "material", "subtype": "oil", "element": "ice", "value": 18, "stackable": true, "maxStack": 5},
+		{"id": "elixir_strength", "name": "Elixir of Strength", "type": "potion", "subtype": "elixir_str", "value": 40, "bonus": 2, "usable": true, "consumable": true, "stackable": true, "maxStack": 3},
+		{"id": "elixir_dexterity", "name": "Elixir of Dexterity", "type": "potion", "subtype": "elixir_dex", "value": 40, "bonus": 2, "usable": true, "consumable": true, "stackable": true, "maxStack": 3},
+		{"id": "elixir_constitution", "name": "Elixir of Constitution", "type": "potion", "subtype": "elixir_con", "value": 40, "bonus": 2, "usable": true, "consumable": true, "stackable": true, "maxStack": 3},
+
+		{"id": "cooked_meat", "name": "Cooked Meat", "type": "food", "subtype": "cooked_meat", "value": 8, "hungerRestore": 40, "stackable": true, "maxStack": 10},
+		{"id": "mushroom_soup", "name": "Mushroom Soup", "type": "food", "subtype": "soup", "value": 10, "hungerRestore": 30, "stackable": true, "maxStack": 10},
+		{"id": "vegetable_soup", "name": "Vegetable Soup", "type": "food", "subtype": "soup", "value": 8, "hungerRestore": 25, "stackable": true, "maxStack": 10},
+		{"id": "honey_mead", "name": "Honey Mead", "type": "food", "subtype": "drink", "value": 12, "hungerRestore": 15, "stackable": true, "maxStack": 10},
+		{"id": "special_dish", "name": "Special Dish", "type": "food", "subtype": "meal", "value": 20, "hungerRestore": 60, "stackable": true, "maxStack": 5},
+		{"id": "cooked_fish", "name": "Cooked Fish", "type": "food", "subtype": "cooked_meat", "value": 7, "hungerRestore": 25, "stackable": true, "maxStack": 10},
+
+		{"id": "pickaxe", "name": "Pickaxe", "type": "weapon", "subtype": "pickaxe", "value": 15, "damageMin": 1, "damageMax": 3, "range": 1, "slot": "weapon"},
+		{"id": "fishing_rod", "name": "Fishing Rod", "type": "weapon", "subtype": "fishing_rod", "value": 10, "damageMin": 0, "damageMax": 1, "range": 1, "slot": "weapon"},
+		{"id": "silver_ore", "name": "Silver Ore", "type": "material", "subtype": "ore", "value": 10, "stackable": true, "maxStack": 20},
+		{"id": "gold_ore", "name": "Gold Ore", "type": "material", "subtype": "ore", "value": 20, "stackable": true, "maxStack": 20},
+		{"id": "gem", "name": "Gem", "type": "material", "subtype": "gem", "value": 30, "stackable": true, "maxStack": 5},
+		{"id": "fish", "name": "Raw Fish", "type": "food", "subtype": "raw_meat", "value": 5, "hungerRestore": 10, "stackable": true, "maxStack": 10},
+		{"id": "poison_herb", "name": "Poison Herb", "type": "material", "subtype": "herb", "value": 6, "stackable": true, "maxStack": 10},
+		{"id": "oil", "name": "Oil Flask", "type": "material", "subtype": "alchemy", "value": 8, "stackable": true, "maxStack": 10},
+		{"id": "salt", "name": "Salt", "type": "material", "subtype": "food", "value": 3, "stackable": true, "maxStack": 10}
 	]
 }

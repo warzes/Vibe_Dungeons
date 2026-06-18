@@ -24,6 +24,9 @@ Item ItemFactory::CreateBase(const std::string& itemId)
 	else if (typeStr == "key")       { item.type = ItemType::Key; }
 	else if (typeStr == "gold")      { item.type = ItemType::Gold; }
 	else if (typeStr == "scroll")    { item.type = ItemType::Scroll; }
+	else if (typeStr == "bomb")      { item.type = ItemType::Bomb; }
+	else if (typeStr == "food")      { item.type = ItemType::Food; }
+	else if (typeStr == "material")  { item.type = ItemType::Material; }
 	else                             { item.type = ItemType::QuestItem; }
 
 	item.bonus = data.value("bonus", 0);

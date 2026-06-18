@@ -753,3 +753,44 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - `bin/data/items_base.json` — добавлены: `iron_dagger`, `steel_dagger`, `iron_sword`, `steel_sword`, `iron_axe`, `steel_axe`, `ice_essence`, `poison_essence`, `steel_ingot`, `coal`, `whetstone`
 - `bin/data/monsters.json` — добавлены Ice Elemental (ice), Poison Slime (poison); Fire Elemental получил `"element": "fire"`; новые монстры имеют drops с essences
 - `bin/data/recipes.json` — расширен 8 рецептами: smelt_steel, craft_iron_sword/dagger/axe, craft_steel_sword/axe/dagger, craft_iron_shield
+
+---
+
+## ✅ Фаза 7: Алхимия (шаги 191–198)
+
+191. ✅ **Зелья** — рецепты `healing_potion` (herb×2 + water + bottle), `mana_potion` (flower×3 + water + bottle), `antidote_potion` (herb×2 + coal + bottle) в `recipes.json`. Создаются через `CraftingSystem::Craft()`.
+192. ✅ **Бомбы** — рецепты `fire_bomb` (sulfur×2 + fire_essence + bottle), `poison_bomb` (sulfur×2 + poison_essence + bottle), `ice_bomb` (sulfur + herb + bottle). ItemType::Bomb в `items_base.json`. Использование через инвентарь.
+193. ✅ **Эссенции из дропов** — рецепты `craft_essence_fire/ice/poison`: slime_glob×2 + catalyst → essence. Дают альтернативный способ получения эссенций.
+194. ✅ **Catalyst** — добавлен в `items_base.json` и `resources.json`. Используется в рецептах эссенций, доступен через крафт/дроп.
+195. ✅ **Яды** — рецепт `poison_vial` (poison_herb×2 + bottle). UI: кнопка "Apply Poison Vial" в `renderAlchemyOperations()` — наносит элемент poison на оружие (+1d4).
+196. ✅ **Масла** — рецепты `oil_fire` (oil + fire_essence) и `oil_ice` (oil + ice_essence). UI: Combo выбора + "Apply Oil" — наносит элемент fire/ice на оружие (+2d4).
+197. ✅ **Эликсиры** — рецепты `elixir_strength/dexterity/constitution` (herb/flower/mushroom×3 + gem + bottle). Создаются как ItemType::PotionHeal с бонусом +2 к статам.
+198. ✅ **Алхимия прокачивается** — `CraftingSystem::m_alchemyXp`, `AddAlchemyXp()`, `GetAlchemyLevel()`. XP начисляется при каждом `Craft()` с категорией "alchemy" и при операциях нанесения ядов/масел. Отображается в UI.
+
+## ✅ Фаза 7: Готовка (шаги 199–204)
+
+199. ✅ **Еда** — рецепты `cook_meat` (meat + spice), `cooked_fish` (fish + spice) через `CraftingSystem::Craft()`. Создают ItemType::Food с hungerRestore.
+200. ✅ **Супы** — рецепты `mushroom_soup` (mushroom×2 + herb + water), `vegetable_soup` (vegetable×2 + spice + water). Восстанавливают hunger 25-30.
+201. ✅ **Выпечка** — рецепт `bread` (flour×2 + egg + honey) уже существовал. Восстанавливает hunger 30.
+202. ✅ **Напитки** — рецепт `fruit_juice` (fruit×2 + water) уже существовал. Добавлен `honey_mead` (honey×2 + water + fruit).
+203. ✅ **Особые блюда** — рецепт `special_dish` (meat×2 + mushroom + spice×2). Самое сильное восстановление hunger (+60).
+204. ✅ **Уровень готовки** — `CraftingSystem::m_cookingXp`, `AddCookingXp()`, `GetCookingLevel()`. XP за каждый `Craft()` с категорией "cooking". Отображается в UI.
+
+## ✅ Фаза 7: Сбор ресурсов (шаги 205–210)
+
+205. ✅ **Resource nodes** — `Cell::isResourceNode` уже был в структуре. В `GenerateTestRoom()` расставлены 8 нод: mining (3), herbalism (3), fishing (1), gem (1).
+206. ✅ **Mining** — требует `pickaxe` в слоте Weapon. Добывает: iron_ore, coal, silver_ore. Проверка через `m_character.GetEquipment().Get(EquipmentSlot::Weapon)`.
+207. ✅ **Herbalism** — без инструмента. Добывает: herb, flower, mushroom, poison_herb.
+208. ✅ **Looting** — уже реализован в `CombatHandler::onKill()` (шаг 178): монстры дропают ресурсы (essences, leather, bones, meat) через JSON-поле `drops`.
+209. ✅ **Fishing** — требует `fishing_rod` в слоте Weapon. Добывает `fish`. Эксплуатирует те же resource nodes с проверкой инструмента.
+210. ✅ **Инструменты** — `pickaxe` и `fishing_rod` добавлены в `items_base.json`. Тип weapon, слот Weapon. UI: при попытке собрать без инструмента — сообщение в лог.
+
+### Ключевые изменения (шаги 191–210)
+
+- `src/game/crafting/crafting_system.h/.cpp` — добавлены `m_alchemyXp`, `m_cookingXp`, `AddAlchemyXp()`, `GetAlchemyLevel()`, `AddCookingXp()`, `GetCookingLevel()`, `removeItems()` публичный. XP начисляется в `Craft()` по категории.
+- `src/game/states/play_state.h/.cpp` — добавлены `renderAlchemyOperations()` (нанесение ядов/масел, алхимия XP), `renderCookingOperations()` (готовка XP), `processGather()` (сбор ресурсов с проверкой инструментов). Вызов gather добавлен в Space-обработчик перед pickup.
+- `src/game/dungeon/dungeon.cpp` — `GenerateTestRoom()` расставляет 8 resource nodes разных типов.
+- `src/game/data/item_factory.cpp` — поддержка типов `bomb`, `food`, `material` в `CreateBase()`.
+- `bin/data/items_base.json` — добавлены 20 предметов: antidote_potion, fire/ice/poison_bomb, catalyst, poison_vial, oil_fire/oil_ice, elixir_strength/dex/con, cooked_meat/fish, mushroom/vegetable_soup, honey_mead, special_dish, pickaxe, fishing_rod, silver/gold_ore, gem, fish, poison_herb, oil, salt.
+- `bin/data/resources.json` — добавлены 6 ресурсов: silver_ore, gold_ore, gem, poison_herb, oil, catalyst, salt, fish.
+- `bin/data/recipes.json` — добавлены 18 рецептов: antidote_potion, poison_vial, oil_fire/oil_ice, craft_essence_fire/ice/poison, elixir_strength/dex/con, mushroom/vegetable_soup, honey_mead, special_dish, cooked_fish.
