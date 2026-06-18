@@ -113,6 +113,7 @@
 			"id": "fire_elemental",
 			"name": "Fire Elemental",
 			"type": "elemental",
+			"element": "fire",
 			"level": 3,
 			"hp": 20,
 			"maxHp": 20,
@@ -128,6 +129,51 @@
 			"abilities": ["fire_aura"],
 			"drops": [
 				{"itemId": "fire_essence", "chance": 0.8, "minCount": 1, "maxCount": 2}
+			]
+		},
+		{
+			"id": "ice_elemental",
+			"name": "Ice Elemental",
+			"type": "elemental",
+			"element": "ice",
+			"level": 3,
+			"hp": 22,
+			"maxHp": 22,
+			"ac": 13,
+			"atkBonus": 2,
+			"damageMin": 2,
+			"damageMax": 5,
+			"xpReward": 100,
+			"ai": "Aggressive",
+			"texture": "data/ice_elemental.png",
+			"resistances": ["ice"],
+			"weaknesses": ["fire"],
+			"abilities": ["frost_bolt"],
+			"drops": [
+				{"itemId": "ice_essence", "chance": 0.8, "minCount": 1, "maxCount": 2}
+			]
+		},
+		{
+			"id": "poison_slime",
+			"name": "Poison Slime",
+			"type": "ooze",
+			"element": "poison",
+			"level": 2,
+			"hp": 10,
+			"maxHp": 10,
+			"ac": 9,
+			"atkBonus": 1,
+			"damageMin": 1,
+			"damageMax": 4,
+			"xpReward": 35,
+			"ai": "Stationary",
+			"texture": "data/poison_slime.png",
+			"resistances": ["poison"],
+			"weaknesses": ["fire", "holy"],
+			"abilities": ["poison_touch"],
+			"drops": [
+				{"itemId": "poison_essence", "chance": 0.6, "minCount": 1, "maxCount": 1},
+				{"itemId": "slime_glob", "chance": 0.4, "minCount": 1, "maxCount": 2}
 			]
 		},
 		{

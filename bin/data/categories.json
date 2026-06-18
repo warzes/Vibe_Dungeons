@@ -1,0 +1,28 @@
+{
+	"categories": [
+		{
+			"id": "weaponsmith",
+			"name": "Weaponsmith",
+			"description": "Craft and upgrade weapons at an anvil",
+			"icon": "anvil"
+		},
+		{
+			"id": "armorsmith",
+			"name": "Armorsmith",
+			"description": "Craft and upgrade armor at an anvil",
+			"icon": "anvil"
+		},
+		{
+			"id": "alchemy",
+			"name": "Alchemy",
+			"description": "Brew potions and bombs at a cauldron",
+			"icon": "cauldron"
+		},
+		{
+			"id": "cooking",
+			"name": "Cooking",
+			"description": "Prepare meals at a campfire",
+			"icon": "campfire"
+		}
+	]
+}

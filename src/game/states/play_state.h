@@ -24,6 +24,7 @@
 #include "game/combat/item_handler.h"
 #include "game/combat/status_effect.h"
 #include "game/data/encounter_manager.h"
+#include "game/crafting/crafting_system.h"
 #include "game/ui/combat_log.h"
 
 class GameStateMachine;
@@ -181,6 +182,12 @@ private:
 
 	// Encounter manager (step 165)
 	EncounterManager m_encounterManager;
+
+	// Crafting system (steps 166-173)
+	CraftingSystem m_craftingSystem;
+	bool m_showCrafting = false;
+	void renderCraftingWindow() noexcept;
+	void renderWeaponsmithOperations() noexcept;
 
 	// Hunger system (step 211)
 	int32_t m_hungerTurns = 0;

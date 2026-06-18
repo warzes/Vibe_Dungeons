@@ -33,6 +33,11 @@ public:
 	[[nodiscard]] const json& AllAbilities() const noexcept { return m_abilities; }
 	[[nodiscard]] const json& AllStatusEffects() const noexcept { return m_statusEffects; }
 	[[nodiscard]] const json& AllEncounters() const noexcept { return m_encounters; }
+	[[nodiscard]] const json& GetResourceData(const std::string& resourceId) const;
+	[[nodiscard]] const json& GetRecipeData(const std::string& recipeId) const;
+	[[nodiscard]] const json& AllResources() const noexcept { return m_resources; }
+	[[nodiscard]] const json& AllRecipes() const noexcept { return m_recipes; }
+	[[nodiscard]] const json& AllCategories() const noexcept { return m_categories; }
 
 private:
 	JsonDataManager() = default;
@@ -66,5 +71,10 @@ private:
 	std::unordered_map<std::string, size_t> m_abilityIndex;
 	json m_statusEffects = json::array();
 	json m_encounters = json::array();
+	json m_resources = json::array();
+	std::unordered_map<std::string, size_t> m_resourceIndex;
+	json m_recipes = json::array();
+	std::unordered_map<std::string, size_t> m_recipeIndex;
+	json m_categories = json::array();
 	json m_levelTable = json::array();
 };

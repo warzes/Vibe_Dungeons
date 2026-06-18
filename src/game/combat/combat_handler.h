@@ -20,6 +20,7 @@ class ResourceManager;
 class Shader;
 class Renderer;
 class MonsterRenderer;
+class ItemHandler;
 struct Material;
 struct Texture;
 
@@ -37,7 +38,8 @@ public:
 		Dungeon& dungeon,
 		ResourceManager& resources,
 		Shader& dungeonShader,
-		bool& pendingLevelUp
+		bool& pendingLevelUp,
+		ItemHandler& itemHandler
 	) noexcept;
 
 	void LoadMonsterTextures() noexcept;
@@ -69,6 +71,7 @@ private:
 	void useRangedAbility(const Skill& skill) noexcept;
 	void useSelfAbility(const Skill& skill) noexcept;
 	void onKill(Monster& target) noexcept;
+	void reduceWeaponDurability() noexcept;
 	bool hasAmmo() const noexcept;
 	void consumeAmmo() noexcept;
 
@@ -83,6 +86,7 @@ private:
 	ResourceManager* m_resources = nullptr;
 	Shader* m_dungeonShader = nullptr;
 	bool* m_pendingLevelUp = nullptr;
+	ItemHandler* m_itemHandler = nullptr;
 
 	StatusSystem m_statusSystem;
 

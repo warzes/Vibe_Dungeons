@@ -72,6 +72,7 @@ inline void from_json(const json& j, EquipmentSlot& s)
 inline void to_json(json& j, const Item& item)
 {
 	j = json{
+		{"itemId", item.itemId},
 		{"name", item.name},
 		{"type", item.type},
 		{"rarity", item.rarity},
@@ -89,12 +90,19 @@ inline void to_json(json& j, const Item& item)
 		{"mpBonus", item.mpBonus},
 		{"spellId", item.spellId},
 		{"charges", item.charges},
-		{"maxCharges", item.maxCharges}
+		{"maxCharges", item.maxCharges},
+		{"maxDurability", item.maxDurability},
+		{"durability", item.durability},
+		{"sharpnessLevel", item.sharpnessLevel},
+		{"prefixId", item.prefixId},
+		{"postfixId", item.postfixId},
+		{"materialId", item.materialId}
 	};
 }
 
 inline void from_json(const json& j, Item& item)
 {
+	if (j.contains("itemId")) { j.at("itemId").get_to(item.itemId); }
 	j.at("name").get_to(item.name);
 	j.at("type").get_to(item.type);
 	j.at("rarity").get_to(item.rarity);
@@ -113,6 +121,12 @@ inline void from_json(const json& j, Item& item)
 	if (j.contains("spellId")) { j.at("spellId").get_to(item.spellId); }
 	if (j.contains("charges")) { j.at("charges").get_to(item.charges); }
 	if (j.contains("maxCharges")) { j.at("maxCharges").get_to(item.maxCharges); }
+	if (j.contains("maxDurability")) { j.at("maxDurability").get_to(item.maxDurability); }
+	if (j.contains("durability")) { j.at("durability").get_to(item.durability); }
+	if (j.contains("sharpnessLevel")) { j.at("sharpnessLevel").get_to(item.sharpnessLevel); }
+	if (j.contains("prefixId")) { j.at("prefixId").get_to(item.prefixId); }
+	if (j.contains("postfixId")) { j.at("postfixId").get_to(item.postfixId); }
+	if (j.contains("materialId")) { j.at("materialId").get_to(item.materialId); }
 }
 
 // ---- ItemDrop ----

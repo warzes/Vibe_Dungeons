@@ -38,7 +38,10 @@ bool JsonDataManager::LoadAll(const char* dataDir)
 	FileEntry optionalFiles[] =
 	{
 		{"status_effects.json", "statusEffects", &m_statusEffects},
-		{"encounter_groups.json", "encounters", &m_encounters}
+		{"encounter_groups.json", "encounters", &m_encounters},
+		{"resources.json", "resources", &m_resources},
+		{"recipes.json", "recipes", &m_recipes},
+		{"categories.json", "categories", &m_categories}
 	};
 
 	bool allOk = true;
@@ -82,6 +85,8 @@ bool JsonDataManager::LoadAll(const char* dataDir)
 	buildIndex(m_postfixes,   m_postfixIndex,   "id");
 	buildIndex(m_spells,      m_spellIndex,     "id");
 	buildIndex(m_abilities,   m_abilityIndex,   "id");
+	buildIndex(m_resources,   m_resourceIndex,   "id");
+	buildIndex(m_recipes,     m_recipeIndex,     "id");
 
 	return allOk;
 }
@@ -190,4 +195,14 @@ const json& JsonDataManager::GetSpellData(const std::string& spellId) const
 const json& JsonDataManager::GetAbilityData(const std::string& abilityId) const
 {
 	return getByIndex(m_abilities, m_abilityIndex, abilityId);
+}
+
+const json& JsonDataManager::GetResourceData(const std::string& resourceId) const
+{
+	return getByIndex(m_resources, m_resourceIndex, resourceId);
+}
+
+const json& JsonDataManager::GetRecipeData(const std::string& recipeId) const
+{
+	return getByIndex(m_recipes, m_recipeIndex, recipeId);
 }

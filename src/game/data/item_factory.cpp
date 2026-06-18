@@ -7,6 +7,7 @@ Item ItemFactory::CreateBase(const std::string& itemId)
 	const json& data = JsonDataManager::Instance().GetItemBaseData(itemId);
 
 	Item item;
+	item.itemId = itemId;
 	item.name = data.value("name", itemId);
 	item.value = data.value("value", 0);
 

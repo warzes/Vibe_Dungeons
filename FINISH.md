@@ -687,3 +687,58 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 163. ✅ Разные роли в группе: tank (высокий AC, спереди), dps (сзади), healer (лечит)
 164. ✅ Боссы: уникальные монстры с именем, особыми способностями, большим HP
 165. ✅ Encounter table: на каждом этаже подземелья свои группы монстров (через weight/minFloor/maxFloor)
+
+---
+
+## ✅ Фаза 7: Крафт — Ресурсы и рецепты (шаги 166–173)
+
+> Цель: кузнечное дело, алхимия и готовка с рецептами из JSON.
+
+166. ✅ `data/resources.json` — 22 ресурса (Iron Ore, Coal, Herb, Flower, Meat, Mushroom, Water, Sulfur, Leather, Bone, Essences, etc.)
+167. ✅ `data/recipes.json` — 11 рецептов: smelt_iron, healing_potion, mana_potion, cook_meat, herb_tea, fruit_juice, bread, fire_bomb, poison_bomb, leather_armor, iron_sword
+168. ✅ `data/categories.json` — 4 категории: Weaponsmith, Armorsmith, Alchemy, Cooking
+169. ✅ `CraftingRecipe` — структура: id, name, category, stationType, skillReq, ingredients[], result
+170. ✅ `CraftingSystem` — проверка ингредиентов → удаление → создание результата через ItemFactory
+171. ✅ Станции крафта: stationType в recipe (anvil, cauldron, furnace, campfire)
+172. ✅ Готовка: рецепты с stationType "campfire" (cook_meat, herb_tea, fruit_juice, bread)
+173. ✅ Рецепты открыты по умолчанию (UnlockAllRecipes), система unlock готова к расширению
+
+### Ключевые изменения
+
+- `src/game/crafting/crafting_recipe.h` — новая структура с `CraftingRecipe`, `CraftingIngredient`, `CraftingResult`, статический `FromJson()`
+- `src/game/crafting/crafting_system.h/.cpp` — новый класс: `LoadRecipes()`, `LoadCategories()`, `CanCraft()`, `Craft()`, `GetRecipesByCategory()`, `GetAvailableRecipes()`, `UnlockRecipe()`, `IsRecipeUnlocked()`
+- `src/game/combat/item.h` — добавлено поле `std::string itemId` для идентификации предметов при крафте
+- `src/game/data/item_factory.cpp` — `CreateBase()` заполняет `itemId`
+- `src/core/json_data_manager.h/.cpp` — загрузка `resources.json`, `recipes.json`, `categories.json` (опциональные)
+- `src/core/data_manager.h/.cpp` — добавлены методы `GetResourceData()`, `GetRecipeData()`, `AllResources()`, `AllRecipes()`, `AllCategories()`
+- `src/game/states/play_state.h/.cpp` — `CraftingSystem m_craftingSystem`, `renderCraftingWindow()` (C), интеграция в OnEnter/Render/HandleEvent/RestartGame
+- `src/game/serialization.h` — `itemId` в `to_json`/`from_json` для Item
+- `src/Game.vcxproj` — добавлены `crafting_system.cpp`, `crafting_recipe.h`, `crafting_system.h`
+
+---
+
+## ✅ Фаза 8: Кузнечное дело и улучшение оружия (шаги 174–182)
+
+> Цель: кузнечное ремесло — создание, улучшение, заточка, ремонт и модификация оружия.
+
+174. ✅ **Создание оружия** — `CraftingSystem::CreateWeapon()`: baseType (dagger/sword/axe и т.д.) + material (iron/steel/silver/mithril/adamant) → готовое оружие с именем "Steel Sword", рассчитанными статами через `DataManager::CalculateItemStats()`. Расходуется 1 Iron Ingot.
+175. ✅ **Улучшение оружия** — `CraftingSystem::UpgradeWeapon()`: экипированное оружие + материал → добавляет префикс "Steel" к имени, +tier к damage/atk. Upgrade только с улучшением (tier выше текущего). Расходуется 1 Iron Ingot (через `HasIngredients`). XP: 15 + matTier*5.
+176. ✅ **Заточка** — `CraftingSystem::SharpenWeapon()`: weapon + whetstone → +1 damage (макс +3). Имя суффикс " (sharpened +N)". Расходуется 1 Whetstone. XP: 20.
+177. ✅ **Постфикс (зачарование)** — `CraftingSystem::AddPostfix()`: weapon + essence → добавляет "of Fire/Ice/Poison" с elementDamage 3-5. Старый постфикс удаляется. XP: 25.
+178. ✅ **Эссенции из монстров** — в `combat_handler.cpp::onKill()`: монстры с полем `"element"` дропают essences (fire_essence, ice_essence, poison_essence). Добавлены: Fire Elemental (fire), Ice Elemental (ice), Poison Slime (poison).
+179. ✅ **Ремонт** — `CraftingSystem::RepairItem()`: восстанавливает `durability` до `maxDurability`. XP: 5.
+180. ✅ **Прочность оружия** — `Item` расширен полями `durability`/`maxDurability` (int32_t). `reduceWeaponDurability()` в CombatHandler: при каждом ударе −1 durability. При 0 — оружие ломается (`breaks!` в лог).
+181. ✅ **Плавка в инготы** — рецепты в recipes.json: `smelt_iron` (2 iron_ore + coal → 1 iron_ingot), `smelt_steel` (2 iron_ingot + 2 coal → 1 steel_ingot). Добавлены `steel_ingot`, `coal`, `whetstone` в `items_base.json`.
+182. ✅ **Кузнечный уровень** — `CraftingSystem::m_smithingXp` растёт с каждой операцией (Create: 10-25, Upgrade: 15-30, Sharpen: 20, Postfix: 25, Repair: 5). Каждые 100 XP → +1 уровень. Отображается в UI.
+
+### Ключевые изменения
+
+- `src/game/combat/item.h` — добавлены `maxDurability`, `durability`, `sharpnessLevel`, `prefixId`, `postfixId`, `materialId`
+- `src/game/crafting/crafting_system.h/.cpp` — добавлены 6 методов оружейника: `CreateWeapon()`, `UpgradeWeapon()`, `SharpenWeapon()`, `AddPostfix()`, `RepairItem()`, `AddSmithingXp()`, `GetSmithingLevel()`, `IsWeapon()`, `HasIngredients()`; поля `m_smithingXp`, публичный `m_craftingLevel`
+- `src/game/combat/combat_handler.h/.cpp` — добавлены `reduceWeaponDurability()`, поле `m_itemHandler`; `onKill()` расширен для дропа лута (из drops монстра) и эссенций (по element); Init принимает `ItemHandler&`
+- `src/game/combat/item_handler.h/.cpp` — публичный `Drops()` возвращает `std::vector<ItemDrop>&`
+- `src/game/states/play_state.h/.cpp` — `renderWeaponsmithOperations()` с UI для создания оружия (Combo базового типа + материала), upgrade, sharpen, postfix, repair; Init передаёт `m_itemHandler` в `CombatHandler`
+- `src/game/serialization.h` — новые поля Item в `to_json`/`from_json` (maxDurability, durability, sharpnessLevel, prefixId, postfixId, materialId)
+- `bin/data/items_base.json` — добавлены: `iron_dagger`, `steel_dagger`, `iron_sword`, `steel_sword`, `iron_axe`, `steel_axe`, `ice_essence`, `poison_essence`, `steel_ingot`, `coal`, `whetstone`
+- `bin/data/monsters.json` — добавлены Ice Elemental (ice), Poison Slime (poison); Fire Elemental получил `"element": "fire"`; новые монстры имеют drops с essences
+- `bin/data/recipes.json` — расширен 8 рецептами: smelt_steel, craft_iron_sword/dagger/axe, craft_steel_sword/axe/dagger, craft_iron_shield

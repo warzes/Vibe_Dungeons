@@ -47,6 +47,7 @@ enum class EquipmentSlot : uint8_t
 
 struct Item final
 {
+	std::string itemId;  // base item id from JSON (for crafting/identification)
 	std::string name;
 	ItemType type = ItemType::Gold;
 	ItemRarity rarity = ItemRarity::Common;
@@ -70,6 +71,18 @@ struct Item final
 	std::string spellId;
 	int32_t charges = 0;
 	int32_t maxCharges = 0;
+
+	// ---- Durability (step 179-180) ----
+	int32_t maxDurability = 100;
+	int32_t durability = 100;
+
+	// ---- Sharpness (step 176) ----
+	int32_t sharpnessLevel = 0;  // 0-3, each level +1 damage
+
+	// ---- Component tracking (steps 175, 177) ----
+	std::string prefixId;
+	std::string postfixId;
+	std::string materialId;
 
 	[[nodiscard]] const char* SpritePath() const noexcept
 	{

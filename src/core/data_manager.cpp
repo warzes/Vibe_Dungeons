@@ -301,3 +301,32 @@ ItemStats DataManager::CalculateItemStats(
 
 	return stats;
 }
+
+//==============================================================================
+//  Crafting
+//==============================================================================
+
+const json& DataManager::GetResourceData(const std::string& resourceId)
+{
+	return JsonDataManager::Instance().GetResourceData(resourceId);
+}
+
+const json& DataManager::GetRecipeData(const std::string& recipeId)
+{
+	return JsonDataManager::Instance().GetRecipeData(recipeId);
+}
+
+const json& DataManager::AllResources()
+{
+	return JsonDataManager::Instance().AllResources();
+}
+
+const json& DataManager::AllRecipes()
+{
+	return JsonDataManager::Instance().AllRecipes();
+}
+
+const json& DataManager::AllCategories()
+{
+	return JsonDataManager::Instance().AllCategories();
+}

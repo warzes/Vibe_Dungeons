@@ -1,0 +1,26 @@
+{
+	"resources": [
+		{"id": "iron_ore", "name": "Iron Ore", "type": "ore", "value": 5, "description": "Raw iron ore. Smelt into ingots at a furnace."},
+		{"id": "coal", "name": "Coal", "type": "fuel", "value": 3, "description": "A chunk of coal. Used as fuel for smelting."},
+		{"id": "herb", "name": "Herb", "type": "herb", "value": 4, "description": "A medicinal herb. Base ingredient for potions."},
+		{"id": "flower", "name": "Flower", "type": "herb", "value": 3, "description": "A pretty flower. Used in alchemy."},
+		{"id": "meat", "name": "Raw Meat", "type": "food", "value": 6, "description": "Raw animal meat. Cook before eating."},
+		{"id": "mushroom", "name": "Mushroom", "type": "herb", "value": 5, "description": "A forest mushroom. Edible and alchemical."},
+		{"id": "water", "name": "Water Flask", "type": "liquid", "value": 2, "description": "A flask of clean water."},
+		{"id": "sulfur", "name": "Sulfur", "type": "mineral", "value": 8, "description": "Yellow mineral. Used for bombs."},
+		{"id": "leather", "name": "Leather Scrap", "type": "material", "value": 7, "description": "Treated animal hide. Used for armor."},
+		{"id": "bone", "name": "Bone", "type": "material", "value": 4, "description": "A sturdy bone. Can be carved into tools."},
+		{"id": "essence_fire", "name": "Fire Essence", "type": "essence", "value": 25, "description": "Essence of fire. Used for enchantment."},
+		{"id": "essence_ice", "name": "Ice Essence", "type": "essence", "value": 25, "description": "Essence of ice. Used for enchantment."},
+		{"id": "essence_poison", "name": "Poison Essence", "type": "essence", "value": 20, "description": "Essence of poison. Used for alchemy."},
+		{"id": "iron_ingot", "name": "Iron Ingot", "type": "ingot", "value": 15, "description": "Smelted iron. Used in smithing."},
+		{"id": "bottle", "name": "Glass Bottle", "type": "container", "value": 3, "description": "An empty glass bottle."},
+		{"id": "whetstone", "name": "Whetstone", "type": "tool", "value": 12, "description": "Used for sharpening weapons."},
+		{"id": "flour", "name": "Flour", "type": "food", "value": 4, "description": "Ground grain for baking."},
+		{"id": "egg", "name": "Egg", "type": "food", "value": 3, "description": "A fresh egg."},
+		{"id": "honey", "name": "Honey", "type": "food", "value": 8, "description": "Sweet honey from bees."},
+		{"id": "spice", "name": "Spice Mix", "type": "food", "value": 6, "description": "A blend of aromatic spices."},
+		{"id": "fruit", "name": "Fruit", "type": "food", "value": 4, "description": "A ripe fruit."},
+		{"id": "vegetable", "name": "Vegetable", "type": "food", "value": 4, "description": "A fresh vegetable."}
+	]
+}

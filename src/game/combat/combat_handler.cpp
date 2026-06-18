@@ -14,7 +14,9 @@
 #include "game/combat/monster_renderer.h"
 #include "game/combat/combat_system.h"
 #include "game/combat/spell_system.h"
+#include "game/combat/item_handler.h"
 #include "game/data/monster_factory.h"
+#include "game/data/item_factory.h"
 #include "game/data/experience_system.h"
 #include "game/data/skill_manager.h"
 #include "game/ui/combat_log.h"
@@ -36,7 +38,8 @@ void CombatHandler::Init(
 	Dungeon& dungeon,
 	ResourceManager& resources,
 	Shader& dungeonShader,
-	bool& pendingLevelUp
+	bool& pendingLevelUp,
+	ItemHandler& itemHandler
 ) noexcept
 {
 	m_character = &character;
@@ -50,6 +53,7 @@ void CombatHandler::Init(
 	m_resources = &resources;
 	m_dungeonShader = &dungeonShader;
 	m_pendingLevelUp = &pendingLevelUp;
+	m_itemHandler = &itemHandler;
 }
 
 //=============================================================================
@@ -129,6 +133,9 @@ void CombatHandler::PerformCombat() noexcept
 
 	bool behind = (DirectionToTarget(target->position, m_character->GetPosition()) == Opposite(target->facing));
 	AttackResult playerResult = m_combatSystem->MeleeAttack(*m_character, *target, behind);
+
+	// Step 180: weapon loses durability on use
+	reduceWeaponDurability();
 
 	if (playerResult.critical)
 	{
@@ -646,12 +653,81 @@ void CombatHandler::useRangedAbility(const Skill& skill) noexcept
 
 //=============================================================================
 
+void CombatHandler::reduceWeaponDurability() noexcept
+{
+	Item* weapon = m_character->GetEquipment().Get(EquipmentSlot::Weapon);
+	if (weapon && weapon->durability > 0)
+	{
+		weapon->durability -= 1;
+
+		if (weapon->durability <= 0)
+		{
+			m_combatLog->Add(weapon->name + " breaks!", glm::vec3(1.0f, 0.0f, 0.0f));
+			weapon->durability = 0;
+		}
+	}
+}
+
+//=============================================================================
+
 void CombatHandler::onKill(Monster& target) noexcept
 {
 	m_combatLog->Add(target.name + " dies!", glm::vec3(0.2f, 1.0f, 0.2f));
 	ExperienceSystem::AwardKill(*m_character, target);
 	m_combatLog->Add("Gained " + std::to_string(target.xpReward) + " XP.",
 		glm::vec3(0.3f, 0.6f, 1.0f));
+
+	// ---- Loot drops (steps 178, 181) ----
+	const json& monsterData = JsonDataManager::Instance().GetMonsterData(target.typeId);
+	if (!monsterData.is_null() && monsterData.contains("drops"))
+	{
+		for (const auto& dropEntry : monsterData["drops"])
+		{
+			std::string itemId = dropEntry.value("itemId", "");
+			double chance = dropEntry.value("chance", 0.0);
+			int32_t minCount = dropEntry.value("minCount", 1);
+			int32_t maxCount = dropEntry.value("maxCount", 1);
+
+			// Roll for each potential drop
+			double roll = static_cast<double>(rand()) / RAND_MAX;
+			if (roll < chance)
+			{
+				int32_t count = minCount + (rand() % (maxCount - minCount + 1));
+				for (int32_t di = 0; di < count; ++di)
+				{
+					Item dropItem = ItemFactory::CreateBase(itemId);
+					ItemDrop drop;
+					drop.item = dropItem;
+					drop.position = target.position;
+					m_itemHandler->Drops().push_back(std::move(drop));
+				}
+				m_combatLog->Add("Dropped " + ItemFactory::CreateBase(itemId).name + " x" + std::to_string(count) + "!",
+					glm::vec3(1.0f, 0.8f, 0.2f));
+			}
+		}
+	}
+
+	// Essence drops based on monster element type (step 178)
+	if (monsterData.contains("element") && !monsterData["element"].is_null())
+	{
+		std::string element = monsterData["element"].get<std::string>();
+		std::string essenceId;
+		if (element == "fire")       { essenceId = "fire_essence"; }
+		else if (element == "ice")   { essenceId = "ice_essence"; }
+		else if (element == "poison"){ essenceId = "poison_essence"; }
+		else if (element == "holy")  { essenceId = "holy_essence"; }
+
+		if (!essenceId.empty())
+		{
+			Item essence = ItemFactory::CreateBase(essenceId);
+			ItemDrop drop;
+			drop.item = essence;
+			drop.position = target.position;
+			m_itemHandler->Drops().push_back(std::move(drop));
+			m_combatLog->Add("Dropped " + essence.name + "!", glm::vec3(1.0f, 0.5f, 1.0f));
+		}
+	}
+
 	m_monsterManager->RemoveDead();
 	*m_pendingLevelUp = ExperienceSystem::CheckLevelUp(*m_character);
 }

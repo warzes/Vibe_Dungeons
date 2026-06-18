@@ -98,4 +98,11 @@ struct DataManager final
 		const json& material,
 		const json& prefix,
 		const json& postfix);
+
+	// Crafting
+	[[nodiscard]] static const json& GetResourceData(const std::string& resourceId);
+	[[nodiscard]] static const json& GetRecipeData(const std::string& recipeId);
+	[[nodiscard]] static const json& AllResources();
+	[[nodiscard]] static const json& AllRecipes();
+	[[nodiscard]] static const json& AllCategories();
 };

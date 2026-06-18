@@ -121,7 +121,8 @@ void PlayState::OnEnter() noexcept
 			m_dungeon,
 			m_resources,
 			*m_dungeonShader,
-			m_pendingLevelUp
+			m_pendingLevelUp,
+			m_itemHandler
 		);
 		m_combatHandler.LoadMonsterTextures();
 		m_monsterRenderer.Init();
@@ -161,6 +162,13 @@ void PlayState::OnEnter() noexcept
 		m_encounterManager.LoadEncounters();
 		Logger::Info("PlayState: after LoadEncounters");
 		Logger::Info("PlayState: encounter manager initialized");
+
+		// ---- Crafting system init (steps 166-173) ----
+		Logger::Info("PlayState: before CraftingSystem init");
+		m_craftingSystem.LoadRecipes();
+		m_craftingSystem.LoadCategories();
+		m_craftingSystem.UnlockAllRecipes(); // step 173: all recipes unlocked by default
+		Logger::Info("PlayState: after CraftingSystem init");
 
 		// ---- Input actions for grid movement ----
 		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
@@ -270,6 +278,11 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_U)
 	{
 		m_showStatusEffects = !m_showStatusEffects;
+	}
+
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_C)
+	{
+		m_showCrafting = !m_showCrafting;
 	}
 
 	// Spell targeting: Space confirms target
@@ -1117,6 +1130,9 @@ void PlayState::RestartGame() noexcept
 	m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
 	m_renderHeight = GetRenderHeightFromConfig();
 
+	m_craftingSystem.m_craftingLevel = 1;
+	m_craftingSystem.UnlockAllRecipes();
+
 	m_combatLog.Add("Game restarted.", glm::vec3(0.3f, 0.8f, 1.0f));
 }
 
@@ -1283,7 +1299,7 @@ void PlayState::Render() noexcept
 	ImGui::Text("F1: Debug [%s]", m_showDebug ? "ON" : "OFF");
 	ImGui::Text("F2: Options");
 	ImGui::Text("F5: Save / F9: Load");
-	ImGui::Text("I: Inventory");
+	ImGui::Text("I: Inventory / C: Crafting");
 	if (ImGui::Button("Back to Menu"))
 	{
 		m_machine.ReplaceState("MainMenu");
@@ -1388,6 +1404,9 @@ void PlayState::Render() noexcept
 
 	// ===== Status effects window (toggle with U) =====
 	renderStatusEffectsWindow();
+
+	// ===== Crafting window (toggle with C) =====
+	renderCraftingWindow();
 
 	// ===== AoE Targeting overlay =====
 	renderTargetingOverlay();
@@ -2219,6 +2238,114 @@ void PlayState::renderAoeGridOverlay() noexcept
 }
 
 //=============================================================================
+void PlayState::renderCraftingWindow() noexcept
+{
+	if (!m_showCrafting)
+	{
+		return;
+	}
+
+	ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Crafting (C)", &m_showCrafting);
+
+	// Category tabs
+	const auto& categories = m_craftingSystem.Categories();
+	static int selectedCategory = 0;
+	if (ImGui::BeginTabBar("CraftCategories"))
+	{
+		for (int ci = 0; ci < static_cast<int>(categories.size()); ++ci)
+		{
+			bool isSelected = (ci == selectedCategory);
+			if (ImGui::BeginTabItem(categories[ci].name.c_str(), nullptr, isSelected ? ImGuiTabItemFlags_SetSelected : 0))
+			{
+				selectedCategory = ci;
+				ImGui::EndTabItem();
+			}
+		}
+		ImGui::EndTabBar();
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Crafting Level: %d", m_craftingSystem.m_craftingLevel);
+	ImGui::Separator();
+
+	if (selectedCategory >= 0 && selectedCategory < static_cast<int>(categories.size()))
+	{
+		const std::string& catId = categories[selectedCategory].id;
+		std::vector<const CraftingRecipe*> recipes = m_craftingSystem.GetRecipesByCategory(catId);
+
+		if (recipes.empty())
+		{
+			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No recipes in this category.");
+		}
+		else
+		{
+			ImGui::BeginChild("RecipeList", ImVec2(0, 200), true);
+			for (const CraftingRecipe* recipe : recipes)
+			{
+				bool unlocked = m_craftingSystem.IsRecipeUnlocked(recipe->id);
+				bool canCraft = unlocked && m_craftingSystem.CanCraft(*recipe, m_character.GetInventory());
+
+				ImGui::PushID(recipe->id.c_str());
+
+				ImVec4 nameColor = unlocked ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)
+				                            : ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+				ImGui::TextColored(nameColor, "%s", recipe->name.c_str());
+
+				if (unlocked)
+				{
+					ImGui::SameLine();
+					ImGui::TextDisabled("(lvl %d)", recipe->skillReq);
+
+					// Ingredients
+					std::string ingredientsStr;
+					for (size_t ii = 0; ii < recipe->ingredients.size(); ++ii)
+					{
+						if (ii > 0) ingredientsStr += ", ";
+						ingredientsStr += recipe->ingredients[ii].itemId + " x" + std::to_string(recipe->ingredients[ii].count);
+					}
+					ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "  %s", ingredientsStr.c_str());
+					ImGui::SameLine();
+					ImGui::TextDisabled("-> %s x%d", recipe->result.itemId.c_str(), recipe->result.count);
+
+					// Craft button
+					if (canCraft)
+					{
+						if (ImGui::Button("Craft"))
+						{
+							if (m_craftingSystem.Craft(*recipe, m_character.GetInventory()))
+							{
+								m_combatLog.Add("Crafted: " + recipe->name, glm::vec3(0.2f, 1.0f, 0.2f));
+							}
+						}
+					}
+					else
+					{
+						ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "  Missing ingredients");
+					}
+				}
+				else
+				{
+					ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "  (locked)");
+				}
+
+				ImGui::PopID();
+				ImGui::Separator();
+			}
+			ImGui::EndChild();
+		}
+
+		// ---- Weaponsmith operations (steps 174-182) ----
+		if (catId == "weaponsmith")
+		{
+			renderWeaponsmithOperations();
+		}
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
 void PlayState::renderSpellbookWindow() noexcept
 {
 	if (!m_showSpellbook)
@@ -2373,4 +2500,156 @@ void PlayState::renderSpellbookWindow() noexcept
 	ImGui::End();
 }
 
+//=============================================================================
 
+void PlayState::renderWeaponsmithOperations() noexcept
+{
+	ImGui::Separator();
+	ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "--- Operations ---");
+
+	Inventory& inv = m_character.GetInventory();
+
+	// Step 174: Create weapon from baseType + material
+	ImGui::Text("Create Weapon:");
+	static int createBaseTypeIdx = 0;
+	static int createMaterialIdx = 0;
+
+	const char* baseTypes[] = {"Dagger", "Sword", "Axe", "Mace", "Spear", "Staff", "Bow", "Crossbow"};
+	const char* baseTypeIds[] = {"dagger", "sword", "axe", "mace", "spear", "staff", "bow", "crossbow"};
+	const char* materials[] = {"Iron", "Steel", "Silver", "Mithril", "Adamant"};
+	const char* materialIds[] = {"iron", "steel", "silver", "mithril", "adamant"};
+
+	ImGui::Combo("Base Type", &createBaseTypeIdx, baseTypes, IM_ARRAYSIZE(baseTypes));
+	ImGui::Combo("Material", &createMaterialIdx, materials, IM_ARRAYSIZE(materials));
+
+	if (ImGui::Button("Create Weapon"))
+	{
+		if (m_craftingSystem.HasIngredients(inv, "iron_ingot", 1))
+		{
+			if (m_craftingSystem.CreateWeapon(inv, baseTypeIds[createBaseTypeIdx], materialIds[createMaterialIdx]))
+			{
+				m_combatLog.Add("Created weapon!", glm::vec3(0.2f, 1.0f, 0.2f));
+			}
+		}
+		else
+		{
+			m_combatLog.Add("Need 1 Iron Ingot to forge!", glm::vec3(1.0f, 0.3f, 0.0f));
+		}
+	}
+	ImGui::Separator();
+
+	// Step 175-177, 179: Operations on equipped weapon
+	ImGui::Text("Current Weapon:");
+	const Item* weapon = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+	if (weapon && CraftingSystem::IsWeapon(*weapon))
+	{
+		ImGui::Text("  %s", weapon->name.c_str());
+		ImGui::Text("  DMG: %d-%d  |  Durability: %d/%d  |  Sharpness: +%d",
+			weapon->damageMin, weapon->damageMax,
+			weapon->durability, weapon->maxDurability,
+			weapon->sharpnessLevel);
+
+		// Durability bar
+		float durPct = weapon->maxDurability > 0
+			? static_cast<float>(weapon->durability) / weapon->maxDurability
+			: 0.0f;
+		ImGui::ProgressBar(durPct, ImVec2(-1, 0), "");
+
+		// Step 175: Upgrade weapon (prefix)
+		if (ImGui::Button("Upgrade (use Iron Ingot)"))
+		{
+			if (m_craftingSystem.HasIngredients(inv, "iron_ingot", 1))
+			{
+				Item* w = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+				if (w && m_craftingSystem.UpgradeWeapon(*w, "steel"))
+				{
+					m_combatLog.Add("Weapon upgraded!", glm::vec3(0.2f, 1.0f, 0.2f));
+				}
+				else
+				{
+					m_combatLog.Add("Upgrade failed (already at tier).", glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+			else
+			{
+				m_combatLog.Add("Need 1 Iron Ingot!", glm::vec3(1.0f, 0.3f, 0.0f));
+			}
+		}
+		ImGui::SameLine();
+
+		// Step 176: Sharpen
+		if (ImGui::Button("Sharpen (use Whetstone)"))
+		{
+			if (m_craftingSystem.HasIngredients(inv, "whetstone", 1))
+			{
+				Item* w = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+				if (w && m_craftingSystem.SharpenWeapon(*w))
+				{
+					m_combatLog.Add("Weapon sharpened!", glm::vec3(0.2f, 1.0f, 0.2f));
+				}
+				else
+				{
+					m_combatLog.Add("Sharpening failed (max +3).", glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+			else
+			{
+				m_combatLog.Add("Need 1 Whetstone!", glm::vec3(1.0f, 0.3f, 0.0f));
+			}
+		}
+		ImGui::SameLine();
+
+		// Step 179: Repair
+		if (ImGui::Button("Repair"))
+		{
+			Item* w = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+			if (w && m_craftingSystem.RepairItem(*w))
+			{
+				m_combatLog.Add("Weapon repaired!", glm::vec3(0.2f, 1.0f, 0.2f));
+			}
+			else
+			{
+				m_combatLog.Add("Repair failed (already full).", glm::vec3(1.0f, 0.3f, 0.0f));
+			}
+		}
+
+		// Step 177: Add postfix
+		ImGui::Text("Add Postfix:");
+		static int postfixEssenceIdx = 0;
+		const char* essences[] = {"Fire Essence", "Ice Essence", "Poison Essence"};
+		const char* essenceIds[] = {"fire_essence", "ice_essence", "poison_essence"};
+		ImGui::Combo("Essence", &postfixEssenceIdx, essences, IM_ARRAYSIZE(essences));
+		ImGui::SameLine();
+		if (ImGui::Button("Apply"))
+		{
+			if (m_craftingSystem.HasIngredients(inv, essenceIds[postfixEssenceIdx], 1))
+			{
+				Item* w = m_character.GetEquipment().Get(EquipmentSlot::Weapon);
+				if (w && m_craftingSystem.AddPostfix(*w, essenceIds[postfixEssenceIdx]))
+				{
+					m_combatLog.Add("Postfix applied!", glm::vec3(0.2f, 1.0f, 0.2f));
+				}
+				else
+				{
+					m_combatLog.Add("Failed to apply postfix.", glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+			else
+			{
+				m_combatLog.Add("Need " + std::string(essences[postfixEssenceIdx]) + "!", glm::vec3(1.0f, 0.3f, 0.0f));
+			}
+		}
+	}
+	else
+	{
+		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "  No weapon equipped.");
+	}
+
+	// Step 182: Smithing level
+	ImGui::Separator();
+	ImGui::Text("Smithing XP: %d | Level: %d",
+		m_craftingSystem.m_smithingXp,
+		m_craftingSystem.GetSmithingLevel());
+}
+
+//=============================================================================

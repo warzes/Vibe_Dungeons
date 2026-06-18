@@ -193,6 +193,7 @@
     <ClCompile Include="engine\window.cpp" />
     <ClCompile Include="game\combat\character.cpp" />
     <ClCompile Include="game\combat\combat_handler.cpp" />
+    <ClCompile Include="game\crafting\crafting_system.cpp" />
     <ClCompile Include="game\combat\combat_system.cpp" />
     <ClCompile Include="game\combat\dice.cpp" />
     <ClCompile Include="game\combat\equipment.cpp" />
@@ -275,6 +276,8 @@
     <ClInclude Include="engine\resource_manager.h" />
     <ClInclude Include="engine\window.h" />
     <ClInclude Include="game\combat\action.h" />
+    <ClInclude Include="game\crafting\crafting_recipe.h" />
+    <ClInclude Include="game\crafting\crafting_system.h" />
     <ClInclude Include="game\combat\character.h" />
     <ClInclude Include="game\combat\combat_handler.h" />
     <ClInclude Include="game\combat\combat_system.h" />
