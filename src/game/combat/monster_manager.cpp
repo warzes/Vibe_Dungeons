@@ -219,6 +219,119 @@ void MonsterManager::UpdateAI(const Dungeon& dungeon, const Character& character
 			continue;
 		}
 
+		// Step 162: Group leader-following logic
+		// If this monster belongs to a group with a leader and is NOT the leader,
+		// it should follow the leader (patrol formation)
+		if (mon.groupId > 0 && mon.leaderId > 0 && mon.id != mon.leaderId)
+		{
+			// Find the leader
+			Monster* leader = FindById(mon.leaderId);
+
+			// If leader is dead, promote this monster to leader
+			if (!leader || !leader->alive)
+			{
+				mon.leaderId = 0;
+			}
+			else
+			{
+				// Step 162: Follow the leader
+				// If leader is aggressive, this monster also becomes aggressive
+				if (leader->ai == MonsterAI::Aggressive && mon.ai != MonsterAI::Aggressive)
+				{
+					mon.ai = MonsterAI::Aggressive;
+				}
+
+				if (leader->ai == MonsterAI::Aggressive)
+				{
+					// When aggressive, follower helps attack the player
+					GridPosition playerPos = character.GetPosition();
+					int32_t dist = std::abs(mon.position.row - playerPos.row)
+						+ std::abs(mon.position.col - playerPos.col);
+
+					if (dist <= 1)
+					{
+						// Adjacent to player — stay for melee
+						mon.facing = DirectionToTarget(mon.position, playerPos);
+						continue;
+					}
+
+					if (dist > 1 && dist <= mon.range && mon.hasRangedAttack)
+					{
+						mon.facing = DirectionToTarget(mon.position, playerPos);
+						continue;
+					}
+
+					// Move toward player
+					glm::ivec2 dir = {
+						(playerPos.row > mon.position.row) ? 1 : (playerPos.row < mon.position.row) ? -1 : 0,
+						(playerPos.col > mon.position.col) ? 1 : (playerPos.col < mon.position.col) ? -1 : 0
+					};
+
+					GridPosition nextRow = {mon.position.row + dir.x, mon.position.col, mon.position.floor};
+					if (dir.x != 0 && dungeon.IsWalkable(nextRow) && !At(nextRow))
+					{
+						m_monsters.erase(mon.position);
+						mon.position = nextRow;
+						mon.facing = DirectionToTarget(mon.position, playerPos);
+						m_monsters[mon.position] = std::move(mon);
+						continue;
+					}
+
+					GridPosition nextCol = {mon.position.row, mon.position.col + dir.y, mon.position.floor};
+					if (dir.y != 0 && dungeon.IsWalkable(nextCol) && !At(nextCol))
+					{
+						m_monsters.erase(mon.position);
+						mon.position = nextCol;
+						mon.facing = DirectionToTarget(mon.position, playerPos);
+						m_monsters[mon.position] = std::move(mon);
+						continue;
+					}
+				}
+				else
+				{
+					// Patrol mode: follow the leader
+					int32_t distToLeader = std::abs(mon.position.row - leader->position.row)
+						+ std::abs(mon.position.col - leader->position.col);
+
+					// Stay within 2 cells of the leader
+					if (distToLeader > 2)
+					{
+						// Move toward leader
+						glm::ivec2 dir = {
+							(leader->position.row > mon.position.row) ? 1 : (leader->position.row < mon.position.row) ? -1 : 0,
+							(leader->position.col > mon.position.col) ? 1 : (leader->position.col < mon.position.col) ? -1 : 0
+						};
+
+						GridPosition nextRow = {mon.position.row + dir.x, mon.position.col, mon.position.floor};
+						if (dir.x != 0 && dungeon.IsWalkable(nextRow) && !At(nextRow))
+						{
+							m_monsters.erase(mon.position);
+							mon.position = nextRow;
+							mon.facing = DirectionToTarget(mon.position, leader->position);
+							m_monsters[mon.position] = std::move(mon);
+							continue;
+						}
+
+						GridPosition nextCol = {mon.position.row, mon.position.col + dir.y, mon.position.floor};
+						if (dir.y != 0 && dungeon.IsWalkable(nextCol) && !At(nextCol))
+						{
+							m_monsters.erase(mon.position);
+							mon.position = nextCol;
+							mon.facing = DirectionToTarget(mon.position, leader->position);
+							m_monsters[mon.position] = std::move(mon);
+							continue;
+						}
+					}
+					else
+					{
+						// Near leader — face the same direction as leader
+						mon.facing = leader->facing;
+					}
+				}
+				continue;
+			}
+		}
+
 		switch (mon.ai)
 		{
 			case MonsterAI::Stationary:

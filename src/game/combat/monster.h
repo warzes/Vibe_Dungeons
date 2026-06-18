@@ -49,6 +49,7 @@ struct Monster final
 
 	// ---- Monster groups (step 158) ----
 	uint32_t groupId = 0;
+	uint32_t leaderId = 0;                  // group leader (step 162)
 	MonsterRole role = MonsterRole::Normal;
 	bool isBoss = false;
 	std::string bossAbility;                // special boss-only ability

@@ -284,6 +284,10 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 		m_targetingActive = false;
 		m_targetingSpellId.clear();
 		m_wandItemSpellId.clear();
+		m_targetingModeActive = false;
+		m_showTargetingPreview = false;
+		m_targetPreview = SpellTarget{};
+		m_debugRenderer.ClearOverlay();
 		m_combatLog.Add("Spell cancelled.", glm::vec3(0.6f));
 	}
 
@@ -443,6 +447,9 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 			m_turnManager.SetGameMode(GameMode::Exploring);
 		}
 	}
+
+	// Update AoE targeting preview (step 141)
+	updateTargetingPreview();
 
 	// ---- Camera animation ----
 	m_camera.UpdateAnimation(static_cast<float>(dt.Seconds()));
@@ -1226,11 +1233,20 @@ void PlayState::RenderOverlay(const glm::mat4& viewProj) noexcept
 {
 	PROFILE_FUNCTION();
 
-	if (m_showDebug && m_initialized)
+	if (!m_initialized)
 	{
-		m_debugRenderer.SetViewProj(viewProj);
-		m_debugRenderer.Flush(m_camera.ViewMatrix(), m_camera.ProjectionMatrix());
+		return;
 	}
+
+	// Draw AoE targeting grid overlay (always visible)
+	if (m_showTargetingPreview)
+	{
+		renderAoeGridOverlay();
+	}
+
+	// Flush overlay AND debug lines
+	m_debugRenderer.SetViewProj(viewProj);
+	m_debugRenderer.Flush(m_camera.ViewMatrix(), m_camera.ProjectionMatrix());
 }
 
 //=============================================================================
@@ -1961,6 +1977,10 @@ void PlayState::ProcessSpellAction() noexcept
 
 	m_targetingActive = false;
 	m_targetingSpellId.clear();
+	m_targetingModeActive = false;
+	m_showTargetingPreview = false;
+	m_targetPreview = SpellTarget{};
+	m_debugRenderer.ClearOverlay();
 
 	m_turnManager.SetGameMode(GameMode::TurnWaiting);
 }
@@ -2117,6 +2137,85 @@ void PlayState::renderTargetingOverlay() noexcept
 	ImGui::Text("Press Space to confirm, Esc to cancel.");
 
 	ImGui::End();
+}
+
+//=============================================================================
+void PlayState::updateTargetingPreview() noexcept
+{
+	if (!m_targetingActive && !m_targetingModeActive)
+	{
+		if (m_showTargetingPreview)
+		{
+			m_showTargetingPreview = false;
+			m_targetPreview = SpellTarget{};
+			m_debugRenderer.ClearOverlay();
+		}
+		return;
+	}
+
+	std::string spellId = m_targetingSpellId;
+	if (spellId.empty())
+	{
+		m_showTargetingPreview = false;
+		return;
+	}
+
+	Skill spell = SkillManager::GetSkill(spellId);
+	if (spell.id.empty())
+	{
+		m_showTargetingPreview = false;
+		return;
+	}
+
+	int32_t spellRange = spell.range;
+	if (spellRange < 1) { spellRange = 1; }
+
+	// Acquire target preview based on current facing
+	m_targetPreview = m_spellSystem.AcquireTarget(spell, spellRange);
+	m_showTargetingPreview = true;
+}
+
+//=============================================================================
+void PlayState::renderAoeGridOverlay() noexcept
+{
+	if (!m_showTargetingPreview)
+	{
+		return;
+	}
+
+	const glm::vec3 GREEN(0.0f, 1.0f, 0.2f);
+	const glm::vec3 YELLOW(1.0f, 0.9f, 0.1f);
+	const float HALF = 0.45f;
+	const float Y = 0.05f; // slightly above floor
+
+	auto drawCellOutline = [&](GridPosition cellPos, const glm::vec3& color)
+	{
+		glm::vec3 center = Camera::GridToWorld(cellPos);
+		center.y = Y;
+
+		// Four edges of the cell rectangle
+		glm::vec3 bl = center + glm::vec3(-HALF, 0.0f, -HALF);
+		glm::vec3 br = center + glm::vec3( HALF, 0.0f, -HALF);
+		glm::vec3 tl = center + glm::vec3(-HALF, 0.0f,  HALF);
+		glm::vec3 tr = center + glm::vec3( HALF, 0.0f,  HALF);
+
+		m_debugRenderer.DrawOverlayLine(bl, br, color);
+		m_debugRenderer.DrawOverlayLine(br, tr, color);
+		m_debugRenderer.DrawOverlayLine(tr, tl, color);
+		m_debugRenderer.DrawOverlayLine(tl, bl, color);
+	};
+
+	// Draw the target cell first
+	drawCellOutline(m_targetPreview.position, YELLOW);
+
+	// Draw each affected monster cell
+	for (Monster* mon : m_targetPreview.hitMonsters)
+	{
+		if (mon && mon->alive)
+		{
+			drawCellOutline(mon->position, GREEN);
+		}
+	}
 }
 
 //=============================================================================

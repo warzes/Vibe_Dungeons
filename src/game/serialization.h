@@ -147,7 +147,13 @@ inline void to_json(json& j, const Monster& m)
 		{"facing", m.facing},
 		{"ai", m.ai},
 		{"alive", m.alive},
-		{"xpReward", m.xpReward}
+		{"xpReward", m.xpReward},
+		{"groupId", m.groupId},
+		{"leaderId", m.leaderId},
+		{"range", m.range},
+		{"hasRangedAttack", m.hasRangedAttack},
+		{"rangedDamageMin", m.rangedDamageMin},
+		{"rangedDamageMax", m.rangedDamageMax}
 	};
 }
 
@@ -167,6 +173,12 @@ inline void from_json(const json& j, Monster& m)
 	j.at("ai").get_to(m.ai);
 	j.at("alive").get_to(m.alive);
 	j.at("xpReward").get_to(m.xpReward);
+	j.at("groupId").get_to(m.groupId);
+	j.at("leaderId").get_to(m.leaderId);
+	j.at("range").get_to(m.range);
+	j.at("hasRangedAttack").get_to(m.hasRangedAttack);
+	j.at("rangedDamageMin").get_to(m.rangedDamageMin);
+	j.at("rangedDamageMax").get_to(m.rangedDamageMax);
 }
 
 // ---- Cell ----

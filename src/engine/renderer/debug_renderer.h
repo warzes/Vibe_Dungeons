@@ -39,6 +39,10 @@ public:
 	void SetEnabled(bool enabled) noexcept { m_enabled = enabled; }
 	[[nodiscard]] bool IsEnabled() const noexcept { return m_enabled; }
 
+	// Overlay lines: always visible, independent of debug mode
+	void DrawOverlayLine(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color) noexcept;
+	void ClearOverlay() noexcept;
+
 private:
 	struct DebugLine
 	{
@@ -56,6 +60,7 @@ private:
 	Frustum m_frustum;
 
 	std::vector<DebugLine> m_lines;
+	std::vector<DebugLine> m_overlayLines;
 	std::vector<float> m_vertexData;
 
 	static constexpr int32_t SPHERE_SEGMENTS = 16;

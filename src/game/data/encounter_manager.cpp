@@ -230,6 +230,9 @@ void EncounterManager::SpawnEncounter(
 				{
 					group.leaderId = spawned->id;
 				}
+
+				// Step 162: propagate leaderId to all group members
+				spawned->leaderId = group.leaderId;
 				monsterIndex++;
 			}
 		}

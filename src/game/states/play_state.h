@@ -197,4 +197,10 @@ private:
 	bool m_targetingModeActive = false;
 	TargetingMode m_currentTargetingMode = TargetingMode::Single;
 	void renderTargetingOverlay() noexcept;
+
+	// AoE targeting preview (step 141)
+	SpellTarget m_targetPreview;
+	bool m_showTargetingPreview = false;
+	void updateTargetingPreview() noexcept;
+	void renderAoeGridOverlay() noexcept;
 };

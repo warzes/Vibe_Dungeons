@@ -170,6 +170,16 @@ void DebugRenderer::DrawFrustum(const glm::mat4& viewProj, const glm::vec3& colo
 	}
 }
 
+void DebugRenderer::DrawOverlayLine(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color) noexcept
+{
+	m_overlayLines.push_back({ from, to, color });
+}
+
+void DebugRenderer::ClearOverlay() noexcept
+{
+	m_overlayLines.clear();
+}
+
 void DebugRenderer::DrawLine(const glm::vec3& from, const glm::vec3& to, const glm::vec3& color) noexcept
 {
 	if (!m_enabled) return;
@@ -237,14 +247,67 @@ void DebugRenderer::DrawMeshWireframe(
 
 void DebugRenderer::Flush(const glm::mat4& view, const glm::mat4& projection) noexcept
 {
-	if (!m_enabled || !m_initialized || m_lines.empty())
+	if (!m_initialized)
+	{
+		return;
+	}
+
+	m_vertexData.clear();
+
+	// Always render overlay lines (independent of debug mode)
+	if (!m_overlayLines.empty())
+	{
+		m_vertexData.clear();
+		m_vertexData.reserve(m_overlayLines.size() * 12);
+		for (const auto& line : m_overlayLines)
+		{
+			m_vertexData.push_back(line.from.x);
+			m_vertexData.push_back(line.from.y);
+			m_vertexData.push_back(line.from.z);
+			m_vertexData.push_back(line.color.r);
+			m_vertexData.push_back(line.color.g);
+			m_vertexData.push_back(line.color.b);
+
+			m_vertexData.push_back(line.to.x);
+			m_vertexData.push_back(line.to.y);
+			m_vertexData.push_back(line.to.z);
+			m_vertexData.push_back(line.color.r);
+			m_vertexData.push_back(line.color.g);
+			m_vertexData.push_back(line.color.b);
+		}
+
+		glDisable(GL_DEPTH_TEST);
+
+		m_shader.Bind();
+		m_shader.SetUniform("uViewProj", projection * view);
+
+		glBindVertexArray(m_vao);
+		glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+		glBufferData(GL_ARRAY_BUFFER,
+			m_vertexData.size() * sizeof(float),
+			m_vertexData.data(),
+			GL_DYNAMIC_DRAW);
+
+		glDrawArrays(GL_LINES, 0, static_cast<int32_t>(m_overlayLines.size() * 2));
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
+		Shader::Unbind();
+
+		glEnable(GL_DEPTH_TEST);
+
+		m_overlayLines.clear();
+	}
+
+	// Debug-only lines (only when enabled)
+	if (!m_enabled || m_lines.empty())
 	{
 		m_lines.clear();
 		return;
 	}
 
 	m_vertexData.clear();
-	m_vertexData.reserve(m_lines.size() * 12); // 2 verts * 6 floats
+	m_vertexData.reserve(m_lines.size() * 12);
 
 	for (const auto& line : m_lines)
 	{
