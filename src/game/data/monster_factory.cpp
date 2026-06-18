@@ -18,6 +18,32 @@ Monster MonsterFactory::Create(const std::string& typeId, int32_t level)
 	m.damageMax = data.value("damageMax", 3);
 	m.xpReward = data.value("xpReward", 10) + level * 5;
 
+	// Ranged attack support (step 137)
+	m.hasRangedAttack = data.value("hasRangedAttack", false);
+	m.rangedDamageMin = data.value("rangedDamageMin", 0);
+	m.rangedDamageMax = data.value("rangedDamageMax", 0);
+	m.range = data.value("range", 1);
+
+	// Boss flag (step 164)
+	m.isBoss = data.value("isBoss", false);
+	m.bossAbility = data.value("bossAbility", std::string());
+
+	// Resistances and immunities (step 154)
+	if (data.contains("resistances") && data["resistances"].is_array())
+	{
+		for (const auto& r : data["resistances"])
+		{
+			m.resistances.push_back(r.get<std::string>());
+		}
+	}
+	if (data.contains("immunities") && data["immunities"].is_array())
+	{
+		for (const auto& r : data["immunities"])
+		{
+			m.immunities.push_back(r.get<std::string>());
+		}
+	}
+
 	std::string aiStr = data.value("ai", "Stationary");
 	if (aiStr == "Patrol")
 	{

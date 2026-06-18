@@ -15,7 +15,13 @@ enum class ItemType : uint8_t
 	SpellScroll,
 	Wand,
 	QuestItem,
-	Accessory
+	Accessory,
+	Arrow,
+	Bolt,
+	Bomb,
+	Material,
+	Food,
+	ITEM_TYPE_COUNT
 };
 
 enum class ItemRarity : uint8_t
@@ -81,6 +87,13 @@ struct Item final
 			case ItemType::Wand:        return "data/item_sword.png";
 			case ItemType::QuestItem:   return "data/item_quest.png";
 			case ItemType::Accessory:   return "data/item_gold.png";
+		case ItemType::Arrow:       return "data/item_arrow.png";
+		case ItemType::Bolt:        return "data/item_bolt.png";
+		case ItemType::Bomb:        return "data/item_bomb.png";
+		case ItemType::Material:    return "data/item_material.png";
+		case ItemType::Food:        return "data/item_food.png";
+		case ItemType::ITEM_TYPE_COUNT:
+			break;
 		}
 		return "data/item_default.png";
 	}

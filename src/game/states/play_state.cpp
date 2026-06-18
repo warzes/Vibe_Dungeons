@@ -140,17 +140,27 @@ void PlayState::OnEnter() noexcept
 
 		m_showInventory = false;
 
+		Logger::Info("PlayState: before SpawnDefault");
 		m_itemHandler.SpawnDefault();
+		Logger::Info("PlayState: after SpawnDefault");
 		Logger::Info("PlayState: item drops spawned");
 
 		// ---- Spell system init ----
+		Logger::Info("PlayState: before spell system Init");
 		m_spellSystem.Init(
 			m_character,
 			m_monsterManager,
 			m_combatLog,
 			m_dungeon
 		);
+		Logger::Info("PlayState: after spell system Init");
 		Logger::Info("PlayState: spell system initialized");
+
+		// ---- Encounter manager init ----
+		Logger::Info("PlayState: before LoadEncounters");
+		m_encounterManager.LoadEncounters();
+		Logger::Info("PlayState: after LoadEncounters");
+		Logger::Info("PlayState: encounter manager initialized");
 
 		// ---- Input actions for grid movement ----
 		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
@@ -160,6 +170,8 @@ void PlayState::OnEnter() noexcept
 		m_input.BindAction("StrafeLeft",       SDL_SCANCODE_Q);
 		m_input.BindAction("StrafeRight",      SDL_SCANCODE_E);
 		m_input.BindAction("Action_Attack",    SDL_SCANCODE_SPACE);
+		m_input.BindAction("Action_Search",    SDL_SCANCODE_F);
+		m_input.BindAction("Action_Ranged",    SDL_SCANCODE_R);
 
 		// ---- Perspective ----
 		m_camera.SetPerspective(60.0f,
@@ -253,6 +265,11 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_B)
 	{
 		m_showSpellbook = !m_showSpellbook;
+	}
+
+	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_U)
+	{
+		m_showStatusEffects = !m_showStatusEffects;
 	}
 
 	// Spell targeting: Space confirms target
@@ -608,6 +625,57 @@ void PlayState::processTurnWaiting() noexcept
 	}
 
 	m_turnManager.ApplyRegen(m_character);
+
+	// Process status effects on player (step 145)
+	{
+		auto& playerEffects = m_character.GetActiveEffects();
+		std::vector<std::string> expired;
+		m_spellSystem.GetStatusSystem().ProcessTick(
+			playerEffects,
+			expired,
+			[this](int32_t dmg, const std::string& name)
+			{
+				m_character.TakeDamage(dmg);
+				m_combatLog.Add("Status effect " + name + " deals " +
+					std::to_string(dmg) + " damage.", glm::vec3(1.0f, 0.2f, 0.2f));
+			}
+		);
+		for (const auto& eid : expired)
+		{
+			m_combatLog.Add("Status effect '" + eid + "' has expired.",
+				glm::vec3(0.6f, 0.6f, 0.6f));
+		}
+		m_spellSystem.GetStatusSystem().AdvanceTurns(playerEffects);
+	}
+
+	// Process monster status effects (step 148)
+	m_monsterManager.ProcessMonsterEffects(m_combatHandler.GetStatusSystem(), m_combatLog);
+
+	// Hunger system (step 211)
+	if (m_character.GetHunger() > 0)
+	{
+		m_character.SetHunger(m_character.GetHunger() - 1);
+	}
+	if (m_character.GetHunger() <= 0)
+	{
+		int32_t dmg = 2;
+		m_character.TakeDamage(dmg);
+		m_combatLog.Add("You take " + std::to_string(dmg) + " damage from starvation!",
+			glm::vec3(1.0f, 0.2f, 0.2f));
+		if (m_character.GetHp() <= 0)
+		{
+			m_combatLog.Add("Hero has fallen from starvation!", glm::vec3(1.0f, 0.0f, 0.0f));
+			m_turnManager.SetGameMode(GameMode::GameOver);
+			return;
+		}
+	}
+
+	// Process monster combat turns (all monsters attack)
+	m_combatHandler.ProcessMonsterTurns();
+
+	// Remove dead monsters
+	m_monsterManager.RemoveDead();
+
 	m_turnManager.EndPlayerTurn(m_camera.IsAnimating());
 }
 
@@ -619,6 +687,28 @@ void PlayState::processAttack() noexcept
 	{
 		return;
 	}
+
+	// Search action (F key)
+	if (m_input.IsActionPressed("Action_Search"))
+	{
+		processSearch();
+		return;
+	}
+
+	// Ranged attack (R key)
+	if (m_input.IsActionPressed("Action_Ranged"))
+	{
+		if (m_combatHandler.HasRangedWeaponEquipped())
+		{
+			m_combatHandler.PerformRangedAttack();
+		}
+		else
+		{
+			m_combatLog.Add("No ranged weapon equipped.", glm::vec3(0.6f));
+		}
+		return;
+	}
+
 	if (!m_input.IsActionPressed("Action_Attack"))
 	{
 		return;
@@ -1169,7 +1259,9 @@ void PlayState::Render() noexcept
 	ImGui::Text("W/S \tMove Fwd/Back");
 	ImGui::Text("A/D \tTurn L/R");
 	ImGui::Text("Q/E \tStrafe L/R");
-	ImGui::Text("Space\tAttack");
+	ImGui::Text("Space\tAttack (melee)");
+	ImGui::Text("R\tRanged Attack");
+	ImGui::Text("F\tSearch");
 	ImGui::Separator();
 	ImGui::Text("Tab: Map [%s]", m_showMap ? "ON" : "OFF");
 	ImGui::Text("F1: Debug [%s]", m_showDebug ? "ON" : "OFF");
@@ -1202,6 +1294,7 @@ void PlayState::Render() noexcept
 	ImGui::Text("AC: %d", m_character.GetEquippedAc());
 	ImGui::Text("Attack Bonus: %+d", m_character.GetEquippedAtkBonus());
 	ImGui::Text("Damage: %dd%d", m_character.GetEquippedDamageMin(), m_character.GetEquippedDamageMax());
+	renderHungerIndicator();
 	ImGui::Separator();
 	const float xpFrac = (m_character.GetXpForNext() > 0)
 		? static_cast<float>(m_character.GetXp()) / static_cast<float>(m_character.GetXpForNext())
@@ -1276,6 +1369,12 @@ void PlayState::Render() noexcept
 
 	// ===== Spellbook window (toggle with B) =====
 	renderSpellbookWindow();
+
+	// ===== Status effects window (toggle with U) =====
+	renderStatusEffectsWindow();
+
+	// ===== AoE Targeting overlay =====
+	renderTargetingOverlay();
 
 	// ===== Debug windows (only when debug is on) =====
 
@@ -1864,6 +1963,160 @@ void PlayState::ProcessSpellAction() noexcept
 	m_targetingSpellId.clear();
 
 	m_turnManager.SetGameMode(GameMode::TurnWaiting);
+}
+
+//=============================================================================
+void PlayState::processSearch() noexcept
+{
+	if (m_turnManager.GetGameMode() != GameMode::Exploring)
+	{
+		return;
+	}
+
+	GridPosition pos = m_camera.GetGridPosition();
+	Cell& cell = m_dungeon.GetCell(pos);
+
+	if (cell.isSecretWall)
+	{
+		cell.isWall = false;
+		cell.isSecretWall = false;
+		cell.hasFloor = true;
+		m_dungeonRenderer.SetNeedsRebuild(true);
+		m_combatLog.Add("You found a secret passage!", glm::vec3(0.2f, 0.8f, 1.0f));
+		m_turnManager.SetGameMode(GameMode::TurnWaiting);
+	}
+	else if (cell.isTrap && !cell.isDisarmed)
+	{
+		cell.isDisarmed = true;
+		m_combatLog.Add("You disarm the trap!", glm::vec3(0.2f, 0.8f, 0.2f));
+		m_turnManager.SetGameMode(GameMode::TurnWaiting);
+	}
+	else
+	{
+		m_combatLog.Add("You search... nothing here.", glm::vec3(0.6f));
+		m_turnManager.SetGameMode(GameMode::TurnWaiting);
+	}
+}
+
+//=============================================================================
+void PlayState::renderHungerIndicator() noexcept
+{
+	if (m_character.GetHp() <= 0)
+	{
+		return;
+	}
+
+	int32_t hunger = m_character.GetHunger();
+	int32_t maxHunger = Character::MAX_HUNGER;
+
+	ImVec4 color;
+	const char* label;
+
+	if (hunger >= maxHunger)
+	{
+		color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);
+		label = "Full";
+	}
+	else if (hunger >= Character::HUNGER_WARNING)
+	{
+		color = ImVec4(1.0f, 1.0f, 0.2f, 1.0f);
+		label = "Hungry";
+	}
+	else
+	{
+		color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f);
+		label = "Starving";
+	}
+
+	float frac = static_cast<float>(hunger) / static_cast<float>(maxHunger);
+	ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(color.x, color.y, color.z, 1.0f));
+	ImGui::ProgressBar(frac, ImVec2(-1.0f, 0.0f),
+		(std::to_string(hunger) + " / " + std::to_string(maxHunger) + " " + label).c_str());
+	ImGui::PopStyleColor();
+}
+
+//=============================================================================
+void PlayState::renderStatusEffectsWindow() noexcept
+{
+	if (!m_showStatusEffects)
+	{
+		return;
+	}
+
+	ImGui::SetNextWindowSize(ImVec2(250, 200), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Status Effects (U)", &m_showStatusEffects);
+
+	ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "Active Effects");
+	ImGui::Separator();
+
+	const auto& playerEffects = m_character.GetActiveEffects();
+	if (playerEffects.empty())
+	{
+		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(none)");
+	}
+	else
+	{
+		for (const auto& effect : playerEffects)
+		{
+			const StatusEffectDef* def = m_spellSystem.GetStatusSystem().GetEffectDef(effect.defId);
+			const char* name = def ? def->name.c_str() : effect.defId.c_str();
+			ImGui::Text("%s", name);
+			if (effect.remainingTurns > 0)
+			{
+				ImGui::SameLine();
+				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+					"(%d turn%s)", effect.remainingTurns, effect.remainingTurns == 1 ? "" : "s");
+			}
+		}
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+void PlayState::renderTargetingOverlay() noexcept
+{
+	if (!m_targetingModeActive)
+	{
+		return;
+	}
+
+	ImGui::SetNextWindowPos(ImVec2(
+		ImGui::GetMainViewport()->WorkSize.x * 0.5f - 150.0f,
+		ImGui::GetMainViewport()->WorkSize.y * 0.5f - 50.0f
+	));
+	ImGui::Begin("Targeting", nullptr,
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_AlwaysAutoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoSavedSettings);
+
+	ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Select target for AoE");
+
+	switch (m_currentTargetingMode)
+	{
+		case TargetingMode::Beam:
+			ImGui::Text("Beam - fires in a line.");
+			break;
+		case TargetingMode::AoE_3x3:
+			ImGui::Text("3x3 area around target cell.");
+			break;
+		case TargetingMode::AoE_5x5:
+			ImGui::Text("5x5 area around target cell.");
+			break;
+		case TargetingMode::Cross:
+			ImGui::Text("Cross pattern from target cell.");
+			break;
+		case TargetingMode::Line:
+			ImGui::Text("Line - row or column.");
+			break;
+		default:
+			break;
+	}
+	ImGui::Text("Press Space to confirm, Esc to cancel.");
+
+	ImGui::End();
 }
 
 //=============================================================================

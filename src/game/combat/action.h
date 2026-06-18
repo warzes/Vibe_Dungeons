@@ -9,5 +9,9 @@ enum class ActionType : uint8_t
 	StrafeLeft,
 	StrafeRight,
 	MeleeAttack,
+	RangedAttack,
+	CastSpell,
+	UseItem,
+	Search,
 	Wait
 };

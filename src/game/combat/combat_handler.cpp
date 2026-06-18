@@ -109,6 +109,13 @@ void CombatHandler::SpawnDefault() noexcept
 
 void CombatHandler::PerformCombat() noexcept
 {
+	// Check if equipped weapon is ranged (steps 131-133)
+	if (HasRangedWeaponEquipped())
+	{
+		PerformRangedAttack();
+		return;
+	}
+
 	Monster* target = m_monsterManager->FindInFront(
 		m_camera->GetGridPosition(),
 		m_camera->Facing()
@@ -142,36 +149,31 @@ void CombatHandler::PerformCombat() noexcept
 
 	if (playerResult.killed)
 	{
-		std::string msg = target->name + " dies!";
-		m_combatLog->Add(msg, glm::vec3(0.2f, 1.0f, 0.2f));
-
-		ExperienceSystem::AwardKill(*m_character, *target);
-		m_combatLog->Add("Gained " + std::to_string(target->xpReward) + " XP.",
-			glm::vec3(0.3f, 0.6f, 1.0f));
-
-		m_monsterManager->RemoveDead();
-		m_turnManager->SetGameMode(GameMode::TurnWaiting);
-		*m_pendingLevelUp = ExperienceSystem::CheckLevelUp(*m_character);
+		onKill(*target);
 		return;
 	}
 
-	AttackResult monsterResult = m_combatSystem->MonsterMeleeAttack(*target, *m_character);
+	// Monster attacks back (only adjacent melee)
+	if (target && target->alive)
+	{
+		AttackResult monsterResult = m_combatSystem->MonsterMeleeAttack(*target, *m_character);
 
-	if (monsterResult.critical)
-	{
-		m_combatLog->Add("Critical hit!", glm::vec3(1.0f, 0.2f, 0.2f));
-	}
+		if (monsterResult.critical)
+		{
+			m_combatLog->Add("Critical hit!", glm::vec3(1.0f, 0.2f, 0.2f));
+		}
 
-	if (monsterResult.hit)
-	{
-		std::string msg = target->name + " hits Hero for " +
-			std::to_string(monsterResult.damage) + " damage!";
-		m_combatLog->Add(msg, glm::vec3(1.0f, 0.8f, 0.2f));
-	}
-	else
-	{
-		std::string msg = target->name + " missed Hero!";
-		m_combatLog->Add(msg, glm::vec3(0.7f, 0.7f, 0.7f));
+		if (monsterResult.hit)
+		{
+			std::string msg = target->name + " hits Hero for " +
+				std::to_string(monsterResult.damage) + " damage!";
+			m_combatLog->Add(msg, glm::vec3(1.0f, 0.8f, 0.2f));
+		}
+		else
+		{
+			std::string msg = target->name + " missed Hero!";
+			m_combatLog->Add(msg, glm::vec3(0.7f, 0.7f, 0.7f));
+		}
 	}
 
 	if (m_character->GetHp() <= 0)
@@ -262,6 +264,256 @@ void CombatHandler::UseAbility(const std::string& abilityId) noexcept
 }
 
 //=============================================================================
+
+bool CombatHandler::HasRangedWeaponEquipped() const noexcept
+{
+	const Item* weapon = m_character->GetEquipment().Get(EquipmentSlot::Weapon);
+	if (!weapon)
+	{
+		return false;
+	}
+
+	// Check if weapon has "ranged" tag in weapon_types.json
+	const json& weaponTypes = JsonDataManager::Instance().AllWeaponTypes();
+	for (const auto& wt : weaponTypes)
+	{
+		std::string id = wt.value("id", std::string());
+		if (id.empty()) { continue; }
+
+		// Match by checking if item name contains the weapon type name, or by subtype
+		if (weapon->name.find(wt.value("name", id)) != std::string::npos
+			|| weapon->name.find(id) != std::string::npos)
+		{
+			int32_t range = wt.value("range", 1);
+			if (range > 1)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+int32_t CombatHandler::GetEquippedWeaponRange() const noexcept
+{
+	const Item* weapon = m_character->GetEquipment().Get(EquipmentSlot::Weapon);
+	if (!weapon)
+	{
+		return 1;
+	}
+
+	const json& weaponTypes = JsonDataManager::Instance().AllWeaponTypes();
+	for (const auto& wt : weaponTypes)
+	{
+		std::string id = wt.value("id", std::string());
+		if (id.empty()) { continue; }
+
+		if (weapon->name.find(wt.value("name", id)) != std::string::npos
+			|| weapon->name.find(id) != std::string::npos)
+		{
+			return wt.value("range", 1);
+		}
+	}
+
+	return 1;
+}
+
+bool CombatHandler::hasAmmo() const noexcept
+{
+	// Check inventory for arrows or bolts
+	const Inventory& inv = m_character->GetInventory();
+	for (size_t i = 0; i < inv.Size(); ++i)
+	{
+		const Item* item = inv.Get(i);
+		if (item && (item->type == ItemType::Arrow || item->type == ItemType::Bolt))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void CombatHandler::consumeAmmo() noexcept
+{
+	Inventory& inv = m_character->GetInventory();
+	for (size_t i = 0; i < inv.Size(); ++i)
+	{
+		const Item* item = inv.Get(i);
+		if (item && (item->type == ItemType::Arrow || item->type == ItemType::Bolt))
+		{
+			inv.Remove(i);
+			return;
+		}
+	}
+}
+
+void CombatHandler::PerformRangedAttack() noexcept
+{
+	// Step 133: target at distance
+	Monster* target = nullptr;
+	int32_t range = GetEquippedWeaponRange();
+	glm::ivec2 fwd = DirectionToVec(m_character->GetFacing());
+	GridPosition start = m_character->GetPosition();
+
+	// Find first monster in line up to weapon range
+	for (int32_t step = 1; step <= range; ++step)
+	{
+		GridPosition check = {start.row + fwd.x * step, start.col + fwd.y * step, start.floor};
+
+		if (!m_dungeon->IsWalkable(check))
+		{
+			break; // blocked by wall
+		}
+
+		target = m_monsterManager->At(check);
+		if (target && target->alive)
+		{
+			break;
+		}
+	}
+
+	if (!target)
+	{
+		m_combatLog->Add("No target in ranged range.", glm::vec3(0.8f, 0.4f, 0.2f));
+		return;
+	}
+
+	// Step 135: check ammo
+	const Item* weapon = m_character->GetEquipment().Get(EquipmentSlot::Weapon);
+	bool needsAmmo = false;
+	if (weapon)
+	{
+		std::string wname = weapon->name;
+		if (wname.find("Bow") != std::string::npos) { needsAmmo = true; }
+		if (wname.find("Crossbow") != std::string::npos) { needsAmmo = true; }
+	}
+	if (needsAmmo && !hasAmmo())
+	{
+		m_combatLog->Add("No ammunition!", glm::vec3(0.8f, 0.4f, 0.2f));
+		return;
+	}
+
+	// Step 138: check if point-blank (adjacent monster)
+	bool pointBlank = false;
+	GridPosition adjacent = {start.row + fwd.x, start.col + fwd.y, start.floor};
+	if (target->position == adjacent)
+	{
+		pointBlank = true;
+	}
+
+	AttackResult result = m_combatSystem->RangedAttack(*m_character, *target, *m_dungeon, pointBlank);
+
+	if (result.hit)
+	{
+		if (needsAmmo) { consumeAmmo(); }
+
+		if (result.critical)
+		{
+			m_combatLog->Add("Critical hit!", glm::vec3(1.0f, 0.2f, 0.2f));
+		}
+
+		if (pointBlank)
+		{
+			m_combatLog->Add("Point-blank shot: -2 atk penalty applied.",
+				glm::vec3(0.8f, 0.6f, 0.2f));
+		}
+
+		m_combatLog->Add("Hero's ranged attack hits " + target->name + " for " +
+			std::to_string(result.damage) + " damage!", glm::vec3(1.0f, 0.6f, 0.2f));
+	}
+	else
+	{
+		m_combatLog->Add("Ranged attack missed!", glm::vec3(0.7f, 0.7f, 0.7f));
+		if (result.damage == 0 && !result.hit)
+		{
+			m_combatLog->Add("Shot blocked by obstacle!", glm::vec3(0.8f, 0.4f, 0.2f));
+		}
+	}
+
+	if (result.killed)
+	{
+		onKill(*target);
+		return;
+	}
+
+	m_turnManager->SetGameMode(GameMode::TurnWaiting);
+}
+
+void CombatHandler::ProcessMonsterTurns() noexcept
+{
+	// Step 137: Ranged monsters attack from distance
+	// Step 160: Group initiative
+	std::vector<Monster> allMonsters = m_monsterManager->All();
+
+	for (Monster& mon : allMonsters)
+	{
+		if (!mon.alive) { continue; }
+
+		// Check if monster has ranged attack and player is in range
+		if (mon.hasRangedAttack && mon.range > 1)
+		{
+			int32_t dist = std::abs(mon.position.row - m_character->GetPosition().row)
+				+ std::abs(mon.position.col - m_character->GetPosition().col);
+
+			if (dist <= mon.range && dist > 1)
+			{
+				// Line of sight check
+				if (m_dungeon->HasLineOfSight(mon.position, m_character->GetPosition()))
+				{
+					AttackResult result = m_combatSystem->MonsterRangedAttack(mon, *m_character, *m_dungeon);
+
+					if (result.hit)
+					{
+						m_combatLog->Add(mon.name + " shoots Hero for " +
+							std::to_string(result.damage) + " damage!",
+							glm::vec3(1.0f, 0.4f, 0.2f));
+					}
+					else
+					{
+						m_combatLog->Add(mon.name + "'s ranged attack missed!",
+							glm::vec3(0.6f, 0.6f, 0.6f));
+					}
+
+					if (m_character->GetHp() <= 0)
+					{
+						m_combatLog->Add("Hero has fallen!", glm::vec3(1.0f, 0.0f, 0.0f));
+						m_turnManager->SetGameMode(GameMode::GameOver);
+						return;
+					}
+				}
+			}
+		}
+
+		// Melee attack if adjacent
+		int32_t dist = std::abs(mon.position.row - m_character->GetPosition().row)
+			+ std::abs(mon.position.col - m_character->GetPosition().col);
+
+		if (dist <= 1)
+		{
+			AttackResult result = m_combatSystem->MonsterMeleeAttack(mon, *m_character);
+
+			if (result.hit)
+			{
+				m_combatLog->Add(mon.name + " hits Hero for " +
+					std::to_string(result.damage) + " damage!",
+					glm::vec3(1.0f, 0.8f, 0.2f));
+			}
+			else
+			{
+				m_combatLog->Add(mon.name + " missed Hero!",
+					glm::vec3(0.6f, 0.6f, 0.6f));
+			}
+
+			if (m_character->GetHp() <= 0)
+			{
+				m_combatLog->Add("Hero has fallen!", glm::vec3(1.0f, 0.0f, 0.0f));
+				m_turnManager->SetGameMode(GameMode::GameOver);
+				return;
+			}
+		}
+	}
+}
 
 void CombatHandler::SubmitRender(Renderer& renderer) noexcept
 {

@@ -2,6 +2,10 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
+
+#include "game/combat/status_effect.h"
+#include "game/combat/monster_group.h"
 
 struct Skill;
 struct Monster;
@@ -44,6 +48,19 @@ public:
 	void UseAbility(const std::string& abilityId) noexcept;
 	void ProcessActionSlot(int32_t slotIndex) noexcept;
 
+	// Ranged combat (step 133)
+	void PerformRangedAttack() noexcept;
+
+	// Monster AI combat (steps 137, 160)
+	void ProcessMonsterTurns() noexcept;
+
+	// Check if weapon is ranged
+	[[nodiscard]] bool HasRangedWeaponEquipped() const noexcept;
+	[[nodiscard]] int32_t GetEquippedWeaponRange() const noexcept;
+
+	// Status effects system
+	[[nodiscard]] StatusSystem& GetStatusSystem() noexcept { return m_statusSystem; }
+
 	void SubmitRender(Renderer& renderer) noexcept;
 
 private:
@@ -52,6 +69,8 @@ private:
 	void useRangedAbility(const Skill& skill) noexcept;
 	void useSelfAbility(const Skill& skill) noexcept;
 	void onKill(Monster& target) noexcept;
+	bool hasAmmo() const noexcept;
+	void consumeAmmo() noexcept;
 
 	Character* m_character = nullptr;
 	MonsterManager* m_monsterManager = nullptr;
@@ -64,6 +83,8 @@ private:
 	ResourceManager* m_resources = nullptr;
 	Shader* m_dungeonShader = nullptr;
 	bool* m_pendingLevelUp = nullptr;
+
+	StatusSystem m_statusSystem;
 
 	std::unordered_map<std::string, Texture*> m_monsterTextures;
 	std::unordered_map<std::string, Material*> m_monsterMaterials;

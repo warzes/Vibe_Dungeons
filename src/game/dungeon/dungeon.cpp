@@ -86,3 +86,89 @@ const Cell& Dungeon::GetCell(GridPosition pos) const noexcept
 
 	return m_chunk.At(pos.row, pos.col);
 }
+
+Cell& Dungeon::GetCell(GridPosition pos) noexcept
+{
+	assert(Chunk::InBounds(pos.row, pos.col) && "GetCell non-const out of bounds");
+	return m_chunk.At(pos.row, pos.col);
+}
+
+bool Dungeon::HasLineOfSight(GridPosition start, GridPosition end) const noexcept
+{
+	if (start.floor != end.floor)
+	{
+		return false;
+	}
+
+	int32_t dr = end.row - start.row;
+	int32_t dc = end.col - start.col;
+	int32_t steps = std::max(std::abs(dr), std::abs(dc));
+	if (steps == 0)
+	{
+		return true;
+	}
+
+	float rowStep = static_cast<float>(dr) / static_cast<float>(steps);
+	float colStep = static_cast<float>(dc) / static_cast<float>(steps);
+
+	for (int32_t i = 1; i < steps; ++i)
+	{
+		int32_t r = static_cast<int32_t>(std::round(start.row + rowStep * static_cast<float>(i)));
+		int32_t c = static_cast<int32_t>(std::round(start.col + colStep * static_cast<float>(i)));
+
+		if (!Chunk::InBounds(r, c))
+		{
+			return false;
+		}
+
+		const Cell& cell = m_chunk.At(r, c);
+		if (cell.BlocksLineOfSight())
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+std::vector<GridPosition> Dungeon::GetLineCells(GridPosition start, GridPosition end) const noexcept
+{
+	std::vector<GridPosition> cells;
+
+	if (start.floor != end.floor)
+	{
+		return cells;
+	}
+
+	int32_t dr = end.row - start.row;
+	int32_t dc = end.col - start.col;
+	int32_t steps = std::max(std::abs(dr), std::abs(dc));
+	if (steps == 0)
+	{
+		cells.push_back(start);
+		return cells;
+	}
+
+	float rowStep = static_cast<float>(dr) / static_cast<float>(steps);
+	float colStep = static_cast<float>(dc) / static_cast<float>(steps);
+
+	for (int32_t i = 0; i <= steps; ++i)
+	{
+		int32_t r = static_cast<int32_t>(std::round(start.row + rowStep * static_cast<float>(i)));
+		int32_t c = static_cast<int32_t>(std::round(start.col + colStep * static_cast<float>(i)));
+
+		if (!Chunk::InBounds(r, c))
+		{
+			break;
+		}
+
+		cells.emplace_back(r, c, start.floor);
+
+		if (m_chunk.At(r, c).BlocksLineOfSight())
+		{
+			break;
+		}
+	}
+
+	return cells;
+}

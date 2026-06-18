@@ -11,10 +11,21 @@ struct Cell final
 	bool hasFloor = false;
 	bool hasCeiling = false;
 	bool isWall = false;
+	bool isLockedDoor = false;
+	bool isOpenDoor = false;
+	bool isTrap = false;
+	bool isSecretWall = false;
+	bool isResourceNode = false;   // for gathering (step 205)
+	bool isDisarmed = false;       // trap disarmed (step 291)
 
 	[[nodiscard]] bool IsWalkable() const noexcept
 	{
-		return !isWall && hasFloor;
+		return !isWall && hasFloor && (!isLockedDoor || isOpenDoor);
+	}
+
+	[[nodiscard]] bool BlocksLineOfSight() const noexcept
+	{
+		return isWall || (isLockedDoor && !isOpenDoor);
 	}
 };
 

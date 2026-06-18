@@ -5,6 +5,7 @@
 #include "game/combat/inventory.h"
 #include "game/combat/equipment.h"
 #include "game/data/skill_manager.h"
+#include "game/combat/status_effect.h"
 
 class Character final
 {
@@ -112,6 +113,33 @@ public:
 	[[nodiscard]] std::vector<std::string>& GetLearnedSpells() noexcept { return m_learnedSpells; }
 	[[nodiscard]] const std::vector<std::string>& GetLearnedSpells() const noexcept { return m_learnedSpells; }
 
+	// ---- Status effects (steps 149-150) ----
+	[[nodiscard]] std::vector<ActiveEffect>& GetActiveEffects() noexcept { return m_activeEffects; }
+	[[nodiscard]] const std::vector<ActiveEffect>& GetActiveEffects() const noexcept { return m_activeEffects; }
+
+	// ---- Hunger system (step 211) ----
+	[[nodiscard]] int32_t GetHunger() const noexcept { return m_hunger; }
+	void SetHunger(int32_t v) noexcept { m_hunger = std::clamp(v, 0, MAX_HUNGER); }
+	void AddHunger(int32_t amount) noexcept { SetHunger(m_hunger + amount); }
+	void ConsumeHunger(int32_t amount) noexcept { SetHunger(m_hunger - amount); }
+	static constexpr int32_t MAX_HUNGER = 100;
+	static constexpr int32_t HUNGER_WARNING = 30;
+	static constexpr int32_t HUNGER_STARVING = 15;
+
+	// ---- Buffs from food (step 222) ----
+	struct FoodBuff final
+	{
+		std::string id;
+		std::string name;
+		int32_t atkBonus = 0;
+		int32_t acBonus = 0;
+		int32_t hpRegen = 0;
+		int32_t mpRegen = 0;
+		int32_t remainingTurns = 0;
+	};
+	[[nodiscard]] std::vector<FoodBuff>& GetActiveBuffs() noexcept { return m_activeBuffs; }
+	[[nodiscard]] const std::vector<FoodBuff>& GetActiveBuffs() const noexcept { return m_activeBuffs; }
+
 	// ---- Serialization ----
 	friend void to_json(json& j, const Character& c);
 	friend void from_json(const json& j, Character& c);
@@ -142,4 +170,7 @@ private:
 	std::vector<std::string> m_unlockedSkills;
 	std::array<ActionSlot, NUM_ACTION_SLOTS> m_actionSlots{};
 	std::vector<std::string> m_learnedSpells;
+	std::vector<ActiveEffect> m_activeEffects;
+	int32_t m_hunger = 80;
+	std::vector<FoodBuff> m_activeBuffs;
 };

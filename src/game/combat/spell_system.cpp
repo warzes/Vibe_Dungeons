@@ -8,6 +8,8 @@
 #include "game/dungeon/dungeon.h"
 #include "game/grid_position.h"
 #include "game/direction.h"
+#include "core/json_data_manager.h"
+#include "game/combat/status_effect.h"
 #include <cmath>
 
 //=============================================================================
@@ -46,14 +48,17 @@ SpellTarget SpellSystem::AcquireTarget(const Skill& spell, int32_t range) noexce
 	glm::ivec2 fwd = DirectionToVec(m_character->GetFacing());
 	GridPosition start = m_character->GetPosition();
 
-	if (spell.type == "self")
+	if (spell.type == "self" || spell.type == "heal")
 	{
 		result.position = start;
 		return result;
 	}
 
+	// Determine targeting mode from spell type
 	if (spell.type == "projectile" || spell.type == "beam")
 	{
+		result.targetingMode = (spell.type == "beam") ? TargetingMode::Beam : TargetingMode::Single;
+
 		for (int32_t step = 1; step <= range; ++step)
 		{
 			GridPosition check = {
@@ -79,7 +84,6 @@ SpellTarget SpellSystem::AcquireTarget(const Skill& spell, int32_t range) noexce
 				{
 					break;
 				}
-				// beam continues through monsters
 			}
 
 			if (spell.type == "projectile" && !result.hitMonsters.empty())
@@ -93,9 +97,10 @@ SpellTarget SpellSystem::AcquireTarget(const Skill& spell, int32_t range) noexce
 			result.outOfRange = (range > 0);
 		}
 	}
-
-	if (spell.type == "aoe")
+	else if (spell.type == "aoe")
 	{
+		result.targetingMode = TargetingMode::AoE_3x3;
+
 		// Target cell is `range` cells in front (or closest walkable)
 		for (int32_t step = 1; step <= range; ++step)
 		{
@@ -119,6 +124,7 @@ SpellTarget SpellSystem::AcquireTarget(const Skill& spell, int32_t range) noexce
 
 		int32_t radius = spell.radius;
 		if (radius < 1) { radius = 1; }
+		result.radius = radius;
 
 		for (int32_t dr = -radius; dr <= radius; ++dr)
 		{
@@ -129,11 +135,50 @@ SpellTarget SpellSystem::AcquireTarget(const Skill& spell, int32_t range) noexce
 					result.position.col + dc,
 					result.position.floor
 				};
+
+				if (!Chunk::InBounds(area.row, area.col))
+				{
+					continue;
+				}
+
+				if (m_dungeon->GetCell(area).BlocksLineOfSight())
+				{
+					continue;
+				}
+
 				Monster* mon = m_monsterManager->At(area);
 				if (mon && mon->alive)
 				{
 					result.hitMonsters.push_back(mon);
 				}
+			}
+		}
+	}
+	else if (spell.type == "line")
+	{
+		result.targetingMode = TargetingMode::Line;
+
+		// Line: all cells in a straight line from caster to max range
+		for (int32_t step = 1; step <= range; ++step)
+		{
+			GridPosition check = {
+				start.row + fwd.x * step,
+				start.col + fwd.y * step,
+				start.floor
+			};
+
+			if (!m_dungeon->IsWalkable(check))
+			{
+				result.hitWall = true;
+				break;
+			}
+
+			result.position = check;
+
+			Monster* mon = m_monsterManager->At(check);
+			if (mon && mon->alive)
+			{
+				result.hitMonsters.push_back(mon);
 			}
 		}
 	}
@@ -175,6 +220,64 @@ int32_t SpellSystem::CalculateDamage(const Skill& spell, const Monster* target) 
 
 //=============================================================================
 
+void SpellSystem::ApplyStatusEffect(
+	const Skill& spell,
+	Monster& monster,
+	const std::string& sourceName) noexcept
+{
+	// Check if spell has a status effect defined in JSON
+	// The spell JSON can have a "statusEffect" field:
+	// "statusEffect": {"id": "burn", "chance": 0.5, "duration": 3}
+	//
+	// Or we can map spell IDs to effects directly
+
+	// Look up status effect info from spells.json
+	const json& spellJson = JsonDataManager::Instance().GetSpellData(spell.id);
+	if (spellJson.is_null() || !spellJson.contains("statusEffect"))
+	{
+		return;
+	}
+
+	const json& se = spellJson["statusEffect"];
+	std::string effectId = se.value("id", std::string());
+	if (effectId.empty())
+	{
+		return;
+	}
+
+	double chance = se.value("chance", 1.0);
+	int32_t duration = se.value("duration", 3);
+
+	// Roll for application
+	if (Dice::Roll(1, 100) > static_cast<int32_t>(chance * 100.0))
+	{
+		return;
+	}
+
+	m_statusSystem.ApplyEffect(
+		monster.activeEffects,
+		effectId,
+		sourceName,
+		duration,
+		monster.resistances,
+		monster.immunities
+	);
+}
+
+void SpellSystem::CleanseTarget(Monster& monster) noexcept
+{
+	m_statusSystem.RemoveAllNegative(monster.activeEffects);
+	m_combatLog->Add("Cleansed " + monster.name + " of all negative effects.",
+		glm::vec3(0.2f, 1.0f, 0.2f));
+}
+
+void SpellSystem::CleanseCharacter() noexcept
+{
+	m_statusSystem.RemoveAllNegative(m_character->GetActiveEffects());
+	m_combatLog->Add("Cleansed of all negative effects.",
+		glm::vec3(0.2f, 1.0f, 0.2f));
+}
+
 void SpellSystem::ApplySpell(const Skill& spell, const SpellTarget& target) noexcept
 {
 	if (spell.type == "self" || spell.type == "heal")
@@ -206,6 +309,12 @@ void SpellSystem::ApplySpell(const Skill& spell, const SpellTarget& target) noex
 			mon->hp = 0;
 			mon->alive = false;
 			m_combatLog->Add(mon->name + " dies!", glm::vec3(0.2f, 1.0f, 0.2f));
+		}
+		else
+		{
+			// Apply status effect (steps 151-152)
+			ApplyStatusEffect(spell, *mon, spell.name);
+			m_statusSystem.AdvanceTurns(mon->activeEffects);
 		}
 	}
 

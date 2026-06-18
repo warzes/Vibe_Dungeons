@@ -22,6 +22,8 @@
 #include "game/combat/combat_system.h"
 #include "game/combat/spell_system.h"
 #include "game/combat/item_handler.h"
+#include "game/combat/status_effect.h"
+#include "game/data/encounter_manager.h"
 #include "game/ui/combat_log.h"
 
 class GameStateMachine;
@@ -176,4 +178,23 @@ private:
 
 	// Spell system
 	SpellSystem m_spellSystem;
+
+	// Encounter manager (step 165)
+	EncounterManager m_encounterManager;
+
+	// Hunger system (step 211)
+	int32_t m_hungerTurns = 0;
+
+	// Status effects UI
+	void renderStatusEffectsWindow() noexcept;
+	void renderHungerIndicator() noexcept;
+
+	// Search action (step 291)
+	void processSearch() noexcept;
+	bool m_showStatusEffects = false;
+
+	// Targeting mode for AoE (step 140)
+	bool m_targetingModeActive = false;
+	TargetingMode m_currentTargetingMode = TargetingMode::Single;
+	void renderTargetingOverlay() noexcept;
 };

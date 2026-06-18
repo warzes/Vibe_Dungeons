@@ -34,6 +34,13 @@ bool JsonDataManager::LoadAll(const char* dataDir)
 		{"level_table.json",  "levels",      &m_levelTable}
 	};
 
+	// Optional new data files (not required for game to run)
+	FileEntry optionalFiles[] =
+	{
+		{"status_effects.json", "statusEffects", &m_statusEffects},
+		{"encounter_groups.json", "encounters", &m_encounters}
+	};
+
 	bool allOk = true;
 
 	for (const auto& entry : files)
@@ -43,6 +50,20 @@ bool JsonDataManager::LoadAll(const char* dataDir)
 		{
 			Logger::Error(std::string("Failed to load: ") + fullPath);
 			allOk = false;
+		}
+		else
+		{
+			Logger::Info(std::string("Loaded: ") + fullPath);
+		}
+	}
+
+	// Load optional files (non-fatal if missing)
+	for (const auto& entry : optionalFiles)
+	{
+		std::string fullPath = std::string(dataDir) + "/" + entry.filename;
+		if (!loadFile(fullPath.c_str(), *entry.target, entry.rootKey))
+		{
+			Logger::Warn(std::string("Optional data file not found: ") + fullPath);
 		}
 		else
 		{

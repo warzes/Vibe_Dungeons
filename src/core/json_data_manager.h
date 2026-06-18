@@ -31,6 +31,8 @@ public:
 	[[nodiscard]] const json& AllPostfixes() const noexcept { return m_postfixes; }
 	[[nodiscard]] const json& AllSpells() const noexcept { return m_spells; }
 	[[nodiscard]] const json& AllAbilities() const noexcept { return m_abilities; }
+	[[nodiscard]] const json& AllStatusEffects() const noexcept { return m_statusEffects; }
+	[[nodiscard]] const json& AllEncounters() const noexcept { return m_encounters; }
 
 private:
 	JsonDataManager() = default;
@@ -62,5 +64,7 @@ private:
 	std::unordered_map<std::string, size_t> m_spellIndex;
 	json m_abilities = json::array();
 	std::unordered_map<std::string, size_t> m_abilityIndex;
+	json m_statusEffects = json::array();
+	json m_encounters = json::array();
 	json m_levelTable = json::array();
 };

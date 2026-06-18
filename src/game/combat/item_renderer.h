@@ -24,6 +24,6 @@ public:
 
 private:
 	Mesh m_billboardMesh;
-	std::array<const Material*, 9> m_materials{};
+	std::array<const Material*, static_cast<size_t>(ItemType::ITEM_TYPE_COUNT)> m_materials{};
 	bool m_initialized = false;
 };
