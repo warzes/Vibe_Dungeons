@@ -2353,116 +2353,91 @@ void PlayState::renderCraftingWindow() noexcept
 	ImGui::SetNextWindowSize(ImVec2(400, 500), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Crafting (C)", &m_showCrafting);
 
-	// Category tabs
+	// Category tabs — render content INSIDE each tab item (standard ImGui pattern)
 	const auto& categories = m_craftingSystem.Categories();
-	static int selectedCategory = 0;
 	if (ImGui::BeginTabBar("CraftCategories"))
 	{
 		for (int ci = 0; ci < static_cast<int>(categories.size()); ++ci)
 		{
-			bool isSelected = (ci == selectedCategory);
-			if (ImGui::BeginTabItem(categories[ci].name.c_str(), nullptr, isSelected ? ImGuiTabItemFlags_SetSelected : 0))
+			if (ImGui::BeginTabItem(categories[ci].name.c_str()))
 			{
-				selectedCategory = ci;
+				const std::string& catId = categories[ci].id;
+
+				ImGui::Separator();
+				ImGui::Text("Crafting Level: %d", m_craftingSystem.m_craftingLevel);
+				ImGui::Separator();
+
+				std::vector<const CraftingRecipe*> recipes = m_craftingSystem.GetRecipesByCategory(catId);
+
+				if (recipes.empty())
+				{
+					ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No recipes in this category.");
+				}
+				else
+				{
+					ImGui::BeginChild("RecipeList", ImVec2(0, 200), true);
+					for (const CraftingRecipe* recipe : recipes)
+					{
+						bool unlocked = m_craftingSystem.IsRecipeUnlocked(recipe->id);
+						bool canCraft = unlocked && m_craftingSystem.CanCraft(*recipe, m_character.GetInventory());
+
+						ImGui::PushID(recipe->id.c_str());
+
+						ImVec4 nameColor = unlocked ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)
+													: ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+						ImGui::TextColored(nameColor, "%s", recipe->name.c_str());
+
+						if (unlocked)
+						{
+							ImGui::SameLine();
+							ImGui::TextDisabled("(lvl %d)", recipe->skillReq);
+
+							std::string ingredientsStr;
+							for (size_t ii = 0; ii < recipe->ingredients.size(); ++ii)
+							{
+								if (ii > 0) ingredientsStr += ", ";
+								ingredientsStr += recipe->ingredients[ii].itemId + " x" + std::to_string(recipe->ingredients[ii].count);
+							}
+							ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "  %s", ingredientsStr.c_str());
+							ImGui::SameLine();
+							ImGui::TextDisabled("-> %s x%d", recipe->result.itemId.c_str(), recipe->result.count);
+
+							if (canCraft)
+							{
+								if (ImGui::Button("Craft"))
+								{
+									if (m_craftingSystem.Craft(*recipe, m_character.GetInventory()))
+									{
+										m_combatLog.Add("Crafted: " + recipe->name, glm::vec3(0.2f, 1.0f, 0.2f));
+									}
+								}
+							}
+							else
+							{
+								ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "  Missing ingredients");
+							}
+						}
+						else
+						{
+							ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "  (locked)");
+						}
+
+						ImGui::PopID();
+						ImGui::Separator();
+					}
+					ImGui::EndChild();
+				}
+
+				// Category-specific operation UI
+				if (catId == "weaponsmith")      { renderWeaponsmithOperations(); }
+				else if (catId == "armorsmith")  { renderArmorsmithOperations(); }
+				else if (catId == "alchemy")     { renderAlchemyOperations(); }
+				else if (catId == "cooking")     { renderCookingOperations(); }
+
 				ImGui::EndTabItem();
 			}
 		}
 		ImGui::EndTabBar();
-	}
-
-	ImGui::Separator();
-	ImGui::Text("Crafting Level: %d", m_craftingSystem.m_craftingLevel);
-	ImGui::Separator();
-
-	if (selectedCategory >= 0 && selectedCategory < static_cast<int>(categories.size()))
-	{
-		const std::string& catId = categories[selectedCategory].id;
-		std::vector<const CraftingRecipe*> recipes = m_craftingSystem.GetRecipesByCategory(catId);
-
-		if (recipes.empty())
-		{
-			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No recipes in this category.");
-		}
-		else
-		{
-			ImGui::BeginChild("RecipeList", ImVec2(0, 200), true);
-			for (const CraftingRecipe* recipe : recipes)
-			{
-				bool unlocked = m_craftingSystem.IsRecipeUnlocked(recipe->id);
-				bool canCraft = unlocked && m_craftingSystem.CanCraft(*recipe, m_character.GetInventory());
-
-				ImGui::PushID(recipe->id.c_str());
-
-				ImVec4 nameColor = unlocked ? ImVec4(1.0f, 1.0f, 1.0f, 1.0f)
-				                            : ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-				ImGui::TextColored(nameColor, "%s", recipe->name.c_str());
-
-				if (unlocked)
-				{
-					ImGui::SameLine();
-					ImGui::TextDisabled("(lvl %d)", recipe->skillReq);
-
-					// Ingredients
-					std::string ingredientsStr;
-					for (size_t ii = 0; ii < recipe->ingredients.size(); ++ii)
-					{
-						if (ii > 0) ingredientsStr += ", ";
-						ingredientsStr += recipe->ingredients[ii].itemId + " x" + std::to_string(recipe->ingredients[ii].count);
-					}
-					ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "  %s", ingredientsStr.c_str());
-					ImGui::SameLine();
-					ImGui::TextDisabled("-> %s x%d", recipe->result.itemId.c_str(), recipe->result.count);
-
-					// Craft button
-					if (canCraft)
-					{
-						if (ImGui::Button("Craft"))
-						{
-							if (m_craftingSystem.Craft(*recipe, m_character.GetInventory()))
-							{
-								m_combatLog.Add("Crafted: " + recipe->name, glm::vec3(0.2f, 1.0f, 0.2f));
-							}
-						}
-					}
-					else
-					{
-						ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "  Missing ingredients");
-					}
-				}
-				else
-				{
-					ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "  (locked)");
-				}
-
-				ImGui::PopID();
-				ImGui::Separator();
-			}
-			ImGui::EndChild();
-		}
-
-		// ---- Weaponsmith operations (steps 174-182) ----
-		if (catId == "weaponsmith")
-		{
-			renderWeaponsmithOperations();
-		}
-
-		// ---- Armorsmith operations (steps 183-190) ----
-		if (catId == "armorsmith")
-		{
-			renderArmorsmithOperations();
-		}
-
-		// ---- Alchemy operations (steps 191-198) ----
-		if (catId == "alchemy")
-		{
-			renderAlchemyOperations();
-		}
-
-		// ---- Cooking operations (steps 199-204) ----
-		if (catId == "cooking")
-		{
-			renderCookingOperations();
-		}
 	}
 
 	ImGui::End();
