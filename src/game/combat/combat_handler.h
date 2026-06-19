@@ -21,8 +21,8 @@ class Shader;
 class Renderer;
 class MonsterRenderer;
 class ItemHandler;
-struct Material;
-struct Texture;
+class Material;
+class Texture;
 
 class CombatHandler final
 {

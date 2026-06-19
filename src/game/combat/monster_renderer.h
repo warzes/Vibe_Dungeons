@@ -19,7 +19,7 @@ public:
 		const Camera& camera,
 		const std::vector<Monster>& monsters,
 		const std::unordered_map<std::string, Material*>& materialsByType
-	);
+	) const;
 
 private:
 	Mesh m_billboardMesh;

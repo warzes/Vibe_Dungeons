@@ -72,6 +72,12 @@
     <ClCompile Include="engine\window.cpp">
       <Filter>engine</Filter>
     </ClCompile>
+    <ClCompile Include="engine\renderer\camera.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="engine\renderer\debug_renderer.cpp">
+      <Filter>engine\renderer</Filter>
+    </ClCompile>
     <ClCompile Include="engine\renderer\framebuffer.cpp">
       <Filter>engine\renderer</Filter>
     </ClCompile>
@@ -93,22 +99,37 @@
     <ClCompile Include="engine\renderer\texture.cpp">
       <Filter>engine\renderer</Filter>
     </ClCompile>
-    <ClCompile Include="engine\renderer\camera.cpp">
-      <Filter>engine\renderer</Filter>
-    </ClCompile>
-    <ClCompile Include="engine\renderer\debug_renderer.cpp">
-      <Filter>engine\renderer</Filter>
-    </ClCompile>
     <ClCompile Include="game\game_app.cpp">
+      <Filter>game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\save_manager.cpp">
       <Filter>game</Filter>
     </ClCompile>
     <ClCompile Include="game\serialization.cpp">
       <Filter>game</Filter>
     </ClCompile>
+    <ClCompile Include="game\turn_manager.cpp">
+      <Filter>game</Filter>
+    </ClCompile>
+    <ClCompile Include="game\combat\character.cpp">
+      <Filter>game\combat</Filter>
+    </ClCompile>
+    <ClCompile Include="game\combat\combat_handler.cpp">
+      <Filter>game\combat</Filter>
+    </ClCompile>
+    <ClCompile Include="game\combat\combat_system.cpp">
+      <Filter>game\combat</Filter>
+    </ClCompile>
     <ClCompile Include="game\combat\dice.cpp">
       <Filter>game\combat</Filter>
     </ClCompile>
+    <ClCompile Include="game\combat\equipment.cpp">
+      <Filter>game\combat</Filter>
+    </ClCompile>
     <ClCompile Include="game\combat\inventory.cpp">
+      <Filter>game\combat</Filter>
+    </ClCompile>
+    <ClCompile Include="game\combat\item_handler.cpp">
       <Filter>game\combat</Filter>
     </ClCompile>
     <ClCompile Include="game\combat\item_renderer.cpp">
@@ -120,11 +141,14 @@
     <ClCompile Include="game\combat\monster_renderer.cpp">
       <Filter>game\combat</Filter>
     </ClCompile>
-    <ClCompile Include="game\combat\character.cpp">
+    <ClCompile Include="game\combat\spell_system.cpp">
       <Filter>game\combat</Filter>
     </ClCompile>
-    <ClCompile Include="game\combat\combat_system.cpp">
+    <ClCompile Include="game\combat\status_effect.cpp">
       <Filter>game\combat</Filter>
+    </ClCompile>
+    <ClCompile Include="game\crafting\crafting_system.cpp">
+      <Filter>game\crafting</Filter>
     </ClCompile>
     <ClCompile Include="game\data\ability_manager.cpp">
       <Filter>game\data</Filter>
@@ -132,10 +156,16 @@
     <ClCompile Include="game\data\class_manager.cpp">
       <Filter>game\data</Filter>
     </ClCompile>
+    <ClCompile Include="game\data\encounter_manager.cpp">
+      <Filter>game\data</Filter>
+    </ClCompile>
     <ClCompile Include="game\data\experience_system.cpp">
       <Filter>game\data</Filter>
     </ClCompile>
     <ClCompile Include="game\data\item_factory.cpp">
+      <Filter>game\data</Filter>
+    </ClCompile>
+    <ClCompile Include="game\data\item_generator.cpp">
       <Filter>game\data</Filter>
     </ClCompile>
     <ClCompile Include="game\data\item_stat_calculator.cpp">
@@ -222,19 +252,22 @@
     <ClInclude Include="3rdparty\stb\stb_vorbis.h">
       <Filter>3rdparty\stb</Filter>
     </ClInclude>
+    <ClInclude Include="core\transform.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\aabb.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\collision.h">
       <Filter>core</Filter>
     </ClInclude>
+    <ClInclude Include="core\data_manager.h">
+      <Filter>core</Filter>
+    </ClInclude>
     <ClInclude Include="core\event_bus.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\exception.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="core\data_manager.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\file_io.h">
@@ -253,9 +286,6 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\scoped_sdl.h">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="core\transform.h">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="engine\audio_system.h">
@@ -278,6 +308,9 @@
     </ClInclude>
     <ClInclude Include="engine\window.h">
       <Filter>engine</Filter>
+    </ClInclude>
+    <ClInclude Include="engine\renderer\camera.h">
+      <Filter>engine\renderer</Filter>
     </ClInclude>
     <ClInclude Include="engine\renderer\debug_renderer.h">
       <Filter>engine\renderer</Filter>
@@ -306,9 +339,6 @@
     <ClInclude Include="engine\renderer\texture.h">
       <Filter>engine\renderer</Filter>
     </ClInclude>
-    <ClInclude Include="engine\renderer\camera.h">
-      <Filter>engine\renderer</Filter>
-    </ClInclude>
     <ClInclude Include="game\direction.h">
       <Filter>game</Filter>
     </ClInclude>
@@ -321,13 +351,31 @@
     <ClInclude Include="game\grid_position.h">
       <Filter>game</Filter>
     </ClInclude>
+    <ClInclude Include="game\save_manager.h">
+      <Filter>game</Filter>
+    </ClInclude>
     <ClInclude Include="game\serialization.h">
       <Filter>game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\turn_manager.h">
+      <Filter>game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\combat\action.h">
+      <Filter>game\combat</Filter>
+    </ClInclude>
+    <ClInclude Include="game\combat\character.h">
+      <Filter>game\combat</Filter>
+    </ClInclude>
+    <ClInclude Include="game\combat\combat_handler.h">
+      <Filter>game\combat</Filter>
     </ClInclude>
     <ClInclude Include="game\combat\combat_system.h">
       <Filter>game\combat</Filter>
     </ClInclude>
     <ClInclude Include="game\combat\dice.h">
+      <Filter>game\combat</Filter>
+    </ClInclude>
+    <ClInclude Include="game\combat\equipment.h">
       <Filter>game\combat</Filter>
     </ClInclude>
     <ClInclude Include="game\combat\inventory.h">
@@ -336,10 +384,16 @@
     <ClInclude Include="game\combat\item.h">
       <Filter>game\combat</Filter>
     </ClInclude>
+    <ClInclude Include="game\combat\item_handler.h">
+      <Filter>game\combat</Filter>
+    </ClInclude>
     <ClInclude Include="game\combat\item_renderer.h">
       <Filter>game\combat</Filter>
     </ClInclude>
     <ClInclude Include="game\combat\monster.h">
+      <Filter>game\combat</Filter>
+    </ClInclude>
+    <ClInclude Include="game\combat\monster_group.h">
       <Filter>game\combat</Filter>
     </ClInclude>
     <ClInclude Include="game\combat\monster_manager.h">
@@ -348,14 +402,20 @@
     <ClInclude Include="game\combat\monster_renderer.h">
       <Filter>game\combat</Filter>
     </ClInclude>
+    <ClInclude Include="game\combat\spell_system.h">
+      <Filter>game\combat</Filter>
+    </ClInclude>
+    <ClInclude Include="game\combat\status_effect.h">
+      <Filter>game\combat</Filter>
+    </ClInclude>
     <ClInclude Include="game\combat\turn_queue.h">
       <Filter>game\combat</Filter>
     </ClInclude>
-    <ClInclude Include="game\combat\action.h">
-      <Filter>game\combat</Filter>
+    <ClInclude Include="game\crafting\crafting_recipe.h">
+      <Filter>game\crafting</Filter>
     </ClInclude>
-    <ClInclude Include="game\combat\character.h">
-      <Filter>game\combat</Filter>
+    <ClInclude Include="game\crafting\crafting_system.h">
+      <Filter>game\crafting</Filter>
     </ClInclude>
     <ClInclude Include="game\data\ability_manager.h">
       <Filter>game\data</Filter>
@@ -363,10 +423,16 @@
     <ClInclude Include="game\data\class_manager.h">
       <Filter>game\data</Filter>
     </ClInclude>
+    <ClInclude Include="game\data\encounter_manager.h">
+      <Filter>game\data</Filter>
+    </ClInclude>
     <ClInclude Include="game\data\experience_system.h">
       <Filter>game\data</Filter>
     </ClInclude>
     <ClInclude Include="game\data\item_factory.h">
+      <Filter>game\data</Filter>
+    </ClInclude>
+    <ClInclude Include="game\data\item_generator.h">
       <Filter>game\data</Filter>
     </ClInclude>
     <ClInclude Include="game\data\item_stat_calculator.h">
@@ -493,6 +559,9 @@
     </Filter>
     <Filter Include="test">
       <UniqueIdentifier>{feb6634a-58bb-4580-b606-64cf57837580}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\crafting">
+      <UniqueIdentifier>{1e3f319c-878d-480a-b8bf-8356660cf6b5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
