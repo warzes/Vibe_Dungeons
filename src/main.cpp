@@ -13,6 +13,7 @@
 #if defined(_MSC_VER)
 #	pragma comment( lib, "SDL3.lib" )
 #endif
+//https://github.com/lonski/amarlon
 //=============================================================================
 int main(int argc, char* argv[])
 {
