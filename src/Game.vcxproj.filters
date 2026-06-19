@@ -210,6 +210,9 @@
     <ClCompile Include="game\states\overworld_state.cpp">
       <Filter>game\states</Filter>
     </ClCompile>
+    <ClCompile Include="game\states\combat_encounter_state.cpp">
+      <Filter>game\states</Filter>
+    </ClCompile>
     <ClCompile Include="game\ui\combat_log.cpp">
       <Filter>game\ui</Filter>
     </ClCompile>
@@ -496,6 +499,9 @@
       <Filter>game\states</Filter>
     </ClInclude>
     <ClInclude Include="game\states\overworld_state.h">
+      <Filter>game\states</Filter>
+    </ClInclude>
+    <ClInclude Include="game\states\combat_encounter_state.h">
       <Filter>game\states</Filter>
     </ClInclude>
     <ClInclude Include="game\ui\combat_log.h">

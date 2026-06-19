@@ -1,0 +1,47 @@
+{
+    "terrains": [
+        {
+            "name": "Grassland",
+            "encounters": [
+                {"monsters": [{"type": "giant_rat", "count": 2, "level": 1}], "weight": 5},
+                {"monsters": [{"type": "slime", "count": 1, "level": 1}], "weight": 3},
+                {"monsters": [{"type": "goblin", "count": 1, "level": 1}], "weight": 2}
+            ]
+        },
+        {
+            "name": "Forest",
+            "encounters": [
+                {"monsters": [{"type": "giant_rat", "count": 3, "level": 1}], "weight": 4},
+                {"monsters": [{"type": "slime", "count": 2, "level": 1}], "weight": 3},
+                {"monsters": [{"type": "goblin", "count": 2, "level": 1}], "weight": 2}
+            ]
+        },
+        {
+            "name": "Mountain",
+            "encounters": [
+                {"monsters": [{"type": "goblin", "count": 2, "level": 2}], "weight": 4},
+                {"monsters": [{"type": "skeleton", "count": 2, "level": 1}], "weight": 3},
+                {"monsters": [{"type": "skeleton_warrior", "count": 1, "level": 2}], "weight": 2}
+            ]
+        },
+        {
+            "name": "Desert",
+            "encounters": [
+                {"monsters": [{"type": "skeleton", "count": 2, "level": 2}], "weight": 4},
+                {"monsters": [{"type": "fire_elemental", "count": 1, "level": 2}], "weight": 2},
+                {"monsters": [{"type": "skeleton_mage", "count": 1, "level": 1}], "weight": 1}
+            ]
+        },
+        {
+            "name": "Road",
+            "encounters": [
+                {"monsters": [{"type": "goblin", "count": 1, "level": 1}], "weight": 3},
+                {"monsters": [{"type": "skeleton_warrior", "count": 1, "level": 1}], "weight": 1}
+            ]
+        },
+        {
+            "name": "Water",
+            "encounters": []
+        }
+    ]
+}

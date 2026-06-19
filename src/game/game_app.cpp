@@ -5,6 +5,7 @@
 #include "game/states/play_state.h"
 #include "game/states/settings_state.h"
 #include "game/states/overworld_state.h"
+#include "game/states/combat_encounter_state.h"
 #include "engine/window.h"
 #include "engine/gl_context.h"
 #include "engine/input_manager.h"
@@ -51,7 +52,11 @@ GameApp::GameApp()
 	});
 	m_stateMachine.RegisterState("Overworld", [this]()
 	{
-		return std::make_unique<OverworldState>(m_stateMachine, *m_window, m_input, m_resources);
+		return std::make_unique<OverworldState>(m_stateMachine, *m_window, m_input, m_resources, &m_pendingCharacter);
+	});
+	m_stateMachine.RegisterState("CombatEncounter", [this]()
+	{
+		return std::make_unique<CombatEncounterState>(m_stateMachine, *m_window, m_input, m_resources, &m_pendingCharacter);
 	});
 
 	m_stateMachine.PushState("MainMenu");

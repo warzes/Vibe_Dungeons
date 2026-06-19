@@ -11,17 +11,22 @@ static float paletteU(int32_t terrainIdx) noexcept
 	return (static_cast<float>(terrainIdx) + 0.5f) / PALETTE_W;
 }
 
-void OverworldRenderer::Build(const Overworld& overworld)
+static bool inView(int32_t r, int32_t c, int32_t camR, int32_t camC, int32_t radius) noexcept
 {
-	if (!m_dirty)
-	{
-		return;
-	}
+	int32_t dr = glm::abs(r - camR);
+	int32_t dc = glm::abs(c - camC);
+	return dr <= radius && dc <= radius;
+}
+
+void OverworldRenderer::Build(const Overworld& overworld, GridPosition cameraPos, int32_t viewRadius)
+{
+	// Always rebuild for fog-of-war / view distance culling
+	// (m_dirty flag is used for material changes only)
 
 	OverworldGeometry geo;
-	buildFloorGeometry(overworld, geo);
-	buildWallGeometry(overworld, geo);
-	buildLocationGeometry(overworld, geo);
+	buildFloorGeometry(overworld, cameraPos, viewRadius, geo);
+	buildWallGeometry(overworld, cameraPos, viewRadius, geo);
+	buildLocationGeometry(overworld, cameraPos, viewRadius, geo);
 
 	if (!geo.floorVerts.empty())
 	{
@@ -59,12 +64,30 @@ void OverworldRenderer::Submit(Renderer& renderer)
 
 //=============================================================================
 
-void OverworldRenderer::buildFloorGeometry(const Overworld& overworld, OverworldGeometry& out)
+void OverworldRenderer::buildFloorGeometry(
+	const Overworld& overworld,
+	GridPosition cameraPos, int32_t viewRadius,
+	OverworldGeometry& out)
 {
+	int32_t camR = cameraPos.row;
+	int32_t camC = cameraPos.col;
+
 	for (int32_t r = 0; r < OVERWORLD_SIZE; ++r)
 	{
 		for (int32_t c = 0; c < OVERWORLD_SIZE; ++c)
 		{
+			// Fog of war: skip unvisited cells
+			if (!overworld.IsVisited({r, c, 0}))
+			{
+				continue;
+			}
+
+			// View distance culling
+			if (!inView(r, c, camR, camC, viewRadius))
+			{
+				continue;
+			}
+
 			const OverworldCell& cell = overworld.GetCell(r, c);
 			if (!cell.IsWalkable() && cell.terrain != TerrainType::Water)
 			{
@@ -107,14 +130,36 @@ void OverworldRenderer::buildFloorGeometry(const Overworld& overworld, Overworld
 	}
 }
 
-void OverworldRenderer::buildWallGeometry(const Overworld& overworld, OverworldGeometry& out)
+void OverworldRenderer::buildWallGeometry(
+	const Overworld& overworld,
+	GridPosition cameraPos, int32_t viewRadius,
+	OverworldGeometry& out)
 {
 	float wallU = paletteU(2); // Mountain palette index
+	int32_t camR = cameraPos.row;
+	int32_t camC = cameraPos.col;
 
 	for (int32_t r = 0; r < OVERWORLD_SIZE; ++r)
 	{
 		for (int32_t c = 0; c < OVERWORLD_SIZE; ++c)
 		{
+			// Fog of war
+			if (!overworld.IsVisited({r, c, 0}))
+			{
+				continue;
+			}
+
+			// View distance culling (mountains extend view slightly)
+			int32_t mountainBonus = 0;
+			if (overworld.GetCell(r, c).terrain == TerrainType::Mountain)
+			{
+				mountainBonus = 3;
+			}
+			if (!inView(r, c, camR, camC, viewRadius + mountainBonus))
+			{
+				continue;
+			}
+
 			const OverworldCell& cell = overworld.GetCell(r, c);
 			if (cell.terrain != TerrainType::Mountain)
 			{
@@ -200,18 +245,37 @@ void OverworldRenderer::buildWallGeometry(const Overworld& overworld, OverworldG
 	}
 }
 
-void OverworldRenderer::buildLocationGeometry(const Overworld& overworld, OverworldGeometry& out)
+void OverworldRenderer::buildLocationGeometry(
+	const Overworld& overworld,
+	GridPosition cameraPos, int32_t viewRadius,
+	OverworldGeometry& out)
 {
 	float locU = paletteU(6); // Gold palette index
+	int32_t camR = cameraPos.row;
+	int32_t camC = cameraPos.col;
 
 	for (const auto& loc : overworld.Locations())
 	{
-		const float cx = static_cast<float>(loc.position.col) + 0.5f;
-		const float cz = static_cast<float>(loc.position.row) + 0.5f;
+		int32_t lr = loc.position.row;
+		int32_t lc = loc.position.col;
+
+		// Fog of war
+		if (!overworld.IsVisited({lr, lc, 0}))
+		{
+			continue;
+		}
+
+		// View distance culling
+		if (!inView(lr, lc, camR, camC, viewRadius))
+		{
+			continue;
+		}
+
+		const float cx = static_cast<float>(lc) + 0.5f;
+		const float cz = static_cast<float>(lr) + 0.5f;
 		const float halfW = 0.3f;
 		const float h = 0.8f;
 
-		// Billboard quad (faces camera, but for now just a fixed north-south quad)
 		const uint32_t base = static_cast<uint32_t>(out.locationVerts.size());
 
 		out.locationVerts.push_back({{cx - halfW, 0.0f, cz}, {0.0f, 0.0f, -1.0f}, {locU, 0.0f}});

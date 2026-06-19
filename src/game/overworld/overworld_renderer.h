@@ -20,7 +20,7 @@ struct OverworldGeometry final
 class OverworldRenderer final
 {
 public:
-	void Build(const Overworld& overworld);
+	void Build(const Overworld& overworld, GridPosition cameraPos = {}, int32_t viewRadius = 64);
 	void Submit(Renderer& renderer);
 
 	void SetFloorMaterial(Material* mat) { m_floorMaterial = mat; }
@@ -31,9 +31,18 @@ public:
 	void SetNeedsRebuild(bool dirty) noexcept { m_dirty = dirty; }
 
 private:
-	static void buildFloorGeometry(const Overworld& overworld, OverworldGeometry& out);
-	static void buildWallGeometry(const Overworld& overworld, OverworldGeometry& out);
-	static void buildLocationGeometry(const Overworld& overworld, OverworldGeometry& out);
+	static void buildFloorGeometry(
+		const Overworld& overworld,
+		GridPosition cameraPos, int32_t viewRadius,
+		OverworldGeometry& out);
+	static void buildWallGeometry(
+		const Overworld& overworld,
+		GridPosition cameraPos, int32_t viewRadius,
+		OverworldGeometry& out);
+	static void buildLocationGeometry(
+		const Overworld& overworld,
+		GridPosition cameraPos, int32_t viewRadius,
+		OverworldGeometry& out);
 
 	bool m_dirty = true;
 

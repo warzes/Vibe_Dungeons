@@ -12,9 +12,10 @@
 #include "game/direction.h"
 #include "game/overworld/overworld.h"
 #include "game/overworld/overworld_renderer.h"
-#include "game/turn_manager.h"
 #include "game/combat/character.h"
 #include "core/json_alias.h"
+
+#include <random>
 
 class GameStateMachine;
 class InputManager;
@@ -23,6 +24,19 @@ class DeltaTime;
 class Renderer;
 class ResourceManager;
 
+struct OverworldEncounterEntry final
+{
+	std::string monsterTypeId;
+	int32_t count;
+	int32_t level;
+};
+
+struct OverworldEncounterDef final
+{
+	std::vector<OverworldEncounterEntry> entries;
+	int32_t weight;
+};
+
 class OverworldState final : public GameState
 {
 public:
@@ -30,7 +44,8 @@ public:
 		GameStateMachine& machine,
 		const Window& window,
 		InputManager& input,
-		ResourceManager& resources
+		ResourceManager& resources,
+		Character* pendingCharacter
 	) noexcept;
 	~OverworldState() noexcept override;
 
@@ -54,6 +69,13 @@ private:
 	// Palette texture helpers
 	[[nodiscard]] Texture* createTerrainPalette() noexcept;
 
+	// Encounter loading
+	void loadEncounters() noexcept;
+	void triggerRandomEncounter() noexcept;
+
+	// Turn processing (hunger, time)
+	void processOverworldTurn() noexcept;
+
 	// Movement helpers
 	void processEdgeActions() noexcept;
 	void processHeldRepeat(const DeltaTime& dt) noexcept;
@@ -64,11 +86,16 @@ private:
 
 	void renderMinimap() noexcept;
 	void renderFullMap() noexcept;
+	void renderFastTravel() noexcept;
 
 	GameStateMachine& m_machine;
 	const Window& m_window;
 	InputManager& m_input;
 	ResourceManager& m_resources;
+	Character* m_pendingCharacter;
+
+	Character m_character;
+	bool m_hasCharacter = false;
 
 	Shader* m_overworldShader = nullptr;
 	Texture* m_terrainPalette = nullptr;
@@ -89,9 +116,17 @@ private:
 
 	bool m_showMap = false;
 	bool m_showDebug = false;
+	bool m_showFastTravel = false;
 
 	// Visibility radius
 	int32_t m_viewRadius = 5;
+
+	// Random encounters
+	std::mt19937 m_rng;
+	std::unordered_map<std::string, std::vector<OverworldEncounterDef>> m_encounterTable;
+
+	// Fast travel state
+	bool m_fastTravelActive = false;
 
 	static constexpr std::string_view GRID_ACTION_NAMES[] =
 	{

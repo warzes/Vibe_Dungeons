@@ -227,6 +227,7 @@
     <ClCompile Include="game\states\play_state.cpp" />
     <ClCompile Include="game\states\settings_state.cpp" />
     <ClCompile Include="game\states\overworld_state.cpp" />
+    <ClCompile Include="game\states\combat_encounter_state.cpp" />
     <ClCompile Include="game\turn_manager.cpp" />
     <ClCompile Include="game\ui\combat_log.cpp" />
     <ClCompile Include="main.cpp" />
@@ -329,6 +330,7 @@
     <ClInclude Include="game\states\play_state.h" />
     <ClInclude Include="game\states\settings_state.h" />
     <ClInclude Include="game\states\overworld_state.h" />
+    <ClInclude Include="game\states\combat_encounter_state.h" />
     <ClInclude Include="game\turn_manager.h" />
     <ClInclude Include="game\ui\combat_log.h" />
     <ClInclude Include="stdafx.h" />

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "game/states/overworld_state.h"
+#include "game/states/combat_encounter_state.h"
 #include "engine/delta_time.h"
 #include "engine/input_manager.h"
 #include "engine/window.h"
@@ -8,9 +9,26 @@
 #include "engine/renderer/renderer.h"
 #include "core/logger.h"
 #include "core/exception.h"
-#include "core/json_data_manager.h"
 #include "core/file_io.h"
 #include "game/states/settings_state.h"
+
+//=============================================================================
+
+static const char* TERRAIN_NAMES[] =
+{
+	"Grassland", "Forest", "Mountain", "Water", "Road", "Desert"
+};
+
+static const char* TERRAIN_KEY[] =
+{
+	"Grassland", "Forest", "Mountain", "Water", "Road", "Desert", nullptr
+};
+
+static const char* terrainKey(TerrainType t) noexcept
+{
+	int32_t idx = static_cast<int32_t>(t);
+	return (idx >= 0 && idx < 6) ? TERRAIN_KEY[idx] : nullptr;
+}
 
 //=============================================================================
 
@@ -18,12 +36,15 @@ OverworldState::OverworldState(
 	GameStateMachine& machine,
 	const Window& window,
 	InputManager& input,
-	ResourceManager& resources
+	ResourceManager& resources,
+	Character* pendingCharacter
 ) noexcept
 	: m_machine(machine)
 	, m_window(window)
 	, m_input(input)
 	, m_resources(resources)
+	, m_pendingCharacter(pendingCharacter)
+	, m_rng(std::random_device{}())
 {}
 
 OverworldState::~OverworldState() noexcept = default;
@@ -32,12 +53,9 @@ OverworldState::~OverworldState() noexcept = default;
 
 Texture* OverworldState::createTerrainPalette() noexcept
 {
-	// Palette texture: each terrain type is one pixel column.
-	// Shader samples with NEAREST, texCoord.x maps to pixel column.
 	static constexpr int32_t W = 8;
 	static constexpr int32_t H = 1;
 
-	// RGBA byte array (OpenGL GL_RGBA expects R,G,B,A in order)
 	uint8_t pixels[W * 4] =
 	{
 		76, 175, 80, 255,    // 0: Grassland
@@ -57,13 +75,160 @@ Texture* OverworldState::createTerrainPalette() noexcept
 
 //=============================================================================
 
+void OverworldState::loadEncounters() noexcept
+{
+	m_encounterTable.clear();
+
+	std::string buf = FileReadString("data/overworld_encounters.json");
+	if (buf.empty())
+	{
+		Logger::Warn("overworld_encounters.json not found, encounters disabled");
+		return;
+	}
+
+	json root = json::parse(buf, nullptr, false);
+	if (root.is_discarded() || !root.contains("terrains"))
+	{
+		Logger::Warn("overworld_encounters.json: invalid format");
+		return;
+	}
+
+	for (const auto& terrainEntry : root["terrains"])
+	{
+		std::string name = terrainEntry.value("name", "");
+		if (name.empty()) continue;
+
+		std::vector<OverworldEncounterDef> defs;
+		for (const auto& enc : terrainEntry["encounters"])
+		{
+			OverworldEncounterDef def;
+			def.weight = enc.value("weight", 1);
+			for (const auto& mon : enc["monsters"])
+			{
+				OverworldEncounterEntry entry;
+				entry.monsterTypeId = mon.value("type", "slime");
+				entry.count = mon.value("count", 1);
+				entry.level = mon.value("level", 1);
+				def.entries.push_back(std::move(entry));
+			}
+			defs.push_back(std::move(def));
+		}
+		m_encounterTable[name] = std::move(defs);
+	}
+
+	Logger::Info("Overworld: encounters loaded");
+}
+
+//=============================================================================
+
+void OverworldState::triggerRandomEncounter() noexcept
+{
+	GridPosition pos = m_camera.GetGridPosition();
+	const OverworldCell& cell = m_overworld.GetCell(pos);
+
+	float chance = cell.EncounterChance();
+	if (chance <= 0.0f) return;
+
+	// Roll the dice
+	std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+	if (dist(m_rng) >= chance) return;
+
+	const char* key = terrainKey(cell.terrain);
+	if (!key) return;
+
+	auto it = m_encounterTable.find(key);
+	if (it == m_encounterTable.end() || it->second.empty()) return;
+
+	const auto& defs = it->second;
+
+	// Weighted random selection
+	int32_t totalWeight = 0;
+	for (const auto& d : defs) totalWeight += d.weight;
+	if (totalWeight <= 0) return;
+
+	std::uniform_int_distribution<int32_t> pick(0, totalWeight - 1);
+	int32_t roll = pick(m_rng);
+
+	const OverworldEncounterDef* chosen = nullptr;
+	for (const auto& d : defs)
+	{
+		if (roll < d.weight)
+		{
+			chosen = &d;
+			break;
+		}
+		roll -= d.weight;
+	}
+	if (!chosen || chosen->entries.empty()) return;
+
+	Logger::Info("Overworld: random encounter triggered at (" +
+		std::to_string(pos.row) + ", " + std::to_string(pos.col) + ")");
+
+	// Store spawn entries for CombatEncounterState
+	std::vector<EncounterSpawnEntry> spawnList;
+	for (const auto& e : chosen->entries)
+	{
+		EncounterSpawnEntry entry;
+		entry.monsterTypeId = e.monsterTypeId;
+		entry.count = e.count;
+		entry.level = e.level;
+		spawnList.push_back(std::move(entry));
+	}
+
+	// Save character before transfer
+	if (m_pendingCharacter)
+	{
+		*m_pendingCharacter = std::move(m_character);
+	}
+
+	// Set encounter data and push combat state
+	CombatEncounterState::s_spawnEntries = std::move(spawnList);
+	m_machine.PushState("CombatEncounter");
+}
+
+//=============================================================================
+
+void OverworldState::processOverworldTurn() noexcept
+{
+	// Hunger decreases each step
+	m_character.ConsumeHunger(1);
+	m_character.TickBuffs();
+
+	if (m_character.GetHunger() <= 0)
+	{
+		Logger::Warn("Overworld: starving! Taking damage.");
+		m_character.TakeDamage(1);
+	}
+
+	if (m_character.GetHp() <= 0)
+	{
+		Logger::Info("Overworld: character died of starvation.");
+		m_machine.ReplaceState("MainMenu");
+	}
+}
+
+//=============================================================================
+
 void OverworldState::OnEnter() noexcept
 {
 	try
 	{
 		Logger::Info("OverworldState::OnEnter begin");
 		m_input.ResetState();
-		m_renderer = nullptr;
+
+		// ---- Load character ----
+		if (m_pendingCharacter && m_pendingCharacter->GetLevel() > 0)
+		{
+			m_character = std::move(*m_pendingCharacter);
+			*m_pendingCharacter = Character{};
+			m_hasCharacter = true;
+		}
+		else
+		{
+			// Create a default character if none exists
+			m_character = Character{};
+			m_hasCharacter = true;
+		}
 
 		// ---- Shader ----
 		m_overworldShader = m_resources.GetOrCreateShader("overworld",
@@ -94,7 +259,6 @@ void OverworldState::OnEnter() noexcept
 		{
 			throw std::runtime_error("Failed to create overworld materials");
 		}
-		Logger::Info("Overworld: materials created");
 
 		// ---- Overworld setup ----
 		std::string buf = FileReadString("data/locations.json");
@@ -104,22 +268,21 @@ void OverworldState::OnEnter() noexcept
 			if (!parsed.is_discarded())
 			{
 				m_overworld.LoadLocations(parsed);
-				Logger::Info("Overworld: locations loaded from file");
 			}
 		}
 
 		m_overworld.GenerateDefaultMap();
-		Logger::Info("Overworld: map generated");
 
 		m_overworldRenderer.SetFloorMaterial(m_floorMaterial);
 		m_overworldRenderer.SetWallMaterial(m_wallMaterial);
 		m_overworldRenderer.SetLocationMaterial(m_locationMaterial);
-		m_overworldRenderer.SetNeedsRebuild(true);
 
 		// ---- Start position: SW corner ----
 		m_camera.SetGridPosition({58, 5, 0}, Direction::North);
 		m_camera.SnapToGrid();
 		m_overworld.MarkVisited({58, 5, 0});
+		m_character.GetPosition() = {58, 5, 0};
+		m_character.SetFacing(Direction::North);
 
 		// ---- Config ----
 		m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
@@ -129,6 +292,9 @@ void OverworldState::OnEnter() noexcept
 			static_cast<float>(m_window.Width()) / static_cast<float>(m_window.Height()),
 			0.1f, 200.0f);
 
+		// ---- Load encounters ----
+		loadEncounters();
+
 		// ---- Input actions ----
 		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
 		m_input.BindAction("GridMoveBackward", SDL_SCANCODE_S);
@@ -137,6 +303,7 @@ void OverworldState::OnEnter() noexcept
 		m_input.BindAction("StrafeLeft",       SDL_SCANCODE_Q);
 		m_input.BindAction("StrafeRight",      SDL_SCANCODE_E);
 		m_input.BindAction("Action_Interact",  SDL_SCANCODE_SPACE);
+		m_input.BindAction("Action_FastTravel", SDL_SCANCODE_T);
 
 		m_initialized = true;
 		Logger::Info("OverworldState initialized");
@@ -160,12 +327,15 @@ void OverworldState::OnExit() noexcept
 	m_input.ClearActions();
 	m_input.SetMouseCaptured(false);
 
-	// Clean up palette texture (created manually, not in ResourceManager)
-	if (m_terrainPalette)
+	// Save character back
+	if (m_pendingCharacter && m_hasCharacter)
 	{
-		delete m_terrainPalette;
-		m_terrainPalette = nullptr;
+		*m_pendingCharacter = std::move(m_character);
+		m_hasCharacter = false;
 	}
+
+	delete m_terrainPalette;
+	m_terrainPalette = nullptr;
 	m_resources.CleanupUnused();
 }
 
@@ -185,28 +355,25 @@ void OverworldState::HandleEvent(const SDL_Event& event) noexcept
 {
 	if (!m_initialized) return;
 
-	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_M)
+	if (event.type == SDL_EVENT_KEY_DOWN)
 	{
-		m_showMap = !m_showMap;
-	}
-
-	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F1)
-	{
-		m_showDebug = !m_showDebug;
-	}
-
-	if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE)
-	{
-		m_machine.ReplaceState("MainMenu");
+		switch (event.key.key)
+		{
+			case SDLK_M:  m_showMap = !m_showMap; break;
+			case SDLK_F1: m_showDebug = !m_showDebug; break;
+			case SDLK_T:  m_showFastTravel = !m_showFastTravel; break;
+			case SDLK_ESCAPE: m_machine.ReplaceState("MainMenu"); break;
+			default: break;
+		}
 	}
 
 	if (event.type == SDL_EVENT_WINDOW_RESIZED)
 	{
-		const int32_t w = event.window.data1;
-		const int32_t h = event.window.data2;
-		if (h > 0)
+		if (event.window.data2 > 0)
 		{
-			m_camera.SetAspectRatio(static_cast<float>(w) / static_cast<float>(h));
+			m_camera.SetAspectRatio(
+				static_cast<float>(event.window.data1) /
+				static_cast<float>(event.window.data2));
 		}
 	}
 }
@@ -251,9 +418,8 @@ bool OverworldState::isWalkableAction(std::string_view name) const noexcept
 	glm::ivec2 delta = getDelta();
 	GridPosition target(
 		m_camera.GetGridPosition().row + delta.x,
-		m_camera.GetGridPosition().col + delta.y,
-		0
-	);
+		m_camera.GetGridPosition().col + delta.y, 0);
+
 	return m_overworld.IsWalkable(target);
 }
 
@@ -261,6 +427,8 @@ bool OverworldState::isWalkableAction(std::string_view name) const noexcept
 
 void OverworldState::doGridAction(std::string_view name) noexcept
 {
+	bool wasMovement = (name != "TurnLeft" && name != "TurnRight");
+
 	if (name == "GridMoveForward")  m_camera.MoveForward();
 	else if (name == "GridMoveBackward") m_camera.MoveBackward();
 	else if (name == "TurnLeft")    m_camera.TurnLeft();
@@ -271,6 +439,15 @@ void OverworldState::doGridAction(std::string_view name) noexcept
 	// Mark new position as visited
 	GridPosition newPos = m_camera.GetGridPosition();
 	m_overworld.MarkVisited(newPos);
+	m_character.GetPosition() = newPos;
+	m_character.SetFacing(m_camera.Facing());
+
+	// Movement costs a turn: hunger, encounters, etc.
+	if (wasMovement)
+	{
+		processOverworldTurn();
+		triggerRandomEncounter();
+	}
 }
 
 //=============================================================================
@@ -361,7 +538,6 @@ void OverworldState::processInteraction() noexcept
 	const OverworldLocation* loc = m_overworld.FindLocationAt(pos);
 	if (!loc)
 	{
-		// Also check the cell in front
 		glm::ivec2 fwd = DirectionToVec(m_camera.Facing());
 		GridPosition front = {pos.row + fwd.x, pos.col + fwd.y, 0};
 		loc = m_overworld.FindLocationAt(front);
@@ -370,7 +546,14 @@ void OverworldState::processInteraction() noexcept
 	if (loc)
 	{
 		Logger::Info(std::string("Interacting with location: ") + loc->name);
-		// Future: transition to specialized state
+
+		// Save character for transition
+		if (m_pendingCharacter)
+		{
+			*m_pendingCharacter = std::move(m_character);
+		}
+
+		// For now, just log. Future: transition to location state.
 	}
 }
 
@@ -382,12 +565,12 @@ void OverworldState::RenderScene(Renderer& renderer) noexcept
 
 	m_renderer = &renderer;
 
-	m_overworldRenderer.Build(m_overworld);
+	// Pass camera position and view radius for fog-of-war + culling
+	GridPosition camPos = m_camera.GetGridPosition();
+	m_overworldRenderer.Build(m_overworld, camPos, m_viewRadius);
 
 	renderer.BeginFrame(m_camera.ViewMatrix(), m_camera.ProjectionMatrix());
-
 	m_overworldRenderer.Submit(renderer);
-
 	renderer.EndFrame();
 }
 
@@ -412,7 +595,7 @@ void OverworldState::Render() noexcept
 
 	// ---- Controls panel ----
 	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver, ImVec2(0, 0));
-	ImGui::SetNextWindowSize(ImVec2(260, 130), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(260, 180), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Overworld");
 	ImGui::Text("World: %dx%d", OVERWORLD_SIZE, OVERWORLD_SIZE);
 	ImGui::Separator();
@@ -420,16 +603,23 @@ void OverworldState::Render() noexcept
 	ImGui::Text("A/D \tTurn L/R");
 	ImGui::Text("Q/E \tStrafe L/R");
 	ImGui::Text("Space\tInteract");
+	ImGui::Text("T    \tFast Travel");
 	ImGui::Separator();
 	ImGui::Text("M: Map  F1: Debug  Esc: Menu");
+
+	if (m_hasCharacter)
+	{
+		ImGui::Separator();
+		ImGui::Text("HP: %d/%d  MP: %d/%d",
+			m_character.GetHp(), m_character.GetMaxHp(),
+			m_character.GetMp(), m_character.GetMaxMp());
+		ImGui::Text("Hunger: %d/%d", m_character.GetHunger(), Character::MAX_HUNGER);
+		ImGui::Text("Lv %d %s", m_character.GetLevel(), m_character.GetClass().c_str());
+	}
 
 	// Show current terrain
 	GridPosition gp = m_camera.GetGridPosition();
 	const OverworldCell& cell = m_overworld.GetCell(gp);
-	static const char* TERRAIN_NAMES[] =
-	{
-		"Grassland", "Forest", "Mountain", "Water", "Road", "Desert"
-	};
 	const char* terrainName = (static_cast<int32_t>(cell.terrain) < 6)
 		? TERRAIN_NAMES[static_cast<int32_t>(cell.terrain)]
 		: "Unknown";
@@ -464,7 +654,7 @@ void OverworldState::Render() noexcept
 	ImGui::End();
 
 	// ---- Position info ----
-	ImGui::SetNextWindowPos(ImVec2(0, 140), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowPos(ImVec2(0, 190), ImGuiCond_FirstUseEver, ImVec2(0, 0));
 	ImGui::SetNextWindowSize(ImVec2(260, 50), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Position");
 	ImGui::Text("Grid: [%d, %d]", gp.row, gp.col);
@@ -483,10 +673,16 @@ void OverworldState::Render() noexcept
 		renderFullMap();
 	}
 
+	// ---- Fast travel (T key) ----
+	if (m_showFastTravel)
+	{
+		renderFastTravel();
+	}
+
 	// ---- Debug ----
 	if (m_showDebug)
 	{
-		ImGui::SetNextWindowPos(ImVec2(0, 200), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+		ImGui::SetNextWindowPos(ImVec2(0, 250), ImGuiCond_FirstUseEver, ImVec2(0, 0));
 		ImGui::SetNextWindowSize(ImVec2(260, 120), ImGuiCond_FirstUseEver);
 		ImGui::Begin("Overworld Debug");
 		const glm::vec3 camPos = m_camera.Position();
@@ -497,6 +693,7 @@ void OverworldState::Render() noexcept
 			ImGui::Text("Meshes: %d / %d", m_renderer->DrawnMeshes(), m_renderer->TotalMeshes());
 		}
 		ImGui::Text("Locations: %zu", m_overworld.Locations().size());
+		ImGui::Text("View Radius: %d", m_viewRadius);
 		ImGui::End();
 	}
 }
@@ -707,5 +904,84 @@ void OverworldState::renderFullMap() noexcept
 	}
 
 	ImGui::Dummy(ImVec2(totalSize, totalSize));
+	ImGui::End();
+}
+
+//=============================================================================
+
+void OverworldState::renderFastTravel() noexcept
+{
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 ws = viewport->WorkSize;
+
+	ImGui::SetNextWindowPos(ImVec2(ws.x * 0.5f - 200.0f, ws.y * 0.5f - 150.0f),
+		ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
+
+	if (!ImGui::Begin("Fast Travel", &m_showFastTravel))
+	{
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("Select destination (requires road connection):");
+	ImGui::Separator();
+
+	GridPosition currentPos = m_camera.GetGridPosition();
+	bool anyAvailable = false;
+
+	for (const auto& loc : m_overworld.Locations())
+	{
+		if (loc.type != LocationType::Town)
+		{
+			continue;
+		}
+
+		GridPosition locPos = {loc.position.row, loc.position.col, 0};
+		if (!m_overworld.IsVisited(locPos))
+		{
+			continue;
+		}
+
+		anyAvailable = true;
+		bool onRoad = m_overworld.GetCell(currentPos).terrain == TerrainType::Road;
+
+		if (ImGui::Button(loc.name.c_str(), ImVec2(200, 30)))
+		{
+			if (onRoad)
+			{
+				m_camera.SetGridPosition(locPos, Direction::North);
+				m_camera.SnapToGrid();
+				m_overworld.MarkVisited(locPos);
+				m_character.GetPosition() = locPos;
+				m_showFastTravel = false;
+				Logger::Info("Fast travelled to " + loc.name);
+			}
+		}
+
+		if (onRoad)
+		{
+			ImGui::SameLine();
+			ImGui::Text("(%d, %d) - %s", loc.position.row, loc.position.col,
+				loc.description.c_str());
+		}
+		else
+		{
+			ImGui::SameLine();
+			ImGui::TextDisabled("(need to be on a road)");
+		}
+	}
+
+	if (!anyAvailable)
+	{
+		ImGui::Text("No visited towns available for fast travel.");
+	}
+
+	ImGui::Separator();
+	if (ImGui::Button("Close"))
+	{
+		m_showFastTravel = false;
+	}
+
 	ImGui::End();
 }
