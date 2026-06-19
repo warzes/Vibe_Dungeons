@@ -794,3 +794,41 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - `bin/data/items_base.json` — добавлены 20 предметов: antidote_potion, fire/ice/poison_bomb, catalyst, poison_vial, oil_fire/oil_ice, elixir_strength/dex/con, cooked_meat/fish, mushroom/vegetable_soup, honey_mead, special_dish, pickaxe, fishing_rod, silver/gold_ore, gem, fish, poison_herb, oil, salt.
 - `bin/data/resources.json` — добавлены 6 ресурсов: silver_ore, gold_ore, gem, poison_herb, oil, catalyst, salt, fish.
 - `bin/data/recipes.json` — добавлены 18 рецептов: antidote_potion, poison_vial, oil_fire/oil_ice, craft_essence_fire/ice/poison, elixir_strength/dex/con, mushroom/vegetable_soup, honey_mead, special_dish, cooked_fish.
+
+---
+
+## ✅ Фаза 8: Система голода и еда (шаги 211–219)
+
+> Цель: система голода, еда как необходимость, баффы от приготовленной еды.
+
+### ✅ Hunger System (шаги 211–219)
+
+211. ✅ `Character::hunger` — шкала 0–100 (`m_hunger`), геттеры/сеттеры `GetHunger()`, `SetHunger()`, `AddHunger()`, `ConsumeHunger()`. Уменьшается на 1 каждый ход в `processTurnWaiting()`. Константы `MAX_HUNGER=100`, `HUNGER_WARNING=30`, `HUNGER_STARVING=15`.
+
+212. ✅ Сообщения при порогах: "You feel hungry" при hunger < 30, "You are starving! (-1 ATK, -1 AC)" при hunger < 15. Однократный показ через флаги `m_hungerWarningShown`/`m_hungerStarvingShown`.
+
+213. ✅ Штраф при hunger < 15: `GetHungerAtkPenalty()` и `GetHungerAcPenalty()` возвращают -1. Включены в `GetEquippedAtkBonus()` и `GetEquippedAc()`. Отображается в HUD.
+
+214. ✅ При hunger = 0: "You collapse from hunger! (-1 HP)" каждый ход. При HP ≤ 0 — GameOver.
+
+215. ✅ Еда восстанавливает hunger через кнопку "Use" в инвентаре. Значение `hungerRestore` читается из `items_base.json`. bread +30, mushroom_soup +30, cooked_meat +40, special_dish +60 и т.д.
+
+216. ✅ Голод не убивает мгновенно — даёт время найти/приготовить еду (только -1 HP/ход при hunger=0).
+
+217. ✅ На старте: `m_hunger = 80` (сыт). Сброс в `RestartGame()`.
+
+218. ✅ Raw meat (subtype `raw_meat`): при употреблении 30% шанс отравления (poison status 3 хода) через `StatusSystem::ApplyEffect()`.
+
+219. ✅ Приготовленная еда даёт баффы без риска отравления:
+    - `cooked_meat` → "Well Fed": +1 ATK, 20 ходов
+    - `soup` → "Warm Soup": +1 MP regen, 30 ходов
+    - `meal` → "Full Meal": +2 ATK, +2 AC, 30 ходов
+    - `drink` → "Tipsy": +1 ATK, -1 AC, 15 ходов (алкоголь)
+
+### Ключевые изменения
+
+- `src/game/combat/character.h` — добавлены: `GetHungerAtkPenalty()`, `GetHungerAcPenalty()`, `FoodBuff` struct, `m_activeBuffs`, `ApplyFoodBuff()`, `TickBuffs()`, `GetBuffsAtkBonus()`, `GetBuffsAcBonus()`. Изменены `GetEquippedAtkBonus()`, `GetEquippedAc()`, `GetMpRegenPerTurn()` для включения штрафов/баффов.
+- `src/game/states/play_state.h` — добавлены `m_hungerWarningShown`, `m_hungerStarvingShown`.
+- `src/game/states/play_state.cpp` — `processTurnWaiting()`: hunger warning сообщения, штраф -1 ATK/AC, -1 HP при hunger=0, тик баффов. `renderInventoryWindow()`: поддержка `ItemType::Food` (Use — восстановление hunger, poison для raw meat, баффы для cooked food). `renderHungerIndicator()`: отображение штрафа. `renderStatusEffectsWindow()`: отображение активных Food Buffs. `RestartGame()`: сброс hunger/баффов.
+- `src/game/serialization.h` — `Character::to_json/from_json`: сериализация `m_hunger` и `m_activeBuffs`. Добавлены `to_json`/`from_json` для `Character::FoodBuff`.
+- `src/game/states/play_state.cpp` — добавлен `#include "game/combat/dice.h"` для броска poison-шанса.

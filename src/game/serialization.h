@@ -269,6 +269,31 @@ inline void from_json(const json& j, Equipment& eq)
 	eq.from_json(j);
 }
 
+// ---- FoodBuff serializers (must be before Character serializers) ----
+inline void to_json(json& j, const Character::FoodBuff& buff)
+{
+	j = json{
+		{"id", buff.id},
+		{"name", buff.name},
+		{"atkBonus", buff.atkBonus},
+		{"acBonus", buff.acBonus},
+		{"hpRegen", buff.hpRegen},
+		{"mpRegen", buff.mpRegen},
+		{"remainingTurns", buff.remainingTurns}
+	};
+}
+
+inline void from_json(const json& j, Character::FoodBuff& buff)
+{
+	j.at("id").get_to(buff.id);
+	j.at("name").get_to(buff.name);
+	j.at("atkBonus").get_to(buff.atkBonus);
+	j.at("acBonus").get_to(buff.acBonus);
+	j.at("hpRegen").get_to(buff.hpRegen);
+	j.at("mpRegen").get_to(buff.mpRegen);
+	j.at("remainingTurns").get_to(buff.remainingTurns);
+}
+
 // ---- Character (with inventory) ----
 inline void to_json(json& j, const Character& c)
 {
@@ -313,7 +338,9 @@ inline void to_json(json& j, const Character& c)
 		{"equipment", c.m_equipment},
 		{"unlockedSkills", c.m_unlockedSkills},
 		{"actionSlots", std::move(slotsJson)},
-		{"learnedSpells", c.m_learnedSpells}
+		{"learnedSpells", c.m_learnedSpells},
+		{"hunger", c.m_hunger},
+		{"activeBuffs", c.m_activeBuffs}
 	};
 }
 
@@ -376,6 +403,20 @@ inline void from_json(const json& j, Character& c)
 		for (size_t i = 0; i < slotsJson.size() && i < static_cast<size_t>(Character::NUM_ACTION_SLOTS); ++i)
 		{
 			slotsJson[i].get_to(c.m_actionSlots[i]);
+		}
+	}
+
+	if (j.contains("hunger"))
+	{
+		j.at("hunger").get_to(c.m_hunger);
+	}
+
+	if (j.contains("activeBuffs"))
+	{
+		c.m_activeBuffs.clear();
+		for (const auto& buffJson : j.at("activeBuffs"))
+		{
+			c.m_activeBuffs.push_back(buffJson.get<Character::FoodBuff>());
 		}
 	}
 }

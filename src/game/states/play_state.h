@@ -194,6 +194,8 @@ private:
 
 	// Hunger system (step 211)
 	int32_t m_hungerTurns = 0;
+	bool m_hungerWarningShown = false;
+	bool m_hungerStarvingShown = false;
 
 	// Status effects UI
 	void renderStatusEffectsWindow() noexcept;

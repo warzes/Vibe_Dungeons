@@ -16,6 +16,7 @@
 #include "game/data/skill_manager.h"
 #include "game/data/item_factory.h"
 #include "game/states/class_selection_state.h"
+#include "game/combat/dice.h"
 
 //=============================================================================
 
@@ -672,22 +673,54 @@ void PlayState::processTurnWaiting() noexcept
 	// Process monster status effects (step 148)
 	m_monsterManager.ProcessMonsterEffects(m_combatHandler.GetStatusSystem(), m_combatLog);
 
-	// Hunger system (step 211)
+	// Hunger system (step 211-217)
 	if (m_character.GetHunger() > 0)
 	{
-		m_character.SetHunger(m_character.GetHunger() - 1);
+		m_character.ConsumeHunger(1);
 	}
-	if (m_character.GetHunger() <= 0)
+
+	int32_t hunger = m_character.GetHunger();
+
+	// Step 212: warning messages at thresholds
+	if (hunger < Character::HUNGER_WARNING && hunger >= Character::HUNGER_STARVING && !m_hungerWarningShown)
 	{
-		int32_t dmg = 2;
-		m_character.TakeDamage(dmg);
-		m_combatLog.Add("You take " + std::to_string(dmg) + " damage from starvation!",
+		m_combatLog.Add("You feel hungry.", glm::vec3(1.0f, 0.8f, 0.2f));
+		m_hungerWarningShown = true;
+		m_hungerStarvingShown = false;
+	}
+	if (hunger < Character::HUNGER_STARVING && hunger > 0 && !m_hungerStarvingShown)
+	{
+		m_combatLog.Add("You are starving! (-1 ATK, -1 AC)", glm::vec3(1.0f, 0.3f, 0.0f));
+		m_hungerStarvingShown = true;
+	}
+
+	// Step 214: starvation damage
+	if (hunger <= 0)
+	{
+		m_character.TakeDamage(1);
+		m_combatLog.Add("You collapse from hunger! (-1 HP)",
 			glm::vec3(1.0f, 0.2f, 0.2f));
 		if (m_character.GetHp() <= 0)
 		{
 			m_combatLog.Add("Hero has fallen from starvation!", glm::vec3(1.0f, 0.0f, 0.0f));
 			m_turnManager.SetGameMode(GameMode::GameOver);
 			return;
+		}
+	}
+
+	// Reset flags when hunger recovers above threshold
+	if (hunger >= Character::HUNGER_WARNING)
+	{
+		m_hungerWarningShown = false;
+		m_hungerStarvingShown = false;
+	}
+
+	// Tick food buffs (step 222-224)
+	{
+		int32_t buffRegen = m_character.TickBuffs();
+		if (buffRegen > 0)
+		{
+			m_character.Heal(buffRegen);
 		}
 	}
 
@@ -823,7 +856,8 @@ void PlayState::renderInventoryWindow() noexcept
 				|| item->type == ItemType::PotionMana
 				|| item->type == ItemType::Scroll
 				|| item->type == ItemType::SpellScroll
-				|| item->type == ItemType::Wand);
+				|| item->type == ItemType::Wand
+				|| item->type == ItemType::Food);
 
 			if (!removed && isUsableConsumable)
 			{
@@ -924,6 +958,85 @@ void PlayState::renderInventoryWindow() noexcept
 							m_combatLog.Add("Wand is out of charges!",
 								glm::vec3(0.8f, 0.4f, 0.2f));
 						}
+					}
+					else if (item->type == ItemType::Food)
+					{
+						// Step 215: Food restores hunger
+						const json& baseData = JsonDataManager::Instance().GetItemBaseData(item->itemId);
+						int32_t hungerRestore = baseData.value("hungerRestore", 0);
+						std::string subtype = baseData.value("subtype", "");
+
+						m_character.AddHunger(hungerRestore);
+						m_combatLog.Add(
+							"Eat " + item->name + " (+" + std::to_string(hungerRestore) + " hunger).",
+							glm::vec3(0.8f, 0.6f, 0.2f));
+
+						// Step 218: Raw meat — 30% chance of poison
+						if (subtype == "raw_meat")
+						{
+							if (Dice::Roll(1, 100) <= 30)
+							{
+								m_spellSystem.GetStatusSystem().ApplyEffect(
+									m_character.GetActiveEffects(),
+									"poison",
+									"Raw Meat",
+									3
+								);
+								m_combatLog.Add("Raw meat gives you food poisoning!",
+									glm::vec3(1.0f, 0.2f, 0.2f));
+							}
+						}
+						// Step 219: Cooked food gives buffs
+						else if (subtype == "cooked_meat")
+						{
+							Character::FoodBuff buff;
+							buff.id = "cooked_meat_buff";
+							buff.name = "Well Fed";
+							buff.atkBonus = 1;
+							buff.remainingTurns = 20;
+							m_character.ApplyFoodBuff(buff);
+							m_combatLog.Add("Well Fed: +1 ATK for 20 turns.",
+								glm::vec3(0.2f, 1.0f, 0.2f));
+						}
+						else if (subtype == "soup")
+						{
+							Character::FoodBuff buff;
+							buff.id = "soup_buff";
+							buff.name = "Warm Soup";
+							buff.mpRegen = 1;
+							buff.remainingTurns = 30;
+							m_character.ApplyFoodBuff(buff);
+							m_combatLog.Add("Warm Soup: +1 MP regen for 30 turns.",
+								glm::vec3(0.2f, 0.6f, 1.0f));
+						}
+						else if (subtype == "meal")
+						{
+							Character::FoodBuff buff;
+							buff.id = "meal_buff";
+							buff.name = "Full Meal";
+							buff.atkBonus = 2;
+							buff.acBonus = 2;
+							buff.remainingTurns = 30;
+							m_character.ApplyFoodBuff(buff);
+							m_combatLog.Add("Full Meal: +2 ATK, +2 AC for 30 turns.",
+								glm::vec3(0.2f, 1.0f, 0.2f));
+						}
+						else if (subtype == "drink")
+						{
+							// Alcohol: temporary +1 ATK, -1 AC (step 225)
+							Character::FoodBuff buff;
+							buff.id = "drink_buff";
+							buff.name = "Tipsy";
+							buff.atkBonus = 1;
+							buff.acBonus = -1;
+							buff.remainingTurns = 15;
+							m_character.ApplyFoodBuff(buff);
+							m_combatLog.Add("Tipsy: +1 ATK, -1 AC for 15 turns.",
+								glm::vec3(1.0f, 0.6f, 0.2f));
+						}
+
+						m_character.GetInventory().Remove(i);
+						removed = true;
 					}
 					else if (item->type == ItemType::Scroll)
 					{
@@ -1137,6 +1250,12 @@ void PlayState::RestartGame() noexcept
 
 	m_craftingSystem.m_craftingLevel = 1;
 	m_craftingSystem.UnlockAllRecipes();
+
+	// Reset hunger state
+	m_character.SetHunger(Character::MAX_HUNGER);
+	m_hungerWarningShown = false;
+	m_hungerStarvingShown = false;
+	m_character.GetActiveBuffs().clear();
 
 	m_combatLog.Add("Game restarted.", glm::vec3(0.3f, 0.8f, 1.0f));
 }
@@ -2166,17 +2285,31 @@ void PlayState::renderHungerIndicator() noexcept
 		color = ImVec4(1.0f, 1.0f, 0.2f, 1.0f);
 		label = "Hungry";
 	}
-	else
+	else if (hunger > 0)
 	{
 		color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f);
 		label = "Starving";
 	}
+	else
+	{
+		color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+		label = "Collapsed";
+	}
 
+	ImGui::Text("Hunger: ");
+	ImGui::SameLine();
 	float frac = static_cast<float>(hunger) / static_cast<float>(maxHunger);
 	ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(color.x, color.y, color.z, 1.0f));
 	ImGui::ProgressBar(frac, ImVec2(-1.0f, 0.0f),
 		(std::to_string(hunger) + " / " + std::to_string(maxHunger) + " " + label).c_str());
 	ImGui::PopStyleColor();
+
+	// Show starvation penalty when active
+	if (hunger < Character::HUNGER_STARVING)
+	{
+		ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.0f, 1.0f),
+			"Starving: -1 ATK, -1 AC");
+	}
 }
 
 //=============================================================================
@@ -2211,6 +2344,27 @@ void PlayState::renderStatusEffectsWindow() noexcept
 				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
 					"(%d turn%s)", effect.remainingTurns, effect.remainingTurns == 1 ? "" : "s");
 			}
+		}
+	}
+
+	// Food buffs (step 224)
+	ImGui::Dummy(ImVec2(0.0f, 4.0f));
+	ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Food Buffs");
+	ImGui::Separator();
+
+	const auto& playerBuffs = m_character.GetActiveBuffs();
+	if (playerBuffs.empty())
+	{
+		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(none)");
+	}
+	else
+	{
+		for (const auto& buff : playerBuffs)
+		{
+			ImGui::Text("%s", buff.name.c_str());
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+				"(%d turn%s)", buff.remainingTurns, buff.remainingTurns == 1 ? "" : "s");
 		}
 	}
 

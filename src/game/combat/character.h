@@ -41,9 +41,15 @@ public:
 	}
 	[[nodiscard]] int32_t GetMpRegenPerTurn() const noexcept
 	{
-		if (m_charClass == "mage")       { return 2; }
-		if (m_charClass == "war_priest") { return 1; }
-		return 0;
+		int32_t base = 0;
+		if (m_charClass == "mage")       { base = 2; }
+		else if (m_charClass == "war_priest") { base = 1; }
+		// Add MP regen from food buffs
+		for (const auto& b : m_activeBuffs)
+		{
+			base += b.mpRegen;
+		}
+		return base;
 	}
 	void SpendMp(int32_t amount) noexcept;
 	void RestoreMp(int32_t amount) noexcept;
@@ -51,7 +57,11 @@ public:
 	void SetMaxMp(int32_t v) noexcept { m_maxMp = v; }
 
 	[[nodiscard]] int32_t GetAc() const noexcept { return m_ac; }
-	[[nodiscard]] int32_t GetEquippedAc() const noexcept { return m_ac + m_equipment.GetTotalStats().ac; }
+	[[nodiscard]] int32_t GetEquippedAc() const noexcept
+	{
+		return m_ac + m_equipment.GetTotalStats().ac
+			+ GetHungerAcPenalty() + GetBuffsAcBonus();
+	}
 	void SetAc(int32_t v) noexcept { m_ac = v; }
 
 	[[nodiscard]] int32_t GetStr() const noexcept { return m_str; }
@@ -67,7 +77,11 @@ public:
 	void SetIntel(int32_t v) noexcept { m_intel = v; }
 
 	[[nodiscard]] int32_t GetAtkBonus() const noexcept { return m_atkBonus; }
-	[[nodiscard]] int32_t GetEquippedAtkBonus() const noexcept { return m_atkBonus + m_equipment.GetTotalStats().atkBonus; }
+	[[nodiscard]] int32_t GetEquippedAtkBonus() const noexcept
+	{
+		return m_atkBonus + m_equipment.GetTotalStats().atkBonus
+			+ GetHungerAtkPenalty() + GetBuffsAtkBonus();
+	}
 	void SetAtkBonus(int32_t v) noexcept { m_atkBonus = v; }
 
 	[[nodiscard]] int32_t GetDamageBonus() const noexcept { return m_damageBonus; }
@@ -126,6 +140,16 @@ public:
 	static constexpr int32_t HUNGER_WARNING = 30;
 	static constexpr int32_t HUNGER_STARVING = 15;
 
+	// ---- Starvation penalty (step 213) ----
+	[[nodiscard]] int32_t GetHungerAtkPenalty() const noexcept
+	{
+		return (m_hunger < HUNGER_STARVING) ? -1 : 0;
+	}
+	[[nodiscard]] int32_t GetHungerAcPenalty() const noexcept
+	{
+		return (m_hunger < HUNGER_STARVING) ? -1 : 0;
+	}
+
 	// ---- Buffs from food (step 222) ----
 	struct FoodBuff final
 	{
@@ -139,6 +163,65 @@ public:
 	};
 	[[nodiscard]] std::vector<FoodBuff>& GetActiveBuffs() noexcept { return m_activeBuffs; }
 	[[nodiscard]] const std::vector<FoodBuff>& GetActiveBuffs() const noexcept { return m_activeBuffs; }
+
+	// Apply a food buff (replaces existing buff with same id if stronger)
+	void ApplyFoodBuff(const FoodBuff& buff) noexcept
+	{
+		for (auto& b : m_activeBuffs)
+		{
+			if (b.id == buff.id)
+			{
+				if (buff.remainingTurns > b.remainingTurns)
+				{
+					b.remainingTurns = buff.remainingTurns;
+				}
+				return;
+			}
+		}
+		m_activeBuffs.push_back(buff);
+	}
+
+	// Tick all buffs: decrement timers, return total hpRegen from buffs
+	int32_t TickBuffs() noexcept
+	{
+		int32_t totalRegen = 0;
+		for (auto it = m_activeBuffs.begin(); it != m_activeBuffs.end(); )
+		{
+			totalRegen += it->hpRegen;
+			it->remainingTurns--;
+			if (it->remainingTurns <= 0)
+			{
+				it = m_activeBuffs.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+		return totalRegen;
+	}
+
+	// Total ATK bonus from active food buffs
+	[[nodiscard]] int32_t GetBuffsAtkBonus() const noexcept
+	{
+		int32_t total = 0;
+		for (const auto& b : m_activeBuffs)
+		{
+			total += b.atkBonus;
+		}
+		return total;
+	}
+
+	// Total AC bonus from active food buffs
+	[[nodiscard]] int32_t GetBuffsAcBonus() const noexcept
+	{
+		int32_t total = 0;
+		for (const auto& b : m_activeBuffs)
+		{
+			total += b.acBonus;
+		}
+		return total;
+	}
 
 	// ---- Serialization ----
 	friend void to_json(json& j, const Character& c);
