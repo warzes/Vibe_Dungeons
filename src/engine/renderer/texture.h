@@ -21,6 +21,9 @@ public:
 	[[nodiscard]] bool LoadFromFile(std::string_view path, bool useMipmap = true);
 	[[nodiscard]] bool LoadFromMemory(const void* data, size_t size);
 
+	// Create a raw RGBA8 texture from pixel data (no mipmaps, nearest filter)
+	void CreateFromRaw(int32_t w, int32_t h, const uint32_t* pixels);
+
 	void Bind(int32_t unit = 0) const noexcept;
 	static void Unbind() noexcept;
 

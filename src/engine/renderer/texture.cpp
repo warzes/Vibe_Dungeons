@@ -163,6 +163,27 @@ bool Texture::LoadFromMemory(const void* data, size_t size)
 	return true;
 }
 
+void Texture::CreateFromRaw(int32_t w, int32_t h, const uint32_t* pixels)
+{
+	m_width = w;
+	m_height = h;
+
+	if (m_texture != 0)
+	{
+		glDeleteTextures(1, &m_texture);
+	}
+	glGenTextures(1, &m_texture);
+	glBindTexture(GL_TEXTURE_2D, m_texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void Texture::Bind(int32_t unit) const noexcept
 {
 	assert(unit < 32 && "Texture unit exceeds minimum guaranteed limit");

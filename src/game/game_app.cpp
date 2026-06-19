@@ -4,6 +4,7 @@
 #include "game/states/class_selection_state.h"
 #include "game/states/play_state.h"
 #include "game/states/settings_state.h"
+#include "game/states/overworld_state.h"
 #include "engine/window.h"
 #include "engine/gl_context.h"
 #include "engine/input_manager.h"
@@ -47,6 +48,10 @@ GameApp::GameApp()
 	m_stateMachine.RegisterState("Settings", [this]()
 	{
 		return std::make_unique<SettingsState>(m_stateMachine);
+	});
+	m_stateMachine.RegisterState("Overworld", [this]()
+	{
+		return std::make_unique<OverworldState>(m_stateMachine, *m_window, m_input, m_resources);
 	});
 
 	m_stateMachine.PushState("MainMenu");

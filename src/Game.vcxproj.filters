@@ -189,6 +189,12 @@
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp">
       <Filter>game\dungeon</Filter>
     </ClCompile>
+    <ClCompile Include="game\overworld\overworld.cpp">
+      <Filter>game\overworld</Filter>
+    </ClCompile>
+    <ClCompile Include="game\overworld\overworld_renderer.cpp">
+      <Filter>game\overworld</Filter>
+    </ClCompile>
     <ClCompile Include="game\states\class_selection_state.cpp">
       <Filter>game\states</Filter>
     </ClCompile>
@@ -199,6 +205,9 @@
       <Filter>game\states</Filter>
     </ClCompile>
     <ClCompile Include="game\states\settings_state.cpp">
+      <Filter>game\states</Filter>
+    </ClCompile>
+    <ClCompile Include="game\states\overworld_state.cpp">
       <Filter>game\states</Filter>
     </ClCompile>
     <ClCompile Include="game\ui\combat_log.cpp">
@@ -462,6 +471,18 @@
     <ClInclude Include="game\dungeon\tile.h">
       <Filter>game\dungeon</Filter>
     </ClInclude>
+    <ClInclude Include="game\overworld\overworld.h">
+      <Filter>game\overworld</Filter>
+    </ClInclude>
+    <ClInclude Include="game\overworld\overworld_cell.h">
+      <Filter>game\overworld</Filter>
+    </ClInclude>
+    <ClInclude Include="game\overworld\overworld_location.h">
+      <Filter>game\overworld</Filter>
+    </ClInclude>
+    <ClInclude Include="game\overworld\overworld_renderer.h">
+      <Filter>game\overworld</Filter>
+    </ClInclude>
     <ClInclude Include="game\states\class_selection_state.h">
       <Filter>game\states</Filter>
     </ClInclude>
@@ -472,6 +493,9 @@
       <Filter>game\states</Filter>
     </ClInclude>
     <ClInclude Include="game\states\settings_state.h">
+      <Filter>game\states</Filter>
+    </ClInclude>
+    <ClInclude Include="game\states\overworld_state.h">
       <Filter>game\states</Filter>
     </ClInclude>
     <ClInclude Include="game\ui\combat_log.h">
@@ -550,6 +574,9 @@
     </Filter>
     <Filter Include="game\dungeon">
       <UniqueIdentifier>{1b39ad45-5282-49a3-b31a-b47d0d37eba6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\overworld">
+      <UniqueIdentifier>{8c7f3e2d-1b4a-4c3d-9e0f-6a5b4c3d2e1f}</UniqueIdentifier>
     </Filter>
     <Filter Include="game\ui">
       <UniqueIdentifier>{e62a38a6-c234-4052-8530-7e5f66597ac5}</UniqueIdentifier>

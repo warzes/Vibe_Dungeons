@@ -217,6 +217,8 @@
     <ClCompile Include="game\data\spell_manager.cpp" />
     <ClCompile Include="game\dungeon\dungeon.cpp" />
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp" />
+    <ClCompile Include="game\overworld\overworld.cpp" />
+    <ClCompile Include="game\overworld\overworld_renderer.cpp" />
     <ClCompile Include="game\game_app.cpp" />
     <ClCompile Include="game\save_manager.cpp" />
     <ClCompile Include="game\serialization.cpp" />
@@ -224,6 +226,7 @@
     <ClCompile Include="game\states\main_menu_state.cpp" />
     <ClCompile Include="game\states\play_state.cpp" />
     <ClCompile Include="game\states\settings_state.cpp" />
+    <ClCompile Include="game\states\overworld_state.cpp" />
     <ClCompile Include="game\turn_manager.cpp" />
     <ClCompile Include="game\ui\combat_log.cpp" />
     <ClCompile Include="main.cpp" />
@@ -312,6 +315,10 @@
     <ClInclude Include="game\dungeon\dungeon.h" />
     <ClInclude Include="game\dungeon\dungeon_renderer.h" />
     <ClInclude Include="game\dungeon\tile.h" />
+    <ClInclude Include="game\overworld\overworld.h" />
+    <ClInclude Include="game\overworld\overworld_cell.h" />
+    <ClInclude Include="game\overworld\overworld_location.h" />
+    <ClInclude Include="game\overworld\overworld_renderer.h" />
     <ClInclude Include="game\game_app.h" />
     <ClInclude Include="game\game_mode.h" />
     <ClInclude Include="game\grid_position.h" />
@@ -321,6 +328,7 @@
     <ClInclude Include="game\states\main_menu_state.h" />
     <ClInclude Include="game\states\play_state.h" />
     <ClInclude Include="game\states\settings_state.h" />
+    <ClInclude Include="game\states\overworld_state.h" />
     <ClInclude Include="game\turn_manager.h" />
     <ClInclude Include="game\ui\combat_log.h" />
     <ClInclude Include="stdafx.h" />

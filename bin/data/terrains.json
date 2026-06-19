@@ -1,0 +1,58 @@
+{
+	"terrains": [
+		{
+			"id": "Grassland",
+			"symbol": "G",
+			"walkable": true,
+			"blocksLos": false,
+			"encounterChance": 0.1,
+			"moveCost": 1.0,
+			"color": [0.2, 0.6, 0.15]
+		},
+		{
+			"id": "Forest",
+			"symbol": "F",
+			"walkable": true,
+			"blocksLos": true,
+			"encounterChance": 0.2,
+			"moveCost": 1.0,
+			"color": [0.1, 0.4, 0.08]
+		},
+		{
+			"id": "Mountain",
+			"symbol": "M",
+			"walkable": false,
+			"blocksLos": true,
+			"encounterChance": 0.0,
+			"moveCost": 0.0,
+			"color": [0.4, 0.35, 0.3]
+		},
+		{
+			"id": "Water",
+			"symbol": "W",
+			"walkable": false,
+			"blocksLos": false,
+			"encounterChance": 0.0,
+			"moveCost": 0.0,
+			"color": [0.1, 0.3, 0.6]
+		},
+		{
+			"id": "Road",
+			"symbol": "R",
+			"walkable": true,
+			"blocksLos": false,
+			"encounterChance": 0.02,
+			"moveCost": 0.5,
+			"color": [0.55, 0.5, 0.4]
+		},
+		{
+			"id": "Desert",
+			"symbol": "D",
+			"walkable": true,
+			"blocksLos": false,
+			"encounterChance": 0.08,
+			"moveCost": 1.0,
+			"color": [0.76, 0.7, 0.5]
+		}
+	]
+}

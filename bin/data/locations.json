@@ -1,0 +1,36 @@
+{
+	"locations": [
+		{
+			"id": "greyhaven",
+			"name": "Greyhaven",
+			"type": "Town",
+			"row": 56,
+			"col": 10,
+			"description": "A modest walled town with traders and a tavern."
+		},
+		{
+			"id": "old_ruins",
+			"name": "Old Ruins",
+			"type": "DungeonEntrance",
+			"row": 14,
+			"col": 50,
+			"description": "Crumbled stone steps lead into darkness below."
+		},
+		{
+			"id": "wandering_camp",
+			"name": "Wandering Camp",
+			"type": "Camp",
+			"row": 44,
+			"col": 20,
+			"description": "A campfire flickers between weathered tents."
+		},
+		{
+			"id": "stone_shrine",
+			"name": "Stone Shrine",
+			"type": "Shrine",
+			"row": 38,
+			"col": 14,
+			"description": "An ancient altar half-swallowed by moss."
+		}
+	]
+}

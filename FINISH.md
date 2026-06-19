@@ -856,3 +856,31 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - `src/game/data/item_factory.cpp` — `CreateBase()` устанавливает `expirationTurns` для каждого food-субтайпа.
 - `src/game/serialization.h` — сериализация `expirationTurns` в Item.
 - `src/game/states/play_state.cpp` — `processTurnWaiting()`: тик порчи еды (декремент `expirationTurns`, маркировка spoiled), детект окончания алкогольного баффа → Hangover. `renderInventoryWindow()`: отображение оставшихся ходов для свежей еды, "(SPOILED)" для испорченной, обработка испорченной еды (+5 hunger, 50% poison). `Render()`: отображение активных баффов под HP/MP барами (зелёный/красный цвет). `renderCookingOperations()`: секция "Preservation" с Combo выбора еды + кнопка "Preserve with Salt".
+
+---
+
+## Фаза 9: Overworld (шаги 231–242) ✅
+
+### Overworld Map
+
+231. ✅ `Overworld` — 2D сетка 64×64 (`src/game/overworld/overworld.h/.cpp`), каждая клетка — `OverworldCell` с `TerrainType`, `IsWalkable()`, `BlocksLineOfSight()`, `MoveCost()`, `EncounterChance()`.
+232. ✅ `data/terrains.json` — 6 типов: Grassland, Forest, Mountain, Water, Road, Desert (с encounter chance, walkable, move cost).
+233. ✅ Overworld рендерится от первого лица (первый проход): камера на уровне игрока, клетки пола текстурируются по типу через палитру 8×1, горы = стены высотой 2.0.
+234. ✅ Та же first-person камера (`Camera`), что в DungeonState. WASD — движение по клеткам. Q/E — поворот на 90°.
+235. ✅ `Overworld::GenerateDefaultMap()` — процедурная генерация: водная граница, SW стартовая зона, NE горы, дорожная сеть, леса, пустыня.
+236. ✅ `Overworld::IsWalkable()` — горы и вода непроходимы. `HasLineOfSight()` — Bresenham, горы и лес блокируют LOS.
+237. ✅ Дороги: `MoveCost()` = 0.5 (в 2× быстрее), EncounterChance() = 0.02.
+238. ✅ `OverworldLocation` (src/game/overworld/overworld_location.h) — id, name, type (Town/DungeonEntrance/Shrine/Camp), position, description.
+239. ✅ Локации отображаются как биллборды (золотые вертикальные квады) в first-person виде. На оверлейной карте (M) — золотые круги с названиями.
+240. ✅ `data/locations.json` — 4 локации: Greyhaven (Town 56,10), Old Ruins (DungeonEntrance 14,50), Wandering Camp (Camp 44,20), Stone Shrine (Shrine 38,14).
+241. ✅ Переход на локацию: Space/Enter когда игрок стоит на клетке или рядом — в лог пишется название (заглушка, будущий переход).
+242. ✅ `OverworldState` (src/game/states/overworld_state.h/.cpp) — новое GameState: init шейдера/текстур/материалов, grid-move с held-repeat, minimap 9×9, full map (M key), HUD с типом terrain/location, debug info (F1).
+
+### Ключевые изменения (шаги 231–242)
+
+- `src/engine/renderer/texture.h/.cpp` — добавлен `CreateFromRaw(w, h, pixels)` для создания текстуры из сырых RGBA пикселей (используется для палитры).
+- `src/engine/renderer/shader_sources.h` — добавлены `OVERWORLD_VERT_SRC` / `OVERWORLD_FRAG_SRC` (ambient 0.6).
+- `src/game/overworld/` — новые файлы: `overworld_cell.h`, `overworld_location.h`, `overworld.h/.cpp`, `overworld_renderer.h/.cpp`.
+- `src/game/states/overworld_state.h/.cpp` — новое состояние.
+- `src/game/game_app.cpp` — зарегистрировано состояние `"Overworld"`.
+- `src/Game.vcxproj` / `.filters` — добавлены все новые файлы проекта.
