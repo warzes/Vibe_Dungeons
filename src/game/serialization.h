@@ -96,7 +96,8 @@ inline void to_json(json& j, const Item& item)
 		{"sharpnessLevel", item.sharpnessLevel},
 		{"prefixId", item.prefixId},
 		{"postfixId", item.postfixId},
-		{"materialId", item.materialId}
+		{"materialId", item.materialId},
+		{"expirationTurns", item.expirationTurns}
 	};
 }
 
@@ -127,6 +128,7 @@ inline void from_json(const json& j, Item& item)
 	if (j.contains("prefixId")) { j.at("prefixId").get_to(item.prefixId); }
 	if (j.contains("postfixId")) { j.at("postfixId").get_to(item.postfixId); }
 	if (j.contains("materialId")) { j.at("materialId").get_to(item.materialId); }
+	if (j.contains("expirationTurns")) { j.at("expirationTurns").get_to(item.expirationTurns); }
 }
 
 // ---- ItemDrop ----

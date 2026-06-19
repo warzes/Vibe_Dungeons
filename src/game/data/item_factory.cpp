@@ -25,7 +25,18 @@ Item ItemFactory::CreateBase(const std::string& itemId)
 	else if (typeStr == "gold")      { item.type = ItemType::Gold; }
 	else if (typeStr == "scroll")    { item.type = ItemType::Scroll; }
 	else if (typeStr == "bomb")      { item.type = ItemType::Bomb; }
-	else if (typeStr == "food")      { item.type = ItemType::Food; }
+	else if (typeStr == "food")
+	{
+		item.type = ItemType::Food;
+		std::string sub = data.value("subtype", "");
+		if (sub == "raw_meat")          { item.expirationTurns = 20; }
+		else if (sub == "fruit")        { item.expirationTurns = 25; }
+		else if (sub == "drink")        { item.expirationTurns = 30; }
+		else if (sub == "bread")        { item.expirationTurns = 40; }
+		else if (sub == "cooked_meat")  { item.expirationTurns = 50; }
+		else if (sub == "soup")         { item.expirationTurns = 50; }
+		else if (sub == "meal")         { item.expirationTurns = 50; }
+	}
 	else if (typeStr == "material")  { item.type = ItemType::Material; }
 	else                             { item.type = ItemType::QuestItem; }
 

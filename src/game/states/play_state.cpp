@@ -715,12 +715,59 @@ void PlayState::processTurnWaiting() noexcept
 		m_hungerStarvingShown = false;
 	}
 
+	// Food spoilage ticking (step 227-228)
+	{
+		auto& inv = m_character.GetInventory();
+		for (size_t i = 0; i < inv.Size(); ++i)
+		{
+			Item* item = inv.Get(i);
+			if (item && item->type == ItemType::Food && item->expirationTurns > 0)
+			{
+				item->expirationTurns--;
+				if (item->expirationTurns == 0)
+				{
+					item->name = "Spoiled " + item->name;
+					m_combatLog.Add(item->name + " has gone bad!",
+						glm::vec3(0.6f, 0.4f, 0.2f));
+				}
+			}
+		}
+	}
+
+	// Alcohol hangover detection (step 225)
+	bool hadDrinkBuff = false;
+	for (const auto& b : m_character.GetActiveBuffs())
+	{
+		if (b.id == "drink_buff") { hadDrinkBuff = true; break; }
+	}
+
 	// Tick food buffs (step 222-224)
 	{
 		int32_t buffRegen = m_character.TickBuffs();
 		if (buffRegen > 0)
 		{
 			m_character.Heal(buffRegen);
+		}
+	}
+
+	// Apply hangover if Tipsy expired this turn
+	if (hadDrinkBuff)
+	{
+		bool hasDrinkBuff = false;
+		for (const auto& b : m_character.GetActiveBuffs())
+		{
+			if (b.id == "drink_buff") { hasDrinkBuff = true; break; }
+		}
+		if (!hasDrinkBuff)
+		{
+			Character::FoodBuff hangover;
+			hangover.id = "hangover_buff";
+			hangover.name = "Hangover";
+			hangover.atkBonus = -1;
+			hangover.remainingTurns = 10;
+			m_character.ApplyFoodBuff(hangover);
+			m_combatLog.Add("The buzz wears off. You have a hangover! (-1 ATK for 10 turns)",
+				glm::vec3(0.6f, 0.4f, 0.2f));
 		}
 	}
 
@@ -834,6 +881,20 @@ void PlayState::renderInventoryWindow() noexcept
 
 			ImGui::PushID(i);
 			ImGui::Text("%s", item->name.c_str());
+
+			// Show spoilage status for food
+			if (item->type == ItemType::Food && item->expirationTurns > 0)
+			{
+				ImGui::SameLine();
+				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.4f, 1.0f),
+					"(%d turns)", item->expirationTurns);
+			}
+			else if (item->type == ItemType::Food && item->expirationTurns == 0)
+			{
+				ImGui::SameLine();
+				ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.0f, 1.0f),
+					"(SPOILED)");
+			}
 
 			bool removed = false;
 
@@ -961,78 +1022,100 @@ void PlayState::renderInventoryWindow() noexcept
 					}
 					else if (item->type == ItemType::Food)
 					{
-						// Step 215: Food restores hunger
-						const json& baseData = JsonDataManager::Instance().GetItemBaseData(item->itemId);
-						int32_t hungerRestore = baseData.value("hungerRestore", 0);
-						std::string subtype = baseData.value("subtype", "");
-
-						m_character.AddHunger(hungerRestore);
-						m_combatLog.Add(
-							"Eat " + item->name + " (+" + std::to_string(hungerRestore) + " hunger).",
-							glm::vec3(0.8f, 0.6f, 0.2f));
-
-						// Step 218: Raw meat — 30% chance of poison
-						if (subtype == "raw_meat")
+						// Step 230: Spoiled food — minimal restore, poison risk
+						if (item->expirationTurns == 0)
 						{
-							if (Dice::Roll(1, 100) <= 30)
+							m_character.AddHunger(5);
+							m_combatLog.Add(
+								"Eat " + item->name + " (only +5 hunger).",
+								glm::vec3(0.6f, 0.4f, 0.2f));
+							if (Dice::Roll(1, 100) <= 50)
 							{
 								m_spellSystem.GetStatusSystem().ApplyEffect(
 									m_character.GetActiveEffects(),
 									"poison",
-									"Raw Meat",
+									"Spoiled Food",
 									3
 								);
-								m_combatLog.Add("Raw meat gives you food poisoning!",
+								m_combatLog.Add("Spoiled food gives you food poisoning!",
 									glm::vec3(1.0f, 0.2f, 0.2f));
 							}
 						}
-						// Step 219: Cooked food gives buffs
-						else if (subtype == "cooked_meat")
+						else
 						{
-							Character::FoodBuff buff;
-							buff.id = "cooked_meat_buff";
-							buff.name = "Well Fed";
-							buff.atkBonus = 1;
-							buff.remainingTurns = 20;
-							m_character.ApplyFoodBuff(buff);
-							m_combatLog.Add("Well Fed: +1 ATK for 20 turns.",
-								glm::vec3(0.2f, 1.0f, 0.2f));
-						}
-						else if (subtype == "soup")
-						{
-							Character::FoodBuff buff;
-							buff.id = "soup_buff";
-							buff.name = "Warm Soup";
-							buff.mpRegen = 1;
-							buff.remainingTurns = 30;
-							m_character.ApplyFoodBuff(buff);
-							m_combatLog.Add("Warm Soup: +1 MP regen for 30 turns.",
-								glm::vec3(0.2f, 0.6f, 1.0f));
-						}
-						else if (subtype == "meal")
-						{
-							Character::FoodBuff buff;
-							buff.id = "meal_buff";
-							buff.name = "Full Meal";
-							buff.atkBonus = 2;
-							buff.acBonus = 2;
-							buff.remainingTurns = 30;
-							m_character.ApplyFoodBuff(buff);
-							m_combatLog.Add("Full Meal: +2 ATK, +2 AC for 30 turns.",
-								glm::vec3(0.2f, 1.0f, 0.2f));
-						}
-						else if (subtype == "drink")
-						{
-							// Alcohol: temporary +1 ATK, -1 AC (step 225)
-							Character::FoodBuff buff;
-							buff.id = "drink_buff";
-							buff.name = "Tipsy";
-							buff.atkBonus = 1;
-							buff.acBonus = -1;
-							buff.remainingTurns = 15;
-							m_character.ApplyFoodBuff(buff);
-							m_combatLog.Add("Tipsy: +1 ATK, -1 AC for 15 turns.",
-								glm::vec3(1.0f, 0.6f, 0.2f));
+							// Step 215: Food restores hunger
+							const json& baseData = JsonDataManager::Instance().GetItemBaseData(item->itemId);
+							int32_t hungerRestore = baseData.value("hungerRestore", 0);
+							std::string subtype = baseData.value("subtype", "");
+
+							m_character.AddHunger(hungerRestore);
+							m_combatLog.Add(
+								"Eat " + item->name + " (+" + std::to_string(hungerRestore) + " hunger).",
+								glm::vec3(0.8f, 0.6f, 0.2f));
+
+							// Step 218: Raw meat — 30% chance of poison
+							if (subtype == "raw_meat")
+							{
+								if (Dice::Roll(1, 100) <= 30)
+								{
+									m_spellSystem.GetStatusSystem().ApplyEffect(
+										m_character.GetActiveEffects(),
+										"poison",
+										"Raw Meat",
+										3
+									);
+									m_combatLog.Add("Raw meat gives you food poisoning!",
+										glm::vec3(1.0f, 0.2f, 0.2f));
+								}
+							}
+							// Step 219: Cooked food gives buffs
+							else if (subtype == "cooked_meat")
+							{
+								Character::FoodBuff buff;
+								buff.id = "cooked_meat_buff";
+								buff.name = "Well Fed";
+								buff.atkBonus = 1;
+								buff.remainingTurns = 20;
+								m_character.ApplyFoodBuff(buff);
+								m_combatLog.Add("Well Fed: +1 ATK for 20 turns.",
+									glm::vec3(0.2f, 1.0f, 0.2f));
+							}
+							else if (subtype == "soup")
+							{
+								Character::FoodBuff buff;
+								buff.id = "soup_buff";
+								buff.name = "Warm Soup";
+								buff.mpRegen = 1;
+								buff.remainingTurns = 30;
+								m_character.ApplyFoodBuff(buff);
+								m_combatLog.Add("Warm Soup: +1 MP regen for 30 turns.",
+									glm::vec3(0.2f, 0.6f, 1.0f));
+							}
+							else if (subtype == "meal")
+							{
+								Character::FoodBuff buff;
+								buff.id = "meal_buff";
+								buff.name = "Full Meal";
+								buff.atkBonus = 2;
+								buff.acBonus = 2;
+								buff.remainingTurns = 30;
+								m_character.ApplyFoodBuff(buff);
+								m_combatLog.Add("Full Meal: +2 ATK, +2 AC for 30 turns.",
+									glm::vec3(0.2f, 1.0f, 0.2f));
+							}
+							else if (subtype == "drink")
+							{
+								// Alcohol: temporary +1 ATK, -1 AC (step 225)
+								Character::FoodBuff buff;
+								buff.id = "drink_buff";
+								buff.name = "Tipsy";
+								buff.atkBonus = 1;
+								buff.acBonus = -1;
+								buff.remainingTurns = 15;
+								m_character.ApplyFoodBuff(buff);
+								m_combatLog.Add("Tipsy: +1 ATK, -1 AC for 15 turns.",
+									glm::vec3(1.0f, 0.6f, 0.2f));
+							}
 						}
 
 						m_character.GetInventory().Remove(i);
@@ -1451,6 +1534,29 @@ void PlayState::Render() noexcept
 	ImGui::Text("Attack Bonus: %+d", m_character.GetEquippedAtkBonus());
 	ImGui::Text("Damage: %dd%d", m_character.GetEquippedDamageMin(), m_character.GetEquippedDamageMax());
 	renderHungerIndicator();
+
+	// Step 226: Food buff icons under HP/MP bars
+	const auto& activeBuffs = m_character.GetActiveBuffs();
+	if (!activeBuffs.empty())
+	{
+		ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.2f, 1.0f), "Buffs:");
+		for (const auto& buff : activeBuffs)
+		{
+			bool isBad = (buff.atkBonus < 0 || buff.acBonus < 0);
+			if (isBad)
+			{
+				ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "  %s", buff.name.c_str());
+			}
+			else
+			{
+				ImGui::Text("  %s", buff.name.c_str());
+			}
+			ImGui::SameLine();
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+				"(%d)", buff.remainingTurns);
+		}
+	}
+
 	ImGui::Separator();
 	const float xpFrac = (m_character.GetXpForNext() > 0)
 		? static_cast<float>(m_character.GetXp()) / static_cast<float>(m_character.GetXpForNext())
@@ -3146,6 +3252,64 @@ void PlayState::renderCookingOperations() noexcept
 	ImGui::Text("Cooking XP: %d | Level: %d",
 		m_craftingSystem.m_cookingXp,
 		m_craftingSystem.GetCookingLevel());
+
+	// Step 229: Preserve food with salt
+	ImGui::Separator();
+	ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), "--- Preservation ---");
+	{
+		// Build list of perishable food items in inventory
+		auto& inv = m_character.GetInventory();
+		struct FoodEntry { size_t index; std::string label; };
+		std::vector<FoodEntry> foodList;
+		for (size_t fi = 0; fi < inv.Size(); ++fi)
+		{
+			const Item* fiItem = inv.Get(fi);
+			if (fiItem && fiItem->type == ItemType::Food && fiItem->expirationTurns > 0)
+			{
+				foodList.push_back({fi, fiItem->name + " (" + std::to_string(fiItem->expirationTurns) + " turns left)"});
+			}
+		}
+
+		static int selectedFoodIdx = 0;
+		if (foodList.empty())
+		{
+			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No perishable food in inventory.");
+		}
+		else
+		{
+			// Build char* array for ImGui Combo
+			std::vector<const char*> labels;
+			for (auto& fe : foodList) { labels.push_back(fe.label.c_str()); }
+			if (selectedFoodIdx >= static_cast<int>(foodList.size())) { selectedFoodIdx = 0; }
+
+			ImGui::Combo("Food", &selectedFoodIdx, labels.data(), static_cast<int>(labels.size()));
+
+			ImGui::SameLine();
+			if (ImGui::Button("Preserve with Salt"))
+			{
+				if (m_craftingSystem.HasIngredients(inv, "salt", 1))
+				{
+					size_t targetIdx = foodList[selectedFoodIdx].index;
+					Item* target = inv.Get(targetIdx);
+					if (target)
+					{
+						m_craftingSystem.removeItems(inv, "salt", 1);
+						target->expirationTurns = 200;
+						target->name = "Salted " + target->name;
+						target->itemId = "salted_" + target->itemId;
+						m_combatLog.Add("Preserved " + target->name + " with salt (200 turns).",
+							glm::vec3(0.6f, 0.8f, 1.0f));
+						m_craftingSystem.AddCookingXp(10);
+					}
+				}
+				else
+				{
+					m_combatLog.Add("Need salt to preserve food!",
+						glm::vec3(1.0f, 0.3f, 0.0f));
+				}
+			}
+		}
+	}
 }
 
 //=============================================================================

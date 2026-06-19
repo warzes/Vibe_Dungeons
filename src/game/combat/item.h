@@ -79,6 +79,9 @@ struct Item final
 	// ---- Sharpness (step 176) ----
 	int32_t sharpnessLevel = 0;  // 0-3, each level +1 damage
 
+	// ---- Food spoilage (step 227) ----
+	int32_t expirationTurns = -1;  // -1 = not perishable, 0 = spoiled, >0 = turns remaining
+
 	// ---- Component tracking (steps 175, 177) ----
 	std::string prefixId;
 	std::string postfixId;

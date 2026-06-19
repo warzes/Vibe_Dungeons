@@ -832,3 +832,27 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - `src/game/states/play_state.cpp` — `processTurnWaiting()`: hunger warning сообщения, штраф -1 ATK/AC, -1 HP при hunger=0, тик баффов. `renderInventoryWindow()`: поддержка `ItemType::Food` (Use — восстановление hunger, poison для raw meat, баффы для cooked food). `renderHungerIndicator()`: отображение штрафа. `renderStatusEffectsWindow()`: отображение активных Food Buffs. `RestartGame()`: сброс hunger/баффов.
 - `src/game/serialization.h` — `Character::to_json/from_json`: сериализация `m_hunger` и `m_activeBuffs`. Добавлены `to_json`/`from_json` для `Character::FoodBuff`.
 - `src/game/states/play_state.cpp` — добавлен `#include "game/combat/dice.h"` для броска poison-шанса.
+
+### ✅ Еда и баффы (шаги 220–226)
+
+220. ✅ `FoodBuff` — структура: id, name, atkBonus, acBonus, hpRegen, mpRegen, remainingTurns. Реализована в `character.h:154-163`.
+221. ✅ Баффы применяются сразу при употреблении еды в `renderInventoryWindow()`.
+222. ✅ `Character::activeBuffs` — `std::vector<FoodBuff>`, только положительные эффекты от еды (и Hangover как исключение).
+223. ✅ Разные блюда дают разные баффы: `cooked_meat` → "Well Fed" (+1 ATK, 20 turns), `soup` → "Warm Soup" (+1 MP regen, 30 turns), `meal` → "Full Meal" (+2 ATK, +2 AC, 30 turns), `drink` → "Tipsy" (+1 ATK, -1 AC, 15 turns).
+224. ✅ Баффы не стакаются — `ApplyFoodBuff()` заменяет бафф с тем же `id` только если новый `remainingTurns` больше существующего.
+225. ✅ Alcohol: при употреблении `drink` → "Tipsy" (+1 ATK, -1 AC, 15 turns). По окончании "Tipsy" автоматически применяется "Hangover" (-1 ATK, 10 turns). Логика в `processTurnWaiting()`.
+226. ✅ UI: список активных баффов под HP/MP барами в окне "Hero" (цветное отображение: зелёный для позитивных, красный для негативных), плюс полный список в `renderStatusEffectsWindow()`.
+
+### ✅ Порча еды (шаги 227–230)
+
+227. ✅ `Item::expirationTurns` — новое поле в `item.h:78`. При создании еды в `ItemFactory::CreateBase()` устанавливается: raw_meat/fish 20, fruit 25, drink 30, bread 40, cooked_meat/soup/meal 50. Каждый ход в `processTurnWaiting()` уменьшается на 1. При 0 → имя становится "Spoiled X", предмет помечен как испорченный.
+228. ✅ Приготовленная еда (cooked_meat, soup, meal) хранится дольше (50 turns) vs сырая (20).
+229. ✅ Консервация: в `renderCookingOperations()` добавлена кнопка "Preserve with Salt". Выбор еды из инвентаря через Combo. Тратит 1 salt, устанавливает `expirationTurns = 200`, префикс "Salted " к имени. +10 Cooking XP.
+230. ✅ Испорченная еда (expirationTurns == 0): при употреблении только +5 hunger, 50% шанс отравления (poison 3 хода). Без баффов.
+
+### Ключевые изменения (шаги 220–230)
+
+- `src/game/combat/item.h` — добавлено `int32_t expirationTurns = -1` для отслеживания порчи еды.
+- `src/game/data/item_factory.cpp` — `CreateBase()` устанавливает `expirationTurns` для каждого food-субтайпа.
+- `src/game/serialization.h` — сериализация `expirationTurns` в Item.
+- `src/game/states/play_state.cpp` — `processTurnWaiting()`: тик порчи еды (декремент `expirationTurns`, маркировка spoiled), детект окончания алкогольного баффа → Hangover. `renderInventoryWindow()`: отображение оставшихся ходов для свежей еды, "(SPOILED)" для испорченной, обработка испорченной еды (+5 hunger, 50% poison). `Render()`: отображение активных баффов под HP/MP барами (зелёный/красный цвет). `renderCookingOperations()`: секция "Preservation" с Combo выбора еды + кнопка "Preserve with Salt".
