@@ -1,11 +1,18 @@
 #pragma once
 
 #include "game/dungeon/chunk.h"
+#include "game/dungeon/dungeon_generator.h"
 
 class Dungeon final
 {
 public:
 	void GenerateTestRoom();
+	void Generate(int32_t seed);
+	void NextFloor() noexcept;
+	void PrevFloor() noexcept;
+
+	[[nodiscard]] int32_t GetCurrentFloor() const noexcept { return m_currentFloor; }
+	[[nodiscard]] DungeonTheme GetTheme() const noexcept { return m_theme; }
 
 	[[nodiscard]] bool IsWalkable(GridPosition pos) const noexcept;
 	[[nodiscard]] bool IsWalkable(int32_t row, int32_t col, int32_t floor) const noexcept
@@ -15,6 +22,14 @@ public:
 
 	[[nodiscard]] const Cell& GetCell(GridPosition pos) const noexcept;
 	[[nodiscard]] Cell& GetCell(GridPosition pos) noexcept;
+
+	// Check if a position has stairs
+	[[nodiscard]] bool HasStairsDown(GridPosition pos) const noexcept;
+	[[nodiscard]] bool HasStairsUp(GridPosition pos) const noexcept;
+
+	// Check if a monster occupies a cell
+	void SetMonsterAt(GridPosition pos, bool occupied) noexcept;
+	[[nodiscard]] bool IsMonsterAt(GridPosition pos) const noexcept;
 
 	// Line-of-sight check: bresenham ray from start to end
 	// Returns false if a wall/locked door blocks the line
@@ -44,5 +59,15 @@ public:
 	}
 
 private:
+	void clearMonsterGrid() noexcept;
+
 	Chunk m_chunk;
+	int32_t m_currentFloor = 1;
+	DungeonTheme m_theme = DungeonTheme::Catacombs;
+	GridPosition m_startPos;
+	GridPosition m_stairsDown;
+	GridPosition m_stairsUp;
+
+	// Monster occupancy grid (separate from Chunk to avoid serialization issues)
+	bool m_monsterGrid[Chunk::SIZE][Chunk::SIZE]{};
 };

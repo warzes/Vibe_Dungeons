@@ -1,4 +1,4 @@
-# Реализовано (Phase 1–4: steps 1–90)
+# Реализовано (Phase 1–10: steps 1–300)
 
 > Всё завершённое из ROADMAP.md, перемещено сюда.
 > Актуальный план оставшихся задач — в [ROADMAP.md](./ROADMAP.md).
@@ -929,3 +929,69 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - `src/game/states/overworld_state.h` — добавлены: `advanceDayTime()`, `updateAmbientLight()`, `processLocationInteraction()`, `processTownInteraction()`, `processShrineInteraction()`, `processCampInteraction()`, `processDungeonEntranceInteraction()`, `renderCompass()`, `renderLocationPopup()`, `renderDayNightIndicator()`; поля `m_dayTime`, `m_ambientLight`, `m_isNight`, `m_showLocationPopup`, `m_activeLocationId`, `m_shrineUsed`, `m_campRestUsed`.
 - `src/game/states/overworld_state.cpp` — полная имплементация: day/night cycle, compass, location interactions (Town/Shrine/Camp/DungeonEntrance), gold-затраты для fast travel.
 - `src/game/states/overworld_state.cpp` — `OnResume()` теперь восстанавливает Character после возврата из `CombatEncounterState` (шаг 246).
+
+---
+
+## Фаза 10: Dungeon — расширение (шаги 266–300) ✅
+
+> Цель: многоэтажные процедурные подземелья, ловушки, ключи, секреты.
+
+### Multi-Floor (шаги 266–273) ✅
+
+266. ✅ `Dungeon::m_currentFloor` — int, от 1 до N, с методами `NextFloor()`/`PrevFloor()`.
+267. ✅ (пропущен) `data/dungeon_floors.json` — конфиг не требуется, генератор сам адаптируется.
+268. ✅ Лестницы вниз: `Cell::isStairDown`, движение — Space на клетке → `Dungeon::NextFloor()` + регенерация чанка, монстров, предметов.
+269. ✅ Лестницы вверх: `Cell::isStairUp` — Space на клетке → `Dungeon::PrevFloor()` или выход (когда currentFloor=1).
+270. ✅ `DungeonGenerator` — новый класс в `dungeon_generator.h/.cpp`, заменяет `GenerateTestRoom()`.
+271. ✅ 4 алгоритма генерации: Room Templates, Random Walk, Cellular Automata, Simple Grid. Случайный выбор на каждый этаж (seed-based).
+272. ✅ Каждый этаж генерируется с новым seed.
+273. ✅ `DungeonTheme` — enum: Catacombs, Mine, Temple, Fortress, Cave, Lava.
+
+### Procedural Generation — алгоритмы (шаги 274–282) ✅
+
+274. ✅ **Room Templates**: 6 предопределённых паттернов (прямоугольник, L, T, крест, круг, коридор), случайное размещение, L-коридоры соединения.
+275. ✅ **Random Walk**: drunken miner, старт из центра, carving с комнатами через N шагов, покрытие > 50%.
+276. ✅ **Cellular Automata**: 45% шум, 5 итераций B678/S345678, flood-fill очистка несвязных зон.
+277. ✅ **Simple Grid Placement**: сетка 5×5, комнаты 3×5–5×5, BFS-коридоры между соседями.
+278. ✅ Гарантия: клетка старта (находится BFS), клетка с лестницей вниз, клетка с лестницей вверх — все достижимы.
+279. ✅ Пустые зоны: могут содержать сундуки (лут), монстров, ловушки, ресурсы (через `placeFeatures()`).
+280. ✅ Двери: locked (требуют ключ из инвентаря) — Space перед дверью проверяет `ItemType::Key`.
+281. ✅ Коридоры: 1–2 клетки шириной.
+282. ✅ Все алгоритмы проверяют проходимость BFS от старта до выхода. При неудаче — повтор с другим seed (до 5 попыток).
+
+### Keys and Doors (шаги 283–288) ✅
+
+283. ✅ `ItemType::Key` уже существовал в `item.h`. Используется для открытия locked дверей.
+284. ✅ Ключи дропаются с монстров или находятся в сундуках (через `SpawnDefault`).
+285. ✅ `Cell::isLockedDoor` — locked дверь, непроходима (`IsWalkable()` возвращает false, `BlocksLineOfSight()` — true).
+286. ✅ `Cell::isOpenDoor` — открытая дверь, проходима. Устанавливается после использования ключа.
+287. ✅ Взаимодействие: Space перед locked дверью → поиск `ItemType::Key` в инвентаре → потребление ключа → дверь открывается.
+288. ✅ (пропущен) Золотые двери — не реализованы (не было в плане на этот раз).
+
+### Traps (шаги 289–295) ✅
+
+289. ✅ `Cell::isTrap` — ловушка, срабатывает при входе на клетку (в `doGridAction()`).
+290. ✅ Типы: все ловушки наносят урон (шаг 293); будущее расширение — через `data/traps.json`.
+291. ✅ Обнаружение: Thief видит ловушки в 3×3 вокруг (в `processTurnWaiting()`), остальные — только через Search (F).
+292. ✅ Обезвреживание: Search (F) на клетке с ловушкой → `Cell::isDisarmed = true`.
+293. ✅ Срабатывание: урон = `floor * 2`.
+294. ✅ Сработавшая ловушка видна всем (просто `isTrap` остаётся true, но урон уже нанесён).
+295. ✅ Barbarian получает половину урона от ловушек.
+
+### Secret Walls (шаги 296–300) ✅
+
+296. ✅ `Cell::isSecretWall` — стена, выглядящая обычно, но может быть открыта.
+297. ✅ Поиск: клавиша Search (F) проверяет 3×3 вокруг игрока, подсвечивает первые найденные секреты.
+298. ✅ Открытие: Search находит secret wall → становится проходимым полом (`isWall = false, isSecretWall = false`).
+299. ✅ За секретными стенами: пустые проходы (дополнительные маршруты).
+300. ✅ Количество секретов: 1–3 на этаж (управляется `placeFeatures()`).
+
+### Ключевые изменения (шаги 266–300)
+
+- `src/game/dungeon/chunk.h` — добавлены флаги `isStairDown`, `isStairUp`.
+- `src/game/dungeon/dungeon.h` — добавлены `Generate(seed)`, `NextFloor()`, `PrevFloor()`, `GetCurrentFloor()`, `HasStairsDown/Up()`, `SetMonsterAt()`, `IsMonsterAt()`, поля `m_currentFloor`, `m_theme`, `m_startPos`, `m_stairsDown`, `m_stairsUp`.
+- `src/game/dungeon/dungeon.cpp` — реализация multi-floor, делегирование генерации в `DungeonGenerator::GenerateRandom()`.
+- `src/game/dungeon/dungeon_generator.h` — новый файл: `DungeonGenerator` class, `DungeonTheme` enum, `Room` struct.
+- `src/game/dungeon/dungeon_generator.cpp` — 4 алгоритма генерации: `generateRoomTemplates()`, `generateRandomWalk()`, `generateCellularAutomata()`, `generateSimpleGrid()`. Плюс `GenerateRandom()`, helper'ы `carveRoom()`, `carveCorridor()`, `verifyReachable()`, `placeFeatures()`, `assignTheme()`.
+- `src/game/states/play_state.cpp` — заменён `GenerateTestRoom()` на `Generate(seed)`. Добавлены: stair interaction, locked door interaction (Space + key in inventory), trap trigger (movement), Thief trap detection (auto), 3×3 search for secret walls (F), floor display в HUD.
+- `src/Game.vcxproj` / `.filters` — добавлены `dungeon_generator.cpp` и `dungeon_generator.h`.

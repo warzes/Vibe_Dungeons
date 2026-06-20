@@ -216,6 +216,7 @@
     <ClCompile Include="game\data\skill_manager.cpp" />
     <ClCompile Include="game\data\spell_manager.cpp" />
     <ClCompile Include="game\dungeon\dungeon.cpp" />
+    <ClCompile Include="game\dungeon\dungeon_generator.cpp" />
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp" />
     <ClCompile Include="game\overworld\overworld.cpp" />
     <ClCompile Include="game\overworld\overworld_renderer.cpp" />
@@ -314,6 +315,7 @@
     <ClInclude Include="game\direction.h" />
     <ClInclude Include="game\dungeon\chunk.h" />
     <ClInclude Include="game\dungeon\dungeon.h" />
+    <ClInclude Include="game\dungeon\dungeon_generator.h" />
     <ClInclude Include="game\dungeon\dungeon_renderer.h" />
     <ClInclude Include="game\dungeon\tile.h" />
     <ClInclude Include="game\overworld\overworld.h" />

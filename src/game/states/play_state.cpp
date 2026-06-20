@@ -17,6 +17,7 @@
 #include "game/data/item_factory.h"
 #include "game/states/class_selection_state.h"
 #include "game/combat/dice.h"
+#include <random>
 
 //=============================================================================
 
@@ -82,7 +83,7 @@ void PlayState::OnEnter() noexcept
 		Logger::Info("PlayState: materials created");
 
 		// ---- Dungeon setup ----
-		m_dungeon.GenerateTestRoom();
+		m_dungeon.Generate(12345);
 		m_dungeonRenderer.SetFloorMaterial(m_matFloor);
 		m_dungeonRenderer.SetWallMaterial(m_matWall);
 		m_dungeonRenderer.SetCeilingMaterial(m_matCeiling);
@@ -94,7 +95,28 @@ void PlayState::OnEnter() noexcept
 		m_renderHeight = GetRenderHeightFromConfig();
 
 		// ---- Grid camera ----
-		m_camera.SetGridPosition({17, 17, 0}, Direction::North);
+		{
+			GridPosition start = m_dungeon.GetChunk().At(17, 17).IsWalkable()
+				? GridPosition{17, 17, 0}
+				: GridPosition{2, 2, 0};
+			// Try to find a walkable start position
+			for (int32_t r = 2; r < Chunk::SIZE - 2; ++r)
+			{
+				bool found = false;
+				for (int32_t c = 2; c < Chunk::SIZE - 2; ++c)
+				{
+					if (m_dungeon.IsWalkable(r, c, 0) && !m_dungeon.HasStairsDown({r, c, 0}))
+					{
+						start = {r, c, 0};
+						found = true;
+						break;
+					}
+				}
+				if (found) break;
+			}
+			m_camera.SetGridPosition(start, Direction::North);
+			m_character.GetPosition() = start;
+		}
 		m_camera.SnapToGrid();
 
 		// ---- Character (from class selection or default) ----
@@ -107,7 +129,7 @@ void PlayState::OnEnter() noexcept
 		{
 			m_character = Character{};
 		}
-		m_character.GetPosition() = {17, 17, 0};
+		m_character.GetPosition() = m_camera.GetGridPosition();
 		m_character.SetFacing(Direction::North);
 		Logger::Info("PlayState: character created");
 
@@ -529,6 +551,33 @@ void PlayState::doGridAction(std::string_view name) noexcept
 	// Sync character state with camera after every grid action
 	m_character.GetPosition() = m_camera.GetGridPosition();
 	m_character.SetFacing(m_camera.Facing());
+
+	// Check for traps when moving onto a new cell (step 289, 293)
+	if (isMovementAction(name))
+	{
+		GridPosition pos = m_camera.GetGridPosition();
+		Cell& cell = m_dungeon.GetCell(pos);
+
+		if (cell.isTrap && !cell.isDisarmed)
+		{
+			int32_t damage = m_dungeon.GetCurrentFloor() * 2; // step 293
+			// Step 295: Barbarian gets half damage
+			if (m_character.GetClass() == "barbarian")
+			{
+				damage = damage / 2;
+			}
+			m_character.TakeDamage(damage);
+			m_combatLog.Add("You step on a trap! (" + std::to_string(damage) + " damage)",
+				glm::vec3(1.0f, 0.2f, 0.0f));
+
+			if (m_character.GetHp() <= 0)
+			{
+				m_combatLog.Add("You have been killed by a trap!",
+					glm::vec3(1.0f, 0.0f, 0.0f));
+				m_turnManager.SetGameMode(GameMode::GameOver);
+			}
+		}
+	}
 }
 
 //=============================================================================
@@ -644,6 +693,32 @@ void PlayState::processTurnWaiting() noexcept
 	if (m_turnManager.GetGameMode() != GameMode::TurnWaiting)
 	{
 		return;
+	}
+
+	// Thief auto-detects traps in 3x3 area (step 291)
+	if (m_character.GetClass() == "thief")
+	{
+		GridPosition pos = m_camera.GetGridPosition();
+		bool trapSensed = false;
+		for (int32_t dr = -1; dr <= 1 && !trapSensed; ++dr)
+		{
+			for (int32_t dc = -1; dc <= 1; ++dc)
+			{
+				int32_t sr = pos.row + dr;
+				int32_t sc = pos.col + dc;
+				if (Chunk::InBounds(sr, sc))
+				{
+					const Cell& checkCell = m_dungeon.GetCell({sr, sc, pos.floor});
+					if (checkCell.isTrap && !checkCell.isDisarmed)
+					{
+						m_combatLog.Add("You sense a trap nearby!",
+							glm::vec3(0.8f, 0.6f, 0.2f));
+						trapSensed = true;
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	m_turnManager.ApplyRegen(m_character);
@@ -813,6 +888,137 @@ void PlayState::processAttack() noexcept
 	if (!m_input.IsActionPressed("Action_Attack"))
 	{
 		return;
+	}
+
+	GridPosition playerPos = m_camera.GetGridPosition();
+
+	// Check stairs first: if standing on stairs, use them
+	if (m_dungeon.HasStairsDown(playerPos))
+	{
+		if (m_turnManager.GetGameMode() == GameMode::Exploring || m_turnManager.GetGameMode() == GameMode::TurnAnimating)
+		{
+			m_combatLog.Add("Going down to floor " +
+				std::to_string(m_dungeon.GetCurrentFloor() + 1) + "...", glm::vec3(0.3f, 0.8f, 1.0f));
+			m_dungeon.NextFloor();
+			m_dungeonRenderer.SetNeedsRebuild(true);
+
+			// Find a walkable start position
+			GridPosition newStart{2, 2, 0};
+			for (int32_t r = 2; r < Chunk::SIZE - 2; ++r)
+			{
+				bool found = false;
+				for (int32_t c = 2; c < Chunk::SIZE - 2; ++c)
+				{
+					if (m_dungeon.IsWalkable(r, c, 0) && !m_dungeon.HasStairsDown({r, c, 0}))
+					{
+						newStart = {r, c, 0};
+						found = true;
+						break;
+					}
+				}
+				if (found) break;
+			}
+			m_camera.SetGridPosition(newStart, Direction::North);
+			m_camera.SnapToGrid();
+			m_character.GetPosition() = newStart;
+			m_character.SetFacing(Direction::North);
+
+			// Respawn monsters and items
+			m_monsterManager.Clear();
+			m_combatHandler.SpawnDefault();
+			m_itemHandler.ClearDrops();
+			m_itemHandler.SpawnDefault();
+
+			m_turnManager.SetGameMode(GameMode::TurnWaiting);
+		}
+		return;
+	}
+
+	if (m_dungeon.HasStairsUp(playerPos))
+	{
+		if (m_dungeon.GetCurrentFloor() <= 1)
+		{
+			m_combatLog.Add("You exit the dungeon.", glm::vec3(0.3f, 0.8f, 1.0f));
+			// TODO: Transition to overworld
+			m_turnManager.SetGameMode(GameMode::TurnWaiting);
+		}
+		else
+		{
+			m_combatLog.Add("Going up to floor " +
+				std::to_string(m_dungeon.GetCurrentFloor() - 1) + "...", glm::vec3(0.3f, 0.8f, 1.0f));
+			m_dungeon.PrevFloor();
+			m_dungeonRenderer.SetNeedsRebuild(true);
+
+			GridPosition newStart{2, 2, 0};
+			for (int32_t r = 2; r < Chunk::SIZE - 2; ++r)
+			{
+				bool found = false;
+				for (int32_t c = 2; c < Chunk::SIZE - 2; ++c)
+				{
+					if (m_dungeon.IsWalkable(r, c, 0) && !m_dungeon.HasStairsDown({r, c, 0}))
+					{
+						newStart = {r, c, 0};
+						found = true;
+						break;
+					}
+				}
+				if (found) break;
+			}
+			m_camera.SetGridPosition(newStart, Direction::North);
+			m_camera.SnapToGrid();
+			m_character.GetPosition() = newStart;
+			m_character.SetFacing(Direction::North);
+
+			m_monsterManager.Clear();
+			m_combatHandler.SpawnDefault();
+			m_itemHandler.ClearDrops();
+			m_itemHandler.SpawnDefault();
+
+			m_turnManager.SetGameMode(GameMode::TurnWaiting);
+		}
+		return;
+	}
+
+	// Check locked door in front
+	Direction facing = m_camera.Facing();
+	glm::ivec2 offset = DirectionToVec(facing);
+	GridPosition frontPos = {playerPos.row + offset.x, playerPos.col + offset.y, playerPos.floor};
+
+	if (Chunk::InBounds(frontPos.row, frontPos.col))
+	{
+		Cell& frontCell = m_dungeon.GetCell(frontPos);
+		if (frontCell.isLockedDoor)
+		{
+			// Check inventory for a key
+			Inventory& inv = m_character.GetInventory();
+			int32_t keyIdx = -1;
+			for (size_t i = 0; i < inv.Size(); ++i)
+			{
+				const Item* item = inv.Get(i);
+				if (item && item->type == ItemType::Key)
+				{
+					keyIdx = static_cast<int32_t>(i);
+					break;
+				}
+			}
+
+			if (keyIdx >= 0)
+			{
+				inv.Remove(keyIdx);
+				frontCell.isLockedDoor = false;
+				frontCell.isOpenDoor = true;
+				frontCell.hasFloor = true;
+				m_dungeonRenderer.SetNeedsRebuild(true);
+				m_combatLog.Add("You unlock the door with a key!", glm::vec3(0.2f, 0.8f, 0.2f));
+				m_turnManager.SetGameMode(GameMode::TurnWaiting);
+			}
+			else
+			{
+				m_combatLog.Add("The door is locked. You need a key.", glm::vec3(1.0f, 0.6f, 0.0f));
+				m_turnManager.SetGameMode(GameMode::TurnWaiting);
+			}
+			return;
+		}
 	}
 
 	// Context-sensitive: monster in front → attack; resource node → gather; else → pickup
@@ -1309,16 +1515,35 @@ void PlayState::RestartGame() noexcept
 
 	// Reset character from class data
 	m_character = CreateCharacterFromClass(m_character.GetClass());
-	m_character.GetPosition() = {17, 17, 0};
 	m_character.SetFacing(Direction::North);
 
-	// Reset camera
-	m_camera.SetGridPosition({17, 17, 0}, Direction::North);
-	m_camera.SnapToGrid();
-
-	// Regenerate dungeon
-	m_dungeon.GenerateTestRoom();
+	// Regenerate dungeon with new seed
+	std::random_device rd;
+	m_dungeon.Generate(static_cast<int32_t>(rd()));
 	m_dungeonRenderer.SetNeedsRebuild(true);
+
+	// Find a walkable start position
+	GridPosition start{2, 2, 0};
+	for (int32_t r = 2; r < Chunk::SIZE - 2; ++r)
+	{
+		bool found = false;
+		for (int32_t c = 2; c < Chunk::SIZE - 2; ++c)
+		{
+			if (m_dungeon.IsWalkable(r, c, 0) && !m_dungeon.HasStairsDown({r, c, 0}))
+			{
+				start = {r, c, 0};
+				found = true;
+				break;
+			}
+		}
+		if (found) break;
+	}
+
+	m_character.GetPosition() = start;
+
+	// Reset camera
+	m_camera.SetGridPosition(start, Direction::North);
+	m_camera.SnapToGrid();
 
 	// Respawn monsters
 	m_monsterManager.Clear();
@@ -1494,6 +1719,7 @@ void PlayState::Render() noexcept
 	ImGui::Begin("Dungeon Crawler");
 	const int32_t chunkSize = m_dungeon.ChunkSize();
 	ImGui::Text("Chunk: %dx%d", chunkSize, chunkSize);
+	ImGui::Text("Floor: %d", m_dungeon.GetCurrentFloor());
 	ImGui::Separator();
 	ImGui::Text("W/S \tMove Fwd/Back");
 	ImGui::Text("A/D \tTurn L/R");
@@ -1699,6 +1925,10 @@ void PlayState::Render() noexcept
 		ImGui::Text("Wall: %s", cell.isWall ? "yes" : "no");
 		ImGui::Text("Floor: %s", cell.hasFloor ? "yes" : "no");
 		ImGui::Text("Walkable: %s", cell.IsWalkable() ? "yes" : "no");
+		ImGui::Text("Trap: %s", cell.isTrap ? "yes" : "no");
+		ImGui::Text("Secret: %s", cell.isSecretWall ? "yes" : "no");
+		ImGui::Text("Door: %s", cell.isLockedDoor ? "locked" : cell.isOpenDoor ? "open" : "none");
+		ImGui::Text("Stairs: %s", cell.isStairDown ? "down" : cell.isStairUp ? "up" : "none");
 		ImGui::End();
 	}
 
@@ -2343,28 +2573,50 @@ void PlayState::processSearch() noexcept
 	}
 
 	GridPosition pos = m_camera.GetGridPosition();
-	Cell& cell = m_dungeon.GetCell(pos);
+	bool foundSomething = false;
 
-	if (cell.isSecretWall)
+	// Search 3x3 area around the player for secret walls (step 297)
+	for (int32_t dr = -1; dr <= 1; ++dr)
 	{
-		cell.isWall = false;
-		cell.isSecretWall = false;
-		cell.hasFloor = true;
-		m_dungeonRenderer.SetNeedsRebuild(true);
-		m_combatLog.Add("You found a secret passage!", glm::vec3(0.2f, 0.8f, 1.0f));
-		m_turnManager.SetGameMode(GameMode::TurnWaiting);
+		for (int32_t dc = -1; dc <= 1; ++dc)
+		{
+			int32_t sr = pos.row + dr;
+			int32_t sc = pos.col + dc;
+			if (!Chunk::InBounds(sr, sc)) continue;
+
+			Cell& searchCell = m_dungeon.GetCell({sr, sc, pos.floor});
+			if (searchCell.isSecretWall)
+			{
+				searchCell.isWall = false;
+				searchCell.isSecretWall = false;
+				searchCell.hasFloor = true;
+				m_dungeonRenderer.SetNeedsRebuild(true);
+				m_combatLog.Add("You found a secret passage!", glm::vec3(0.2f, 0.8f, 1.0f));
+				foundSomething = true;
+				break;
+			}
+		}
+		if (foundSomething) break;
 	}
-	else if (cell.isTrap && !cell.isDisarmed)
+
+	if (!foundSomething)
 	{
-		cell.isDisarmed = true;
-		m_combatLog.Add("You disarm the trap!", glm::vec3(0.2f, 0.8f, 0.2f));
-		m_turnManager.SetGameMode(GameMode::TurnWaiting);
+		// Check current cell for trap disarming (step 292)
+		Cell& cell = m_dungeon.GetCell(pos);
+		if (cell.isTrap && !cell.isDisarmed)
+		{
+			cell.isDisarmed = true;
+			m_combatLog.Add("You disarm the trap!", glm::vec3(0.2f, 0.8f, 0.2f));
+			foundSomething = true;
+		}
 	}
-	else
+
+	if (!foundSomething)
 	{
 		m_combatLog.Add("You search... nothing here.", glm::vec3(0.6f));
-		m_turnManager.SetGameMode(GameMode::TurnWaiting);
 	}
+
+	m_turnManager.SetGameMode(GameMode::TurnWaiting);
 }
 
 //=============================================================================

@@ -17,6 +17,8 @@ struct Cell final
 	bool isSecretWall = false;
 	bool isResourceNode = false;   // for gathering (step 205)
 	bool isDisarmed = false;       // trap disarmed (step 291)
+	bool isStairDown = false;      // stairs to next floor (step 268)
+	bool isStairUp = false;        // stairs to previous floor (step 269)
 
 	[[nodiscard]] bool IsWalkable() const noexcept
 	{

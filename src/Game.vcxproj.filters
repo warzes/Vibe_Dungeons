@@ -186,6 +186,9 @@
     <ClCompile Include="game\dungeon\dungeon.cpp">
       <Filter>game\dungeon</Filter>
     </ClCompile>
+    <ClCompile Include="game\dungeon\dungeon_generator.cpp">
+      <Filter>game\dungeon</Filter>
+    </ClCompile>
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp">
       <Filter>game\dungeon</Filter>
     </ClCompile>
@@ -466,6 +469,9 @@
       <Filter>game\dungeon</Filter>
     </ClInclude>
     <ClInclude Include="game\dungeon\dungeon.h">
+      <Filter>game\dungeon</Filter>
+    </ClInclude>
+    <ClInclude Include="game\dungeon\dungeon_generator.h">
       <Filter>game\dungeon</Filter>
     </ClInclude>
     <ClInclude Include="game\dungeon\dungeon_renderer.h">

@@ -1,5 +1,70 @@
 #include "stdafx.h"
 #include "game/dungeon/dungeon.h"
+#include <cstring>
+
+void Dungeon::Generate(int32_t seed)
+{
+	m_currentFloor = 1;
+	m_theme = static_cast<DungeonTheme>(seed % 6);
+
+	DungeonGenerator generator(seed);
+	generator.GenerateRandom(m_chunk, m_theme, m_startPos, m_stairsDown, m_stairsUp);
+
+	clearMonsterGrid();
+}
+
+void Dungeon::NextFloor() noexcept
+{
+	m_currentFloor++;
+	// Generate new floor with new seed based on current floor
+	int32_t newSeed = static_cast<int32_t>(m_currentFloor * 73856093);
+	DungeonGenerator generator(newSeed);
+	generator.GenerateRandom(m_chunk, m_theme, m_startPos, m_stairsDown, m_stairsUp);
+
+	clearMonsterGrid();
+}
+
+void Dungeon::PrevFloor() noexcept
+{
+	if (m_currentFloor <= 1) return;
+	m_currentFloor--;
+	int32_t newSeed = static_cast<int32_t>(m_currentFloor * 73856093);
+	DungeonGenerator generator(newSeed);
+	generator.GenerateRandom(m_chunk, m_theme, m_startPos, m_stairsDown, m_stairsUp);
+
+	clearMonsterGrid();
+}
+
+bool Dungeon::HasStairsDown(GridPosition pos) const noexcept
+{
+	if (!Chunk::InBounds(pos.row, pos.col)) return false;
+	return m_chunk.At(pos.row, pos.col).isStairDown;
+}
+
+bool Dungeon::HasStairsUp(GridPosition pos) const noexcept
+{
+	if (!Chunk::InBounds(pos.row, pos.col)) return false;
+	return m_chunk.At(pos.row, pos.col).isStairUp;
+}
+
+void Dungeon::SetMonsterAt(GridPosition pos, bool occupied) noexcept
+{
+	if (Chunk::InBounds(pos.row, pos.col))
+	{
+		m_monsterGrid[pos.row][pos.col] = occupied;
+	}
+}
+
+bool Dungeon::IsMonsterAt(GridPosition pos) const noexcept
+{
+	if (!Chunk::InBounds(pos.row, pos.col)) return false;
+	return m_monsterGrid[pos.row][pos.col];
+}
+
+void Dungeon::clearMonsterGrid() noexcept
+{
+	std::memset(m_monsterGrid, 0, sizeof(m_monsterGrid));
+}
 
 void Dungeon::GenerateTestRoom()
 {
