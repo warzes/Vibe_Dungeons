@@ -6,6 +6,7 @@
 #include "game/combat/equipment.h"
 #include "game/data/skill_manager.h"
 #include "game/combat/status_effect.h"
+#include "game/data/quest_manager.h"
 
 class Character final
 {
@@ -101,6 +102,10 @@ public:
 
 	[[nodiscard]] int32_t GetXpForNext() const noexcept { return m_xpForNext; }
 	void SetXpForNext(int32_t v) noexcept { m_xpForNext = v; }
+
+	[[nodiscard]] int32_t GetGold() const noexcept { return m_gold; }
+	void AddGold(int32_t amount) noexcept { m_gold += amount; }
+	void SetGold(int32_t v) noexcept { m_gold = v; }
 
 	// ---- Position ----
 	[[nodiscard]] const GridPosition& GetPosition() const noexcept { return m_position; }
@@ -223,6 +228,22 @@ public:
 		return total;
 	}
 
+	// ---- Quest & Reputation ----
+	[[nodiscard]] std::vector<QuestEntry>& GetQuestLog() noexcept { return m_questLog; }
+	[[nodiscard]] const std::vector<QuestEntry>& GetQuestLog() const noexcept { return m_questLog; }
+	[[nodiscard]] int32_t GetReputation() const noexcept { return m_reputation; }
+	void AddReputation(int32_t amount) noexcept { m_reputation += amount; }
+
+	void AcceptQuest(const std::string& questId);
+	void AdvanceQuestObjective(const std::string& questId);
+	void CompleteQuestObjective(const std::string& questId, int32_t objectiveIdx);
+	[[nodiscard]] bool HasQuest(const std::string& questId) const;
+	[[nodiscard]] bool IsQuestCompleted(const std::string& questId) const;
+	void TickQuestKill(const std::string& monsterId);
+	void TickQuestCollect(const std::string& itemId);
+	void TickQuestExplore(const std::string& locationId);
+	void TickQuestTalk(const std::string& npcId);
+
 	// ---- Serialization ----
 	friend void to_json(json& j, const Character& c);
 	friend void from_json(const json& j, Character& c);
@@ -246,6 +267,7 @@ private:
 	int32_t m_damageMax = 6;
 	int32_t m_xp = 0;
 	int32_t m_xpForNext = 100;
+	int32_t m_gold = 0;
 	GridPosition m_position;
 	Direction m_facing = Direction::North;
 	Inventory m_inventory;
@@ -256,4 +278,6 @@ private:
 	std::vector<ActiveEffect> m_activeEffects;
 	int32_t m_hunger = 80;
 	std::vector<FoodBuff> m_activeBuffs;
+	std::vector<QuestEntry> m_questLog;
+	int32_t m_reputation = 0;
 };

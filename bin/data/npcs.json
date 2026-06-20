@@ -1,0 +1,87 @@
+{
+  "npcs": [
+    {
+      "id": "merchant_alric",
+      "name": "Alric the Trader",
+      "type": "merchant",
+      "locationId": "greyhaven",
+      "portrait": "",
+      "shopTableId": "general_goods",
+      "dialogues": [
+        {
+          "text": "Welcome to Greyhaven! I've got the finest wares this side of the mountains. Take a look!",
+          "responses": ["Browse goods", "Not interested"]
+        }
+      ]
+    },
+    {
+      "id": "weaponsmith_brun",
+      "name": "Brun Ironhand",
+      "type": "merchant",
+      "locationId": "greyhaven",
+      "portrait": "",
+      "shopTableId": "weaponsmith",
+      "dialogues": [
+        {
+          "text": "Need a sharp edge? I forge the best blades in the realm. What'll it be?",
+          "responses": ["Show weapons", "Maybe later"]
+        }
+      ]
+    },
+    {
+      "id": "alchemist_sera",
+      "name": "Sera Greenleaf",
+      "type": "merchant",
+      "locationId": "greyhaven",
+      "portrait": "",
+      "shopTableId": "alchemist",
+      "dialogues": [
+        {
+          "text": "Potions, poisons, and poultices — I have it all. What ails you?",
+          "responses": ["Browse potions", "Just looking"]
+        }
+      ]
+    },
+    {
+      "id": "barkeeper_holt",
+      "name": "Holt the Bartender",
+      "type": "barkeeper",
+      "locationId": "greyhaven",
+      "portrait": "",
+      "shopTableId": "tavern",
+      "dialogues": [
+        {
+          "text": "Pull up a stool and rest your bones. What can I get for ye?",
+          "responses": ["Buy food/drink", "Just resting", "Got any news?"]
+        }
+      ]
+    },
+    {
+      "id": "trainer_lyra",
+      "name": "Lyra Swiftblade",
+      "type": "trainer",
+      "locationId": "greyhaven",
+      "portrait": "",
+      "dialogues": [
+        {
+          "text": "You've got potential, I can see it. Come back when you've proven yourself in the dungeons below.",
+          "responses": ["I'll be back stronger", "Not interested"]
+        }
+      ]
+    },
+    {
+      "id": "quest_giver_eldrin",
+      "name": "Eldrin the Seer",
+      "type": "quest_giver",
+      "locationId": "greyhaven",
+      "portrait": "",
+      "questIds": ["clear_the_ruins", "lost_expedition", "rare_herbs"],
+      "dialogues": [
+        {
+          "text": "I've foreseen your coming, adventurer. Darkness stirs beneath this land. Will you help?",
+          "responses": ["Tell me more", "What quests do you have?", "Not now"]
+        }
+      ]
+    }
+  ]
+}

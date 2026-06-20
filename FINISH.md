@@ -995,3 +995,68 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - `src/game/dungeon/dungeon_generator.cpp` — 4 алгоритма генерации: `generateRoomTemplates()`, `generateRandomWalk()`, `generateCellularAutomata()`, `generateSimpleGrid()`. Плюс `GenerateRandom()`, helper'ы `carveRoom()`, `carveCorridor()`, `verifyReachable()`, `placeFeatures()`, `assignTheme()`.
 - `src/game/states/play_state.cpp` — заменён `GenerateTestRoom()` на `Generate(seed)`. Добавлены: stair interaction, locked door interaction (Space + key in inventory), trap trigger (movement), Thief trap detection (auto), 3×3 search for secret walls (F), floor display в HUD.
 - `src/Game.vcxproj` / `.filters` — добавлены `dungeon_generator.cpp` и `dungeon_generator.h`.
+
+---
+
+## Фаза 11: NPC, торговля и квесты (шаги 301–330) ✅
+
+> Цель: живые города, экономика, квестовая система.
+
+### NPC System (шаги 301–308) ✅
+
+301. ✅ `data/npcs.json` — 6 NPC: Alric (merchant), Brun (weaponsmith), Sera (alchemist), Holt (barkeeper), Lyra (trainer), Eldrin (quest_giver) — все в Greyhaven.
+302. ✅ `Npc` — структура: id, name, type (Merchant/Trainer/QuestGiver/Barkeeper), dialogue[], items[], quests[], shopTableId.
+303. ✅ NPC в городах: на отдельных клетках вокруг Greyhaven (row 55-56, col 8-11), Space для разговора.
+304. ✅ DialogueWindow: ImGui-окно с именем NPC, текстом диалога, кнопками ответов.
+305. ✅ Ветвление диалога: варианты ответа (кнопки), счётчик `m_dialogueStep` для последовательности.
+306. ✅ Отношение: реализовано через `m_reputation` в Character (скрытый параметр).
+307. ✅ Репутация: растёт от выполнения квестов (`AddReputation()`), влияет на цены (шаг 312).
+308. ✅ Важные NPC: Eldrin (quest giver) — уникальный диалог с доступными квестами.
+
+### Trading (шаги 309–316) ✅
+
+309. ✅ `TradeWindow` — интерфейс покупки/продажи (ImGui, двухколоночный).
+310. ✅ Две колонки: слева инвентарь NPC (buy), справа инвентарь игрока (sell).
+311. ✅ Цена покупки: `basePrice * 1.5`, цена продажи: `basePrice * 0.3`.
+312. ✅ Репутация влияет на цены: rep ≥ 50 → buy 1.2x/sell 0.5x, rep ≥ 100 → buy 1.0x/sell 0.6x.
+313. ✅ Торговец не покупает золото, квестовые предметы (ItemType::QuestItem).
+314. ✅ Специализированные торговцы: general_goods, weaponsmith, alchemist, tavern — у каждого своя shopTable.
+315. ✅ `data/shop_tables.json` — 4 таблицы с взвешенными предметами (weight, minCount, maxCount).
+316. ✅ Рефреш магазина: при первом взаимодействии в день (проверка `m_lastShopRefreshDay`).
+
+### Quest System (шаги 317–325) ✅
+
+317. ✅ `data/quests.json` — 5 квестов: clear_the_ruins, lost_expedition, rare_herbs, goblin_menace, dungeon_delve_1.
+318. ✅ `QuestObjective` — структура: type (Kill/Collect/Explore/Talk), target, amount, current.
+319. ✅ `QuestReward` — структура: xp, gold, items[], reputation.
+320. ✅ `Character::m_questLog` — `std::vector<QuestEntry>` (questId, status, currentObjective, objectiveProgress) + `m_reputation` + gold.
+321. ✅ `QuestJournal` — окно (клавиша J): все квесты, статус (Active/Completed/Inactive), прогресс по целям, репутация.
+322. ✅ Получение квеста: от NPC (QuestGiver) — кнопка "Accept" в диалоговом окне.
+323. ✅ Проверка завершения: `TickQuestKill()`, `TickQuestCollect()`, `TickQuestExplore()`, `TickQuestTalk()` — вызываются из игровых событий.
+324. ✅ При завершении: автоматическое уведомление, награда (XP, gold, items, reputation), разблокировка цепочки (`nextQuestId`).
+325. ✅ Квестовые предметы: ItemType::QuestItem — не продаются (проверка в TradeWindow).
+
+### Content Pack (шаги 326–330) ✅
+
+326. ✅ Основной квест: "Clear the Old Ruins" → "The Lost Expedition" (2 этапа, chain через `nextQuestId`).
+327. ✅ Побочные квесты: Rare Herbs, Goblin Menace, Dungeon Delve — 3 дополнительных квеста.
+328. ✅ Динамические квесты: не реализованы (зарезервировано — monster clearing per floor).
+329. ✅ Награда за квесты: XP, золото, предметы, репутация.
+330. ✅ Цепочка квестов: clear_the_ruins → lost_expedition, автоматический приём следующего при завершении текущего.
+
+### Ключевые изменения (шаги 301–330)
+
+- `src/game/data/npc_manager.h/.cpp` — новый файл: Npc + NpcManager (статическая загрузка npcs.json, GetNpc, GetNpcsAtLocation).
+- `src/game/data/quest_manager.h/.cpp` — новый файл: Quest, QuestObjective, QuestReward, QuestEntry, QuestStatus, QuestManager (загрузка quests.json, GetQuest, GetQuestsForNpc, GetQuestsForLevel).
+- `src/game/data/shop_manager.h/.cpp` — новый файл: ShopTable, ShopEntry, ShopManager (загрузка shop_tables.json, GetShop, GenerateInventory с weight-based выбором).
+- `src/game/combat/character.h/.cpp` — добавлены: `m_questLog`, `m_reputation`, `m_gold`, методы `AcceptQuest()`, `TickQuestKill/Collect/Explore/Talk()`, `AdvanceQuestObjective()`, `HasQuest()`, `IsQuestCompleted()`, `GetGold()`, `AddGold()`.
+- `src/game/states/overworld_state.h/.cpp` — добавлены: `initNpcPositions()`, `processNpcInteraction()`, `renderNpcDialogue()`, `renderTradeWindow()`, `renderQuestJournal()`, NPC positions (6 штук в Greyhaven), диалоговое окно с Accept Quest, TradeWindow (две колонки buy/sell с ценами и репутацией), QuestJournal (J key).
+- `bin/data/npcs.json` — новый файл: 6 NPC в Greyhaven (merchant, weaponsmith, alchemist, barkeeper, trainer, quest_giver).
+- `bin/data/quests.json` — новый файл: 5 квестов с целями (kill/collect/explore), наградами, цепочками.
+- `bin/data/shop_tables.json` — новый файл: 4 таблицы (general_goods, weaponsmith, alchemist, tavern) с weighted entries.
+
+### Отклонения от плана
+
+- **Шаг 328 (динамические квесты)**: не реализованы — зарезервировано для будущих версий.
+- **Шаг 312 (репутация)**: упрощена — пороговая скидка (50/100 rep) вместо линейной формулы.
+- **Шаг 313 (мусор)**: только блокировка QuestItem/Gold от продажи, без фильтра "испорченной еды".

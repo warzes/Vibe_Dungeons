@@ -154,6 +154,24 @@ private:
 	// Fast travel gold cost
 	static constexpr int32_t FAST_TRAVEL_COST = 50;
 
+	// NPC interaction
+	void initNpcPositions() noexcept;
+	void processNpcInteraction() noexcept;
+	void renderNpcDialogue() noexcept;
+	void renderTradeWindow() noexcept;
+	void renderQuestJournal() noexcept;
+
+	bool m_showDialogue = false;
+	bool m_showTrade = false;
+	bool m_showQuestJournal = false;
+	std::string m_activeNpcId;
+	int32_t m_dialogueStep = 0;
+	std::unordered_map<GridPosition, std::string> m_npcPositions;
+
+	// Shop refresh cache
+	std::unordered_map<std::string, std::vector<std::string>> m_shopInventories;
+	int32_t m_lastShopRefreshDay = -1; // day on which shops were last refreshed
+
 	static constexpr std::string_view GRID_ACTION_NAMES[] =
 	{
 		"GridMoveForward",

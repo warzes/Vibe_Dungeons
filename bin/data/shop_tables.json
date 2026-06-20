@@ -1,0 +1,58 @@
+{
+  "shops": [
+    {
+      "id": "general_goods",
+      "maxItems": 10,
+      "entries": [
+        {"itemId": "bread", "weight": 10, "minCount": 1, "maxCount": 3},
+        {"itemId": "water_skin", "weight": 8, "minCount": 1, "maxCount": 2},
+        {"itemId": "torch", "weight": 8, "minCount": 1, "maxCount": 5},
+        {"itemId": "rope", "weight": 5, "minCount": 1, "maxCount": 1},
+        {"itemId": "pickaxe", "weight": 3, "minCount": 1, "maxCount": 1},
+        {"itemId": "fishing_rod", "weight": 2, "minCount": 1, "maxCount": 1},
+        {"itemId": "backpack", "weight": 2, "minCount": 1, "maxCount": 1},
+        {"itemId": "bandage", "weight": 6, "minCount": 1, "maxCount": 3},
+        {"itemId": "herb", "weight": 5, "minCount": 1, "maxCount": 2}
+      ]
+    },
+    {
+      "id": "weaponsmith",
+      "maxItems": 6,
+      "entries": [
+        {"itemId": "iron_sword", "weight": 5, "minCount": 1, "maxCount": 1},
+        {"itemId": "iron_axe", "weight": 4, "minCount": 1, "maxCount": 1},
+        {"itemId": "iron_mace", "weight": 4, "minCount": 1, "maxCount": 1},
+        {"itemId": "wooden_shield", "weight": 5, "minCount": 1, "maxCount": 1},
+        {"itemId": "iron_shield", "weight": 3, "minCount": 1, "maxCount": 1},
+        {"itemId": "short_bow", "weight": 3, "minCount": 1, "maxCount": 1},
+        {"itemId": "arrows", "weight": 6, "minCount": 5, "maxCount": 20},
+        {"itemId": "dagger", "weight": 5, "minCount": 1, "maxCount": 1}
+      ]
+    },
+    {
+      "id": "alchemist",
+      "maxItems": 8,
+      "entries": [
+        {"itemId": "health_potion_small", "weight": 10, "minCount": 1, "maxCount": 3},
+        {"itemId": "mana_potion_small", "weight": 8, "minCount": 1, "maxCount": 2},
+        {"itemId": "antidote", "weight": 5, "minCount": 1, "maxCount": 2},
+        {"itemId": "herb", "weight": 8, "minCount": 1, "maxCount": 5},
+        {"itemId": "mushroom", "weight": 6, "minCount": 1, "maxCount": 3},
+        {"itemId": "poison_herb", "weight": 3, "minCount": 1, "maxCount": 2},
+        {"itemId": "flower", "weight": 5, "minCount": 1, "maxCount": 3}
+      ]
+    },
+    {
+      "id": "tavern",
+      "maxItems": 6,
+      "entries": [
+        {"itemId": "bread", "weight": 10, "minCount": 1, "maxCount": 3},
+        {"itemId": "cooked_meat", "weight": 8, "minCount": 1, "maxCount": 2},
+        {"itemId": "ale", "weight": 10, "minCount": 1, "maxCount": 2},
+        {"itemId": "wine", "weight": 5, "minCount": 1, "maxCount": 1},
+        {"itemId": "soup", "weight": 6, "minCount": 1, "maxCount": 2},
+        {"itemId": "fruit", "weight": 7, "minCount": 1, "maxCount": 3}
+      ]
+    }
+  ]
+}

@@ -11,6 +11,10 @@
 #include "core/exception.h"
 #include "core/file_io.h"
 #include "game/states/settings_state.h"
+#include "game/data/npc_manager.h"
+#include "game/data/quest_manager.h"
+#include "game/data/shop_manager.h"
+#include "game/data/item_factory.h"
 
 
 //=============================================================================
@@ -360,6 +364,12 @@ void OverworldState::OnEnter() noexcept
 		// ---- Load encounters ----
 		loadEncounters();
 
+		// ---- Load NPC / Quest / Shop data ----
+		NpcManager::LoadNpcs("data/npcs.json");
+		QuestManager::LoadQuests("data/quests.json");
+		ShopManager::LoadShops("data/shop_tables.json");
+		initNpcPositions();
+
 		// ---- Day/night init ----
 		m_dayTime = 6;
 		updateAmbientLight();
@@ -449,6 +459,11 @@ void OverworldState::HandleEvent(const SDL_Event& event) noexcept
 			case SDLK_M:  m_showMap = !m_showMap; break;
 			case SDLK_F1: m_showDebug = !m_showDebug; break;
 			case SDLK_T:  m_showFastTravel = !m_showFastTravel; break;
+			case SDLK_J:
+				m_showQuestJournal = !m_showQuestJournal;
+				m_showDialogue = false;
+				m_showTrade = false;
+				break;
 			case SDLK_ESCAPE:
 				if (m_showLocationPopup)
 				{
@@ -632,19 +647,44 @@ void OverworldState::processInteraction() noexcept
 		return;
 	}
 
-	// If location popup is open, Space closes it
+	// If any popup is open, Space closes it
 	if (m_showLocationPopup)
 	{
 		m_showLocationPopup = false;
 		return;
 	}
+	if (m_showDialogue)
+	{
+		m_showDialogue = false;
+		m_dialogueStep = 0;
+		return;
+	}
+	if (m_showTrade)
+	{
+		m_showTrade = false;
+		return;
+	}
+	if (m_showQuestJournal)
+	{
+		m_showQuestJournal = false;
+		return;
+	}
 
 	GridPosition pos = m_camera.GetGridPosition();
+	glm::ivec2 fwd = DirectionToVec(m_camera.Facing());
+	GridPosition front = {pos.row + fwd.x, pos.col + fwd.y, 0};
+
+	// Check for NPC at front cell first
+	auto npcIt = m_npcPositions.find(front);
+	if (npcIt != m_npcPositions.end())
+	{
+		processNpcInteraction();
+		return;
+	}
+
 	const OverworldLocation* loc = m_overworld.FindLocationAt(pos);
 	if (!loc)
 	{
-		glm::ivec2 fwd = DirectionToVec(m_camera.Facing());
-		GridPosition front = {pos.row + fwd.x, pos.col + fwd.y, 0};
 		loc = m_overworld.FindLocationAt(front);
 	}
 
@@ -829,6 +869,347 @@ void OverworldState::processDungeonEntranceInteraction() noexcept
 
 //=============================================================================
 
+void OverworldState::initNpcPositions() noexcept
+{
+	m_npcPositions.clear();
+
+	// Place NPCs at specific cells in Greyhaven town area (~row 56, col 10)
+	// These positions should be walkable cells within the town bounds
+	m_npcPositions[{55, 8, 0}]  = "merchant_alric";
+	m_npcPositions[{55, 9, 0}]  = "weaponsmith_brun";
+	m_npcPositions[{55, 11, 0}] = "alchemist_sera";
+	m_npcPositions[{56, 8, 0}]  = "barkeeper_holt";
+	m_npcPositions[{56, 9, 0}]  = "trainer_lyra";
+	m_npcPositions[{56, 11, 0}] = "quest_giver_eldrin";
+
+	Logger::Info(std::string("NPC positions initialized: ") + std::to_string(m_npcPositions.size()));
+}
+
+//=============================================================================
+
+void OverworldState::processNpcInteraction() noexcept
+{
+	GridPosition pos = m_camera.GetGridPosition();
+	glm::ivec2 fwd = DirectionToVec(m_camera.Facing());
+	GridPosition front = {pos.row + fwd.x, pos.col + fwd.y, 0};
+
+	auto npcIt = m_npcPositions.find(front);
+	if (npcIt == m_npcPositions.end())
+	{
+		return;
+	}
+
+	const std::string& npcId = npcIt->second;
+	m_activeNpcId = npcId;
+	m_dialogueStep = 0;
+	m_showDialogue = true;
+
+	const Npc* npc = NpcManager::GetNpc(npcId);
+	if (!npc)
+	{
+		Logger::Warn(std::string("NPC not found: ") + npcId);
+		return;
+	}
+
+	Logger::Info(std::string("Talking to NPC: ") + npc->name);
+
+	// Tick talk quests
+	m_character.TickQuestTalk(npcId);
+
+	// If NPC has shop table, refresh inventory on new day
+	if (!npc->shopTableId.empty())
+	{
+		int32_t currentDay = m_dayTime; // approximate
+		if (currentDay != m_lastShopRefreshDay)
+		{
+			m_shopInventories[npc->shopTableId] =
+				ShopManager::GenerateInventory(npc->shopTableId, static_cast<int32_t>(m_rng()));
+			m_lastShopRefreshDay = currentDay;
+		}
+	}
+
+	// Check if NPC has available quests
+	if (npc->type == NpcType::QuestGiver)
+	{
+		for (const auto& qId : npc->questIds)
+		{
+			if (!m_character.HasQuest(qId) && !m_character.IsQuestCompleted(qId))
+			{
+				const Quest* q = QuestManager::GetQuest(qId);
+				if (q && m_character.GetLevel() >= q->levelReq)
+				{
+					Logger::Info(std::string("Quest available from NPC: ") + q->name);
+				}
+			}
+		}
+	}
+}
+
+//=============================================================================
+
+void OverworldState::renderNpcDialogue() noexcept
+{
+	const Npc* npc = NpcManager::GetNpc(m_activeNpcId);
+	if (!npc)
+	{
+		m_showDialogue = false;
+		return;
+	}
+
+	ImGui::SetNextWindowSize(ImVec2(500, 300), ImGuiCond_FirstUseEver);
+	ImGui::Begin(std::string(npc->name + " - Dialogue").c_str(), &m_showDialogue);
+
+	if (m_dialogueStep < static_cast<int32_t>(npc->dialogues.size()))
+	{
+		const auto& dia = npc->dialogues[m_dialogueStep];
+		ImGui::TextWrapped("%s", dia.text.c_str());
+		ImGui::Separator();
+
+		for (size_t i = 0; i < dia.responses.size(); ++i)
+		{
+			if (ImGui::Button(dia.responses[i].c_str(), ImVec2(250, 0)))
+			{
+				m_dialogueStep++;
+			}
+		}
+
+		// Show available quests if this is a quest giver
+		if (npc->type == NpcType::QuestGiver && !npc->questIds.empty())
+		{
+			ImGui::Separator();
+			ImGui::Text("--- Available Quests ---");
+			for (const auto& qId : npc->questIds)
+			{
+				const Quest* q = QuestManager::GetQuest(qId);
+				if (!q || m_character.HasQuest(qId) || m_character.IsQuestCompleted(qId))
+				{
+					continue;
+				}
+				if (m_character.GetLevel() < q->levelReq)
+				{
+					ImGui::TextDisabled("%s (Requires Lv %d)", q->name.c_str(), q->levelReq);
+					continue;
+				}
+				ImGui::PushID(q->id.c_str());
+				ImGui::TextWrapped("%s: %s", q->name.c_str(), q->description.c_str());
+				if (ImGui::Button("Accept"))
+				{
+					m_character.AcceptQuest(qId);
+				}
+				ImGui::PopID();
+			}
+		}
+	}
+	else
+	{
+		ImGui::TextWrapped("(End of dialogue)");
+
+		// Show Buy/Sell button for merchants
+		if (npc->type == NpcType::Merchant && !npc->shopTableId.empty())
+		{
+			if (ImGui::Button("Open Shop", ImVec2(250, 0)))
+			{
+				m_showTrade = true;
+				m_showDialogue = false;
+			}
+		}
+
+		if (ImGui::Button("Goodbye", ImVec2(250, 0)))
+		{
+			m_showDialogue = false;
+			m_dialogueStep = 0;
+		}
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+
+void OverworldState::renderTradeWindow() noexcept
+{
+	const Npc* npc = NpcManager::GetNpc(m_activeNpcId);
+	if (!npc)
+	{
+		m_showTrade = false;
+		return;
+	}
+
+	ImGui::SetNextWindowSize(ImVec2(700, 400), ImGuiCond_FirstUseEver);
+	ImGui::Begin(std::string(npc->name + " - Shop").c_str(), &m_showTrade);
+
+	ImGui::Text("Your gold: %d", m_character.GetGold());
+
+	// Determine reputation discount
+	float buyMultiplier = 1.5f;
+	float sellMultiplier = 0.3f;
+	int32_t rep = m_character.GetReputation();
+	if (rep >= 50)  { buyMultiplier = 1.2f; sellMultiplier = 0.5f; }
+	if (rep >= 100) { buyMultiplier = 1.0f; sellMultiplier = 0.6f; }
+
+	ImGui::Columns(2, "TradeColumns");
+	ImGui::Separator();
+
+	// ---- Shop inventory (buy) ----
+	ImGui::Text("--- Buy ---");
+	ImGui::BeginChild("BuyPanel", ImVec2(0, 300), true);
+
+	// Generate or retrieve shop inventory
+	auto shopInv = m_shopInventories.find(npc->shopTableId);
+	if (shopInv == m_shopInventories.end())
+	{
+		// Generate on first access
+		m_shopInventories[npc->shopTableId] =
+			ShopManager::GenerateInventory(npc->shopTableId, static_cast<int32_t>(m_rng()));
+		shopInv = m_shopInventories.find(npc->shopTableId);
+	}
+
+	if (shopInv != m_shopInventories.end())
+	{
+		for (size_t i = 0; i < shopInv->second.size(); ++i)
+		{
+			const std::string& itemId = shopInv->second[i];
+			Item item = ItemFactory::CreateBase(itemId);
+			int32_t price = static_cast<int32_t>(std::round(item.value * buyMultiplier));
+			if (price < 1) price = 1;
+
+			ImGui::PushID(static_cast<int32_t>(i));
+			ImGui::Text("%s", item.name.c_str());
+			ImGui::SameLine();
+			ImGui::TextDisabled("%d gold", price);
+			ImGui::SameLine();
+			if (ImGui::SmallButton("Buy"))
+			{
+				if (m_character.GetGold() >= price)
+				{
+					if (m_character.GetInventory().Add(ItemFactory::CreateBase(itemId)) == AddResult::Success)
+					{
+						m_character.AddGold(-price);
+						Logger::Info(std::string("Bought ") + itemId);
+					}
+				}
+			}
+			ImGui::PopID();
+		}
+	}
+
+	ImGui::EndChild();
+
+	ImGui::NextColumn();
+
+	// ---- Player inventory (sell) ----
+	ImGui::Text("--- Sell ---");
+	ImGui::BeginChild("SellPanel", ImVec2(0, 300), true);
+
+	auto& inv = m_character.GetInventory();
+	for (size_t i = 0; i < inv.Size(); ++i)
+	{
+		const Item* item = inv.Get(i);
+		if (!item) continue;
+
+		// Can't sell equipped items or quest items
+		// (for simplicity, skip gold items too)
+		if (item->type == ItemType::Gold) continue;
+		if (item->type == ItemType::QuestItem) continue;
+
+		int32_t sellPrice = static_cast<int32_t>(std::round(item->value * sellMultiplier));
+		if (sellPrice < 1) sellPrice = 1;
+
+		ImGui::PushID(static_cast<int32_t>(i));
+		ImGui::Text("%s", item->name.c_str());
+		ImGui::SameLine();
+		ImGui::TextDisabled("%d gold", sellPrice);
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Sell"))
+		{
+			m_character.AddGold(sellPrice);
+			inv.Remove(i);
+			Logger::Info("Sold item");
+		}
+		ImGui::PopID();
+	}
+
+	ImGui::EndChild();
+
+	ImGui::Columns(1);
+	ImGui::Separator();
+
+	if (ImGui::Button("Close Shop", ImVec2(250, 0)))
+	{
+		m_showTrade = false;
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+
+void OverworldState::renderQuestJournal() noexcept
+{
+	ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Quest Journal", &m_showQuestJournal);
+
+	if (m_character.GetQuestLog().empty())
+	{
+		ImGui::TextWrapped("No quests accepted yet. Visit quest givers in towns to find work.");
+		ImGui::End();
+		return;
+	}
+
+	int32_t activeCount = 0;
+	int32_t completedCount = 0;
+
+	for (const auto& entry : m_character.GetQuestLog())
+	{
+		const Quest* q = QuestManager::GetQuest(entry.questId);
+		if (!q) continue;
+
+		if (entry.status == QuestStatus::Completed)
+		{
+			completedCount++;
+		}
+		else if (entry.status == QuestStatus::Active)
+		{
+			activeCount++;
+		}
+
+		const char* statusStr = entry.status == QuestStatus::Active ? "Active" :
+			entry.status == QuestStatus::Completed ? "Completed" : "Inactive";
+
+		ImGui::PushID(entry.questId.c_str());
+		ImGui::TextColored(
+			entry.status == QuestStatus::Completed ? ImVec4(0.5f, 0.5f, 0.5f, 1.0f) : ImVec4(1.0f, 1.0f, 1.0f, 1.0f),
+			"%s [%s]", q->name.c_str(), statusStr);
+		if (entry.status == QuestStatus::Active)
+		{
+			ImGui::TextWrapped("  %s", q->description.c_str());
+			// Show objectives
+			int32_t objIdx = 0;
+			for (const auto& obj : q->objectives)
+			{
+				int32_t progress = objIdx < static_cast<int32_t>(entry.objectiveProgress.size())
+					? entry.objectiveProgress[objIdx] : 0;
+				const char* typeStr =
+					obj.type == QuestObjectiveType::Kill ? "Kill" :
+					obj.type == QuestObjectiveType::Collect ? "Collect" :
+					obj.type == QuestObjectiveType::Explore ? "Explore" :
+					obj.type == QuestObjectiveType::Talk ? "Talk" : "?";
+				ImGui::Text("    %s %s: %d/%d", typeStr, obj.target.c_str(), progress, obj.amount);
+				objIdx++;
+			}
+		}
+		ImGui::PopID();
+		ImGui::Separator();
+	}
+
+	ImGui::Text("Active: %d | Completed: %d", activeCount, completedCount);
+	ImGui::Text("Reputation: %d", m_character.GetReputation());
+
+	ImGui::End();
+}
+
+//=============================================================================
+
 void OverworldState::RenderScene(Renderer& renderer) noexcept
 {
 	if (!m_initialized) return;
@@ -879,7 +1260,7 @@ void OverworldState::Render() noexcept
 	ImGui::Text("Space\tInteract");
 	ImGui::Text("T    \tFast Travel");
 	ImGui::Separator();
-	ImGui::Text("M: Map  F1: Debug  Esc: Menu");
+	ImGui::Text("M: Map  J: Journal  Esc: Menu");
 
 	if (m_hasCharacter)
 	{
@@ -924,6 +1305,37 @@ void OverworldState::Render() noexcept
 		}
 	}
 
+	// Show NPC ahead
+	{
+		glm::ivec2 fwd = DirectionToVec(m_camera.Facing());
+		GridPosition front2 = {gp.row + fwd.x, gp.col + fwd.y, 0};
+		auto npcIt = m_npcPositions.find(front2);
+		if (npcIt != m_npcPositions.end())
+		{
+			const Npc* npc = NpcManager::GetNpc(npcIt->second);
+			if (npc)
+			{
+				ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.5f, 1.0f),
+					"NPC: %s", npc->name.c_str());
+				ImGui::Text("Press Space to talk");
+			}
+		}
+	}
+
+	// Show quest hint
+	if (m_hasCharacter)
+	{
+		int32_t activeCount = 0;
+		for (const auto& qe : m_character.GetQuestLog())
+		{
+			if (qe.status == QuestStatus::Active) activeCount++;
+		}
+		if (activeCount > 0)
+		{
+			ImGui::Text("Quests: %d active (J)", activeCount);
+		}
+	}
+
 	if (ImGui::Button("Back to Menu"))
 	{
 		m_machine.ReplaceState("MainMenu");
@@ -951,6 +1363,24 @@ void OverworldState::Render() noexcept
 	if (m_showLocationPopup)
 	{
 		renderLocationPopup();
+	}
+
+	// ---- NPC Dialogue (Space near NPC) ----
+	if (m_showDialogue)
+	{
+		renderNpcDialogue();
+	}
+
+	// ---- Trade window ----
+	if (m_showTrade)
+	{
+		renderTradeWindow();
+	}
+
+	// ---- Quest journal (J key) ----
+	if (m_showQuestJournal)
+	{
+		renderQuestJournal();
 	}
 
 	// ---- Full map (M key) ----

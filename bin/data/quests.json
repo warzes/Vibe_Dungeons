@@ -1,0 +1,88 @@
+{
+  "quests": [
+    {
+      "id": "clear_the_ruins",
+      "name": "Clear the Old Ruins",
+      "description": "The Old Ruins to the east are overrun with monsters. Clear them out and report back to Eldrin.",
+      "giverNpcId": "quest_giver_eldrin",
+      "nextQuestId": "lost_expedition",
+      "levelReq": 1,
+      "objectives": [
+        {"type": "explore", "target": "old_ruins", "amount": 1},
+        {"type": "kill", "target": "skeleton", "amount": 5}
+      ],
+      "reward": {
+        "xp": 100,
+        "gold": 50,
+        "reputation": 10,
+        "items": ["health_potion_small"]
+      }
+    },
+    {
+      "id": "lost_expedition",
+      "name": "The Lost Expedition",
+      "description": "A group of miners went into the dungeons beneath Greyhaven and never returned. Find them.",
+      "giverNpcId": "quest_giver_eldrin",
+      "levelReq": 3,
+      "objectives": [
+        {"type": "collect", "target": "expedition_note", "amount": 1}
+      ],
+      "reward": {
+        "xp": 250,
+        "gold": 100,
+        "reputation": 15,
+        "items": ["iron_sword"]
+      }
+    },
+    {
+      "id": "rare_herbs",
+      "name": "Rare Herbs",
+      "description": "The alchemist Sera needs rare herbs from the forest. Gather them for a reward.",
+      "giverNpcId": "quest_giver_eldrin",
+      "levelReq": 1,
+      "objectives": [
+        {"type": "collect", "target": "flower", "amount": 5},
+        {"type": "collect", "target": "mushroom", "amount": 3}
+      ],
+      "reward": {
+        "xp": 75,
+        "gold": 30,
+        "reputation": 5,
+        "items": ["health_potion_small", "mana_potion_small"]
+      }
+    },
+    {
+      "id": "goblin_menace",
+      "name": "Goblin Menace",
+      "description": "Goblins have been spotted near the road to Greyhaven. Clear them out.",
+      "giverNpcId": "quest_giver_eldrin",
+      "levelReq": 2,
+      "objectives": [
+        {"type": "kill", "target": "goblin", "amount": 8}
+      ],
+      "reward": {
+        "xp": 150,
+        "gold": 75,
+        "reputation": 10,
+        "items": ["leather_armor"]
+      }
+    },
+    {
+      "id": "dungeon_delve_1",
+      "name": "Into the Depths",
+      "description": "Descend into the dungeon beneath Greyhaven and defeat the creatures on floor 2.",
+      "giverNpcId": "quest_giver_eldrin",
+      "levelReq": 2,
+      "objectives": [
+        {"type": "explore", "target": "dungeon_floor_2", "amount": 1},
+        {"type": "kill", "target": "slime", "amount": 10}
+      ],
+      "reward": {
+        "xp": 200,
+        "gold": 80,
+        "reputation": 10,
+        "items": ["mana_potion_small"]
+      }
+    }
+  ]
+}
