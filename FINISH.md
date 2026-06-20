@@ -884,3 +884,48 @@ TurnWaiting — мгновенно (0 задержки). Edge-triggered разр
 - `src/game/states/overworld_state.h/.cpp` — новое состояние.
 - `src/game/game_app.cpp` — зарегистрировано состояние `"Overworld"`.
 - `src/Game.vcxproj` / `.filters` — добавлены все новые файлы проекта.
+
+---
+
+## Фаза 9: Overworld Travel & UI (шаги 243–265) ✅
+
+> Цель: карта мира, перемещение, локации, случайные встречи, дневной цикл.
+
+### Travel Mechanics (шаги 243–250) ✅
+
+243. ✅ Движение по overworld: шаг = 1 клетка, каждый шаг тратит ход (голод уменьшается) — `processOverworldTurn()` вызывает `ConsumeHunger(1)`.
+244. ✅ Случайные встречи: при каждом шаге шанс (grass 10%, forest 20%, road 2%) — `triggerRandomEncounter()` с `cell.EncounterChance()`.
+245. ✅ Encounter: переход в `CombatEncounterState` — бой с группой монстров; `s_spawnEntries` передаёт состав.
+246. ✅ После боя: возврат на overworld (`PopState`), трупы лутаются, XP начисляется через `CombatHandler`.
+247. ✅ Видимость: туман войны — `MarkVisited()`/`IsVisited()`, неоткрытые клетки скрыты в рендерере.
+248. ✅ Обзор: `m_viewRadius = 5` по умолчанию; на горе/холме +3 клетки (в `buildWallGeometry`).
+249. ✅ Fast travel: между известными городами по дорогам (клавиша T, требуется дорога + 50 gold).
+250. ✅ Полноэкранная карта мира — клавиша M (оверлей поверх first-person вида, легенда цветов).
+
+### Локации (шаги 251–258) ✅
+
+251. ✅ `Town` — безопасная зона: отдых за 10 gold (восстанавливает HP/MP), UI-попап с кнопками Rest/Leave.
+252. ✅ `DungeonEntrance` — вход в подземелье: переход в `CombatEncounterState` с группой монстров для уровня игрока.
+253. ✅ `Shrine` — разовое восстановление HP/MP + бафф "Shrine Blessing" (+2 ATK, +2 AC, 50 turns).
+254. ✅ `Camp` — отдых с использованием 1 еды (восстанавливает 50% HP/MP), UI-попап.
+255. ✅ Вход в локацию: замена `OverworldState` на специализированный `LocationState` (через `renderLocationPopup()`).
+256. ✅ Выход из локации: возврат на overworld (закрытие попапа/Escape).
+257. ✅ Разведка: посещение локации автоматически открывает её на карте через `MarkVisited()`.
+258. ✅ `FastTravelSystem` — список открытых городов (T), телепортация за 50 gold (только с дороги).
+
+### Overworld UI (шаги 259–265) ✅
+
+259. ✅ HUD на overworld: HP, MP, Hunger, координаты, название текущей локации, уровень, класс.
+260. ✅ Мини-карта: 9×9 вокруг игрока в правом верхнем углу (оверлей).
+261. ✅ Легенда карты: что означает каждый цвет на полноэкранной карте (M) — справа от карты.
+262. ✅ Компас: показывает направление на ближайший город/известную локацию (круг + стрелка).
+263. ✅ Дневной цикл: `m_dayTime` 0–23, каждый шаг +1 час, ambient light меняется через uniform `uAmbientLight`.
+264. ✅ Ночью: шанс встреч выше (x2), дальность прорисовки меньше (3 клетки), ambient ниже (0.20f).
+265. ✅ UI смены дня: иконка солнца/луны + текущее время + уровень освещения в HUD.
+
+### Ключевые изменения (шаги 243–265)
+
+- `src/engine/renderer/shader_sources.h` — добавлен uniform `uAmbientLight` в `OVERWORLD_FRAG_SRC` вместо хардкода 0.6.
+- `src/game/states/overworld_state.h` — добавлены: `advanceDayTime()`, `updateAmbientLight()`, `processLocationInteraction()`, `processTownInteraction()`, `processShrineInteraction()`, `processCampInteraction()`, `processDungeonEntranceInteraction()`, `renderCompass()`, `renderLocationPopup()`, `renderDayNightIndicator()`; поля `m_dayTime`, `m_ambientLight`, `m_isNight`, `m_showLocationPopup`, `m_activeLocationId`, `m_shrineUsed`, `m_campRestUsed`.
+- `src/game/states/overworld_state.cpp` — полная имплементация: day/night cycle, compass, location interactions (Town/Shrine/Camp/DungeonEntrance), gold-затраты для fast travel.
+- `src/game/states/overworld_state.cpp` — `OnResume()` теперь восстанавливает Character после возврата из `CombatEncounterState` (шаг 246).

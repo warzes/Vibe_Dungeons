@@ -346,12 +346,13 @@ in vec3 vFragPos;
 out vec4 fragColor;
 
 uniform sampler2D uTexture;
+uniform float uAmbientLight;
 
 void main()
 {
 	vec3 lightDir = normalize(vec3(0.0, 1.0, 0.3));
 	float diff = max(dot(vNormal, lightDir), 0.0);
-	float ambient = 0.6;
+	float ambient = uAmbientLight;
 	float lighting = ambient + (1.0 - ambient) * diff;
 	vec4 texColor = texture(uTexture, vTexCoord);
 	if (texColor.a < 0.01) discard;
@@ -398,12 +399,13 @@ in vec3 vFragPos;
 out vec4 fragColor;
 
 uniform sampler2D uTexture;
+uniform float uAmbientLight;
 
 void main()
 {
 	vec3 lightDir = normalize(vec3(0.0, 1.0, 0.3));
 	float diff = max(dot(vNormal, lightDir), 0.0);
-	float ambient = 0.6;
+	float ambient = uAmbientLight;
 	float lighting = ambient + (1.0 - ambient) * diff;
 	vec4 texColor = texture(uTexture, vTexCoord);
 	if (texColor.a < 0.01) discard;

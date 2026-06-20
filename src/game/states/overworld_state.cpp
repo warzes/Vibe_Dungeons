@@ -12,6 +12,7 @@
 #include "core/file_io.h"
 #include "game/states/settings_state.h"
 
+
 //=============================================================================
 
 static const char* TERRAIN_NAMES[] =
@@ -129,6 +130,12 @@ void OverworldState::triggerRandomEncounter() noexcept
 	float chance = cell.EncounterChance();
 	if (chance <= 0.0f) return;
 
+	// Night: double encounter chance (step 264)
+	if (m_isNight)
+	{
+		chance = (std::min)(chance * 2.0f, 0.8f);
+	}
+
 	// Roll the dice
 	std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 	if (dist(m_rng) >= chance) return;
@@ -187,12 +194,70 @@ void OverworldState::triggerRandomEncounter() noexcept
 }
 
 //=============================================================================
+// Day/night cycle (steps 263-265)
+//=============================================================================
+
+void OverworldState::advanceDayTime() noexcept
+{
+	m_dayTime = (m_dayTime + 1) % 24;
+	updateAmbientLight();
+}
+
+void OverworldState::updateAmbientLight() noexcept
+{
+	// Day: 6..17 (bright), Dusk: 18-19 (fading), Night: 20-5 (dark), Dawn: 5 (rising)
+	if (m_dayTime >= 6 && m_dayTime <= 17)
+	{
+		m_ambientLight = 0.6f;
+		m_isNight = false;
+	}
+	else if (m_dayTime == 18) // Dusk
+	{
+		m_ambientLight = 0.45f;
+		m_isNight = true;
+	}
+	else if (m_dayTime == 19)
+	{
+		m_ambientLight = 0.30f;
+		m_isNight = true;
+	}
+	else if (m_dayTime >= 20 || m_dayTime == 0)
+	{
+		m_ambientLight = 0.20f;
+		m_isNight = true;
+	}
+	else if (m_dayTime == 5) // Dawn
+	{
+		m_ambientLight = 0.40f;
+		m_isNight = false;
+	}
+	else
+	{
+		m_ambientLight = 0.20f;
+		m_isNight = true;
+	}
+
+	// Update view radius based on time (step 264)
+	if (m_isNight)
+	{
+		m_viewRadius = 3;
+	}
+	else
+	{
+		m_viewRadius = 5;
+	}
+}
+
+//=============================================================================
 
 void OverworldState::processOverworldTurn() noexcept
 {
-	// Hunger decreases each step
+	// Hunger decreases each step (step 243)
 	m_character.ConsumeHunger(1);
 	m_character.TickBuffs();
+
+	// Advance day/night (step 263)
+	advanceDayTime();
 
 	if (m_character.GetHunger() <= 0)
 	{
@@ -295,6 +360,16 @@ void OverworldState::OnEnter() noexcept
 		// ---- Load encounters ----
 		loadEncounters();
 
+		// ---- Day/night init ----
+		m_dayTime = 6;
+		updateAmbientLight();
+
+		// ---- Location state ----
+		m_showLocationPopup = false;
+		m_activeLocationId.clear();
+		m_shrineUsed = false;
+		m_campRestUsed = false;
+
 		// ---- Input actions ----
 		m_input.BindAction("GridMoveForward",  SDL_SCANCODE_W);
 		m_input.BindAction("GridMoveBackward", SDL_SCANCODE_S);
@@ -347,6 +422,18 @@ void OverworldState::OnPause() noexcept
 void OverworldState::OnResume() noexcept
 {
 	SDL_ShowCursor();
+
+	// Restore character after returning from combat/dungeon (steps 246)
+	if (m_pendingCharacter && m_pendingCharacter->GetLevel() > 0)
+	{
+		m_character = std::move(*m_pendingCharacter);
+		*m_pendingCharacter = Character{};
+		m_hasCharacter = true;
+
+		// Sync camera with character position
+		m_camera.SetGridPosition(m_character.GetPosition(), m_character.GetFacing());
+		m_camera.SnapToGrid();
+	}
 }
 
 //=============================================================================
@@ -362,7 +449,16 @@ void OverworldState::HandleEvent(const SDL_Event& event) noexcept
 			case SDLK_M:  m_showMap = !m_showMap; break;
 			case SDLK_F1: m_showDebug = !m_showDebug; break;
 			case SDLK_T:  m_showFastTravel = !m_showFastTravel; break;
-			case SDLK_ESCAPE: m_machine.ReplaceState("MainMenu"); break;
+			case SDLK_ESCAPE:
+				if (m_showLocationPopup)
+				{
+					m_showLocationPopup = false;
+				}
+				else
+				{
+					m_machine.ReplaceState("MainMenu");
+				}
+				break;
 			default: break;
 		}
 	}
@@ -442,7 +538,7 @@ void OverworldState::doGridAction(std::string_view name) noexcept
 	m_character.GetPosition() = newPos;
 	m_character.SetFacing(m_camera.Facing());
 
-	// Movement costs a turn: hunger, encounters, etc.
+	// Movement costs a turn: hunger, time, encounters, etc.
 	if (wasMovement)
 	{
 		processOverworldTurn();
@@ -526,11 +622,20 @@ void OverworldState::processHeldRepeat(const DeltaTime& dt) noexcept
 }
 
 //=============================================================================
+// Location interaction (steps 251-256)
+//=============================================================================
 
 void OverworldState::processInteraction() noexcept
 {
 	if (!m_input.IsActionPressed("Action_Interact"))
 	{
+		return;
+	}
+
+	// If location popup is open, Space closes it
+	if (m_showLocationPopup)
+	{
+		m_showLocationPopup = false;
 		return;
 	}
 
@@ -546,15 +651,180 @@ void OverworldState::processInteraction() noexcept
 	if (loc)
 	{
 		Logger::Info(std::string("Interacting with location: ") + loc->name);
+		m_overworld.MarkVisited(loc->position);
+		processLocationInteraction(*loc);
+	}
+}
 
-		// Save character for transition
-		if (m_pendingCharacter)
+void OverworldState::processLocationInteraction(const OverworldLocation& loc) noexcept
+{
+	m_activeLocationId = loc.id;
+	m_showLocationPopup = true;
+
+	switch (loc.type)
+	{
+		case LocationType::Town:
+			Logger::Info("Entering town: " + loc.name);
+			break;
+		case LocationType::DungeonEntrance:
+			Logger::Info("Entering dungeon: " + loc.name);
+			break;
+		case LocationType::Shrine:
+			Logger::Info("Approaching shrine: " + loc.name);
+			break;
+		case LocationType::Camp:
+			Logger::Info("Approaching camp: " + loc.name);
+			break;
+	}
+}
+
+void OverworldState::processTownInteraction() noexcept
+{
+	// Rest: full heal, costs 10 gold
+	int32_t restCost = 10;
+	if (m_character.GetHp() < m_character.GetMaxHp() ||
+		m_character.GetMp() < m_character.GetMaxMp())
+	{
+		// Check if player has gold
+		bool hasGold = false;
+		auto& inv = m_character.GetInventory();
+		for (size_t i = 0; i < inv.Size(); ++i)
 		{
-			*m_pendingCharacter = std::move(m_character);
+			const Item* item = inv.Get(i);
+			if (item && item->type == ItemType::Gold && item->value >= restCost)
+			{
+				hasGold = true;
+				break;
+			}
 		}
 
-		// For now, just log. Future: transition to location state.
+		if (hasGold)
+		{
+			// Remove 10 gold
+			int32_t toRemove = restCost;
+			for (size_t i = 0; i < inv.Size() && toRemove > 0; )
+			{
+				Item* item = inv.Get(i);
+				if (item && item->type == ItemType::Gold)
+				{
+					int32_t stackValue = item->value;
+					if (stackValue <= toRemove)
+					{
+						toRemove -= stackValue;
+						inv.Remove(i);
+					}
+					else
+					{
+						item->value = stackValue - toRemove;
+						toRemove = 0;
+						++i;
+					}
+				}
+				else
+				{
+					++i;
+				}
+			}
+
+			m_character.Heal(m_character.GetMaxHp());
+			m_character.RestoreMp(m_character.GetMaxMp());
+			Logger::Info("Town: rested, fully healed. Cost: 10 gold.");
+		}
+		else
+		{
+			Logger::Warn("Town: not enough gold to rest (need 10 gold)");
+		}
 	}
+	else
+	{
+		Logger::Info("Town: already at full health.");
+	}
+}
+
+void OverworldState::processShrineInteraction() noexcept
+{
+	if (m_shrineUsed)
+	{
+		Logger::Info("Shrine already used its power.");
+		return;
+	}
+
+	// Full HP/MP restore + buff
+	m_character.Heal(m_character.GetMaxHp());
+	m_character.RestoreMp(m_character.GetMaxMp());
+
+	// Apply Shrine Blessing buff
+	Character::FoodBuff shrineBuff;
+	shrineBuff.id = "shrine_blessing";
+	shrineBuff.name = "Shrine Blessing";
+	shrineBuff.atkBonus = 2;
+	shrineBuff.acBonus = 2;
+	shrineBuff.remainingTurns = 50;
+	m_character.ApplyFoodBuff(shrineBuff);
+
+	m_shrineUsed = true;
+	Logger::Info("Shrine: restored HP/MP and applied Shrine Blessing (+2 ATK, +2 AC, 50 turns)");
+}
+
+void OverworldState::processCampInteraction() noexcept
+{
+	// Rest: heal 50% HP/MP, uses 1 food from inventory
+	auto& inv = m_character.GetInventory();
+	int32_t foodSlot = -1;
+	for (size_t i = 0; i < inv.Size(); ++i)
+	{
+		const Item* item = inv.Get(i);
+		if (item && item->type == ItemType::Food && item->expirationTurns != 0)
+		{
+			foodSlot = static_cast<int32_t>(i);
+			break;
+		}
+	}
+
+	if (foodSlot >= 0)
+	{
+		inv.Remove(foodSlot);
+		m_character.Heal(m_character.GetMaxHp() / 2);
+		m_character.RestoreMp(m_character.GetMaxMp() / 2);
+		Logger::Info("Camp: rested, used 1 food. Restored 50% HP/MP.");
+	}
+	else
+	{
+		Logger::Warn("Camp: no fresh food to rest. Need food to rest at camp.");
+	}
+}
+
+void OverworldState::processDungeonEntranceInteraction() noexcept
+{
+	// Push a combat encounter as dungeon entrance
+	std::vector<EncounterSpawnEntry> spawnList;
+
+	// Generate a simple group encounter appropriate for player level
+	int32_t playerLevel = m_character.GetLevel();
+	{
+		EncounterSpawnEntry entry;
+		entry.monsterTypeId = "skeleton";
+		entry.count = 2;
+		entry.level = playerLevel;
+		spawnList.push_back(std::move(entry));
+	}
+	{
+		EncounterSpawnEntry entry;
+		entry.monsterTypeId = "slime";
+		entry.count = 1;
+		entry.level = playerLevel;
+		spawnList.push_back(std::move(entry));
+	}
+
+	// Save character before transfer
+	if (m_pendingCharacter)
+	{
+		*m_pendingCharacter = std::move(m_character);
+	}
+
+	CombatEncounterState::s_spawnEntries = std::move(spawnList);
+	m_machine.PushState("CombatEncounter");
+	m_showLocationPopup = false;
 }
 
 //=============================================================================
@@ -564,6 +834,10 @@ void OverworldState::RenderScene(Renderer& renderer) noexcept
 	if (!m_initialized) return;
 
 	m_renderer = &renderer;
+
+	// Set ambient light uniform on the shader (step 263-264)
+	m_overworldShader->Bind();
+	m_overworldShader->SetUniform("uAmbientLight", m_ambientLight);
 
 	// Pass camera position and view radius for fog-of-war + culling
 	GridPosition camPos = m_camera.GetGridPosition();
@@ -595,7 +869,7 @@ void OverworldState::Render() noexcept
 
 	// ---- Controls panel ----
 	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver, ImVec2(0, 0));
-	ImGui::SetNextWindowSize(ImVec2(260, 180), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(260, 200), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Overworld");
 	ImGui::Text("World: %dx%d", OVERWORLD_SIZE, OVERWORLD_SIZE);
 	ImGui::Separator();
@@ -624,6 +898,9 @@ void OverworldState::Render() noexcept
 		? TERRAIN_NAMES[static_cast<int32_t>(cell.terrain)]
 		: "Unknown";
 	ImGui::Text("Terrain: %s", terrainName);
+
+	// Day/night indicator in control panel (step 265)
+	renderDayNightIndicator();
 
 	const OverworldLocation* loc = m_overworld.FindLocationAt(gp);
 	if (loc)
@@ -654,7 +931,7 @@ void OverworldState::Render() noexcept
 	ImGui::End();
 
 	// ---- Position info ----
-	ImGui::SetNextWindowPos(ImVec2(0, 190), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowPos(ImVec2(0, 210), ImGuiCond_FirstUseEver, ImVec2(0, 0));
 	ImGui::SetNextWindowSize(ImVec2(260, 50), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Position");
 	ImGui::Text("Grid: [%d, %d]", gp.row, gp.col);
@@ -664,8 +941,17 @@ void OverworldState::Render() noexcept
 		m_camera.Facing() == Direction::South ? "South" : "West");
 	ImGui::End();
 
+	// ---- Compass (step 262) ----
+	renderCompass();
+
 	// ---- Minimap ----
 	renderMinimap();
+
+	// ---- Location popup (steps 251-256) ----
+	if (m_showLocationPopup)
+	{
+		renderLocationPopup();
+	}
 
 	// ---- Full map (M key) ----
 	if (m_showMap)
@@ -682,8 +968,8 @@ void OverworldState::Render() noexcept
 	// ---- Debug ----
 	if (m_showDebug)
 	{
-		ImGui::SetNextWindowPos(ImVec2(0, 250), ImGuiCond_FirstUseEver, ImVec2(0, 0));
-		ImGui::SetNextWindowSize(ImVec2(260, 120), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(0, 270), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2(260, 160), ImGuiCond_FirstUseEver);
 		ImGui::Begin("Overworld Debug");
 		const glm::vec3 camPos = m_camera.Position();
 		ImGui::Text("Cam Pos: %.2f, %.2f, %.2f", camPos.x, camPos.y, camPos.z);
@@ -694,6 +980,9 @@ void OverworldState::Render() noexcept
 		}
 		ImGui::Text("Locations: %zu", m_overworld.Locations().size());
 		ImGui::Text("View Radius: %d", m_viewRadius);
+		ImGui::Text("Time: %02d:00", m_dayTime);
+		ImGui::Text("Ambient: %.2f", m_ambientLight);
+		ImGui::Text("Night: %s", m_isNight ? "yes" : "no");
 		ImGui::End();
 	}
 }
@@ -881,7 +1170,7 @@ void OverworldState::renderFullMap() noexcept
 			IM_COL32(50, 50, 50, 60), 0.5f);
 	}
 
-	// Legend
+	// Legend (step 261)
 	ImVec2 legendPos = origin + ImVec2(totalSize + 10.0f, 0.0f);
 	struct LegendEntry { const char* name; uint32_t color; };
 	static const LegendEntry LEGEND[] = {
@@ -924,11 +1213,26 @@ void OverworldState::renderFastTravel() noexcept
 		return;
 	}
 
-	ImGui::Text("Select destination (requires road connection):");
+	ImGui::Text("Select destination (requires road connection, costs %d gold):", FAST_TRAVEL_COST);
 	ImGui::Separator();
 
 	GridPosition currentPos = m_camera.GetGridPosition();
 	bool anyAvailable = false;
+
+	// Check if player has enough gold
+	auto& inv = m_character.GetInventory();
+	int32_t totalGold = 0;
+	for (size_t i = 0; i < inv.Size(); ++i)
+	{
+		const Item* item = inv.Get(i);
+		if (item && item->type == ItemType::Gold)
+		{
+			totalGold += item->value;
+		}
+	}
+
+	ImGui::Text("Your gold: %d", totalGold);
+	ImGui::Separator();
 
 	for (const auto& loc : m_overworld.Locations())
 	{
@@ -945,11 +1249,43 @@ void OverworldState::renderFastTravel() noexcept
 
 		anyAvailable = true;
 		bool onRoad = m_overworld.GetCell(currentPos).terrain == TerrainType::Road;
+		bool canAfford = totalGold >= FAST_TRAVEL_COST;
+
+		if (!canAfford)
+		{
+			ImGui::BeginDisabled();
+		}
 
 		if (ImGui::Button(loc.name.c_str(), ImVec2(200, 30)))
 		{
-			if (onRoad)
+			if (onRoad && canAfford)
 			{
+				// Deduct gold
+				int32_t toRemove = FAST_TRAVEL_COST;
+				for (size_t i = 0; i < inv.Size() && toRemove > 0; )
+				{
+					Item* item = inv.Get(i);
+					if (item && item->type == ItemType::Gold)
+					{
+						int32_t stackValue = item->value;
+						if (stackValue <= toRemove)
+						{
+							toRemove -= stackValue;
+							inv.Remove(i);
+						}
+						else
+						{
+							item->value = stackValue - toRemove;
+							toRemove = 0;
+							++i;
+						}
+					}
+					else
+					{
+						++i;
+					}
+				}
+
 				m_camera.SetGridPosition(locPos, Direction::North);
 				m_camera.SnapToGrid();
 				m_overworld.MarkVisited(locPos);
@@ -959,11 +1295,23 @@ void OverworldState::renderFastTravel() noexcept
 			}
 		}
 
+		if (!canAfford)
+		{
+			ImGui::EndDisabled();
+		}
+
 		if (onRoad)
 		{
 			ImGui::SameLine();
-			ImGui::Text("(%d, %d) - %s", loc.position.row, loc.position.col,
-				loc.description.c_str());
+			if (canAfford)
+			{
+				ImGui::Text("(%d, %d) - %s", loc.position.row, loc.position.col,
+					loc.description.c_str());
+			}
+			else
+			{
+				ImGui::TextDisabled("(need %d gold)", FAST_TRAVEL_COST);
+			}
 		}
 		else
 		{
@@ -984,4 +1332,288 @@ void OverworldState::renderFastTravel() noexcept
 	}
 
 	ImGui::End();
+}
+
+//=============================================================================
+// Compass (step 262): shows direction to nearest known location
+//=============================================================================
+
+void OverworldState::renderCompass() noexcept
+{
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 ws = viewport->WorkSize;
+
+	ImGui::SetNextWindowPos(ImVec2(ws.x - 210, 210), ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(200, 80), ImGuiCond_FirstUseEver);
+	ImGui::Begin("Compass", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+	GridPosition playerPos = m_camera.GetGridPosition();
+
+	// Find nearest known location
+	const OverworldLocation* nearest = nullptr;
+	float nearestDist = 1e9f;
+	for (const auto& loc : m_overworld.Locations())
+	{
+		GridPosition locPos = {loc.position.row, loc.position.col, 0};
+		if (!m_overworld.IsVisited(locPos)) continue;
+
+		int32_t dr = loc.position.row - playerPos.row;
+		int32_t dc = loc.position.col - playerPos.col;
+		float dist = std::sqrt(static_cast<float>(dr * dr + dc * dc));
+		if (dist < nearestDist)
+		{
+			nearestDist = dist;
+			nearest = &loc;
+		}
+	}
+
+	if (!nearest)
+	{
+		ImGui::Text("No known locations");
+		ImGui::End();
+		return;
+	}
+
+	// Calculate bearing relative to player facing
+	static constexpr float PI = static_cast<float>(M_PI);
+	static constexpr float HALF_PI = static_cast<float>(M_PI_2);
+	static constexpr float TWO_PI = static_cast<float>(M_PI) * 2.0f;
+
+	int32_t dr = nearest->position.row - playerPos.row;
+	int32_t dc = nearest->position.col - playerPos.col;
+
+	// Angle in world space (row = -Z, col = +X)
+	float worldAngle = std::atan2(static_cast<float>(dc), static_cast<float>(-dr));
+
+	// Player facing angle
+	float facingAngle = 0.0f;
+	switch (m_camera.Facing())
+	{
+		case Direction::North: facingAngle = 0.0f; break;
+		case Direction::East:  facingAngle = -HALF_PI; break;
+		case Direction::South: facingAngle = PI; break;
+		case Direction::West:  facingAngle = HALF_PI; break;
+	}
+
+	float relativeAngle = worldAngle - facingAngle;
+	// Normalize to [-PI, PI]
+	while (relativeAngle > PI)  relativeAngle -= TWO_PI;
+	while (relativeAngle < -PI) relativeAngle += TWO_PI;
+
+	// Draw compass
+	ImDrawList* draw = ImGui::GetWindowDrawList();
+	const ImVec2 avail = ImGui::GetContentRegionAvail();
+	const ImVec2 center = ImGui::GetCursorScreenPos() + ImVec2(avail.x * 0.5f, avail.y * 0.5f);
+	const float compassRadius = 28.0f;
+
+	// Outer circle
+	draw->AddCircle(center, compassRadius, IM_COL32(120, 120, 120, 200), 20, 1.5f);
+
+	// Direction labels
+	draw->AddText(center + ImVec2(-4.0f, -compassRadius - 12.0f),
+		IM_COL32(200, 200, 200, 220), "N");
+	draw->AddText(center + ImVec2(compassRadius + 4.0f, -5.0f),
+		IM_COL32(160, 160, 160, 180), "E");
+	draw->AddText(center + ImVec2(-compassRadius - 14.0f, -5.0f),
+		IM_COL32(160, 160, 160, 180), "W");
+	draw->AddText(center + ImVec2(-4.0f, compassRadius + 2.0f),
+		IM_COL32(160, 160, 160, 180), "S");
+
+	// Arrow pointing to nearest location
+	ImVec2 arrowEnd = center + ImVec2(
+		std::sin(relativeAngle) * compassRadius * 0.7f,
+		-std::cos(relativeAngle) * compassRadius * 0.7f);
+
+	draw->AddCircleFilled(center, 3.0f, IM_COL32(255, 215, 0, 220), 6);
+	draw->AddLine(center, arrowEnd, IM_COL32(255, 215, 0, 220), 2.5f);
+
+	// Location label
+	ImVec2 labelPos = center + ImVec2(-compassRadius, compassRadius + 16.0f);
+	draw->AddText(labelPos, IM_COL32(255, 215, 0, 200), nearest->name.c_str());
+
+	// Distance
+	char distStr[32];
+	std::snprintf(distStr, sizeof(distStr), "(%.0f cells)", nearestDist);
+	draw->AddText(labelPos + ImVec2(0.0f, 14.0f),
+		IM_COL32(160, 160, 160, 180), distStr);
+
+	ImGui::Dummy(ImVec2(avail.x, avail.y));
+	ImGui::End();
+}
+
+//=============================================================================
+// Location popup (steps 251-256)
+//=============================================================================
+
+void OverworldState::renderLocationPopup() noexcept
+{
+	const OverworldLocation* loc = nullptr;
+	for (const auto& l : m_overworld.Locations())
+	{
+		if (l.id == m_activeLocationId)
+		{
+			loc = &l;
+			break;
+		}
+	}
+
+	if (!loc) return;
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 ws = viewport->WorkSize;
+
+	ImGui::SetNextWindowPos(ImVec2(ws.x * 0.5f - 200.0f, ws.y * 0.5f - 120.0f),
+		ImGuiCond_FirstUseEver, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(400, 240), ImGuiCond_FirstUseEver);
+
+	ImGui::Begin(loc->name.c_str(), &m_showLocationPopup,
+		ImGuiWindowFlags_AlwaysAutoResize);
+
+	ImGui::TextWrapped("%s", loc->description.c_str());
+	ImGui::Separator();
+
+	switch (loc->type)
+	{
+		case LocationType::Town:
+		{
+			ImGui::Text("Welcome to %s!", loc->name.c_str());
+			ImGui::Text("HP: %d/%d  MP: %d/%d",
+				m_character.GetHp(), m_character.GetMaxHp(),
+				m_character.GetMp(), m_character.GetMaxMp());
+
+			// Check gold
+			int32_t totalGold = 0;
+			auto& inv = m_character.GetInventory();
+			for (size_t i = 0; i < inv.Size(); ++i)
+			{
+				const Item* item = inv.Get(i);
+				if (item && item->type == ItemType::Gold)
+					totalGold += item->value;
+			}
+			ImGui::Text("Gold: %d", totalGold);
+
+			if (ImGui::Button("Rest (10 gold) - Full Heal", ImVec2(250, 0)))
+			{
+				processTownInteraction();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Leave", ImVec2(100, 0)))
+			{
+				m_showLocationPopup = false;
+			}
+			break;
+		}
+
+		case LocationType::DungeonEntrance:
+		{
+			ImGui::Text("An ancient dungeon entrance looms before you.");
+			ImGui::Text("Level %d party recommended.", m_character.GetLevel());
+
+			if (ImGui::Button("Enter Dungeon", ImVec2(200, 0)))
+			{
+				processDungeonEntranceInteraction();
+				// Note: popup closed inside the function
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Leave", ImVec2(100, 0)))
+			{
+				m_showLocationPopup = false;
+			}
+			break;
+		}
+
+		case LocationType::Shrine:
+		{
+			if (m_shrineUsed)
+			{
+				ImGui::Text("The shrine's power has been spent.");
+				if (ImGui::Button("Leave", ImVec2(100, 0)))
+				{
+					m_showLocationPopup = false;
+				}
+			}
+			else
+			{
+				ImGui::Text("A sacred shrine radiates divine energy.");
+				ImGui::Text("HP: %d/%d  MP: %d/%d",
+					m_character.GetHp(), m_character.GetMaxHp(),
+					m_character.GetMp(), m_character.GetMaxMp());
+				ImGui::TextColored(ImVec4(0, 1, 0, 1),
+					"Blessing: +2 ATK, +2 AC for 50 turns");
+
+				if (ImGui::Button("Pray (Restore HP/MP + Blessing)", ImVec2(300, 0)))
+				{
+					processShrineInteraction();
+					m_showLocationPopup = false;
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Leave", ImVec2(100, 0)))
+				{
+					m_showLocationPopup = false;
+				}
+			}
+			break;
+		}
+
+		case LocationType::Camp:
+		{
+			ImGui::Text("A campfire crackles warmly.");
+			ImGui::Text("HP: %d/%d  MP: %d/%d",
+				m_character.GetHp(), m_character.GetMaxHp(),
+				m_character.GetMp(), m_character.GetMaxMp());
+
+			// Check food
+			int32_t foodCount = 0;
+			auto& inv = m_character.GetInventory();
+			for (size_t i = 0; i < inv.Size(); ++i)
+			{
+				const Item* item = inv.Get(i);
+				if (item && item->type == ItemType::Food && item->expirationTurns != 0)
+					foodCount++;
+			}
+
+			ImGui::Text("Fresh food available: %d", foodCount);
+
+			if (foodCount > 0)
+			{
+				if (ImGui::Button("Rest (use 1 food) - 50% Heal", ImVec2(250, 0)))
+				{
+					processCampInteraction();
+					m_showLocationPopup = false;
+				}
+				ImGui::SameLine();
+			}
+			if (ImGui::Button("Leave", ImVec2(100, 0)))
+			{
+				m_showLocationPopup = false;
+			}
+			break;
+		}
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+// Day/night indicator (step 265)
+//=============================================================================
+
+void OverworldState::renderDayNightIndicator() noexcept
+{
+	ImGui::Separator();
+
+	// Sun icon during day, moon icon during night
+	const char* icon = m_isNight ? "\xce\x9c" : "\xce\xa3"; // Moon/Sun approximation
+	ImVec4 color = m_isNight
+		? ImVec4(0.4f, 0.4f, 0.8f, 1.0f)
+		: ImVec4(1.0f, 0.9f, 0.3f, 1.0f);
+
+	ImGui::TextColored(color, "%s Time: %02d:00  (Ambient: %.0f%%)",
+		icon, m_dayTime, m_ambientLight * 100.0f);
+
+	if (m_isNight)
+	{
+		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.8f, 1.0f),
+			"Night: view -3, encounters x2");
+	}
 }

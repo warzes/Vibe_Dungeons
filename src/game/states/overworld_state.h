@@ -73,13 +73,22 @@ private:
 	void loadEncounters() noexcept;
 	void triggerRandomEncounter() noexcept;
 
-	// Turn processing (hunger, time)
+	// Turn processing (hunger, time, day/night)
 	void processOverworldTurn() noexcept;
+	void advanceDayTime() noexcept;
+	void updateAmbientLight() noexcept;
 
 	// Movement helpers
 	void processEdgeActions() noexcept;
 	void processHeldRepeat(const DeltaTime& dt) noexcept;
 	void processInteraction() noexcept;
+
+	// Location interaction
+	void processLocationInteraction(const OverworldLocation& loc) noexcept;
+	void processTownInteraction() noexcept;
+	void processShrineInteraction() noexcept;
+	void processCampInteraction() noexcept;
+	void processDungeonEntranceInteraction() noexcept;
 
 	[[nodiscard]] bool isWalkableAction(std::string_view name) const noexcept;
 	void doGridAction(std::string_view name) noexcept;
@@ -87,6 +96,9 @@ private:
 	void renderMinimap() noexcept;
 	void renderFullMap() noexcept;
 	void renderFastTravel() noexcept;
+	void renderCompass() noexcept;
+	void renderLocationPopup() noexcept;
+	void renderDayNightIndicator() noexcept;
 
 	GameStateMachine& m_machine;
 	const Window& m_window;
@@ -127,6 +139,20 @@ private:
 
 	// Fast travel state
 	bool m_fastTravelActive = false;
+
+	// Day/night cycle (steps 263-265)
+	int32_t m_dayTime = 6;       // 0..23, starts at 6 AM
+	float m_ambientLight = 0.6f; // computed from m_dayTime
+	bool m_isNight = false;
+
+	// Location interaction popup (steps 251-256)
+	bool m_showLocationPopup = false;
+	std::string m_activeLocationId;
+	bool m_shrineUsed = false;
+	bool m_campRestUsed = false;
+
+	// Fast travel gold cost
+	static constexpr int32_t FAST_TRAVEL_COST = 50;
 
 	static constexpr std::string_view GRID_ACTION_NAMES[] =
 	{
