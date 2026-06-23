@@ -220,6 +220,7 @@
     <ClCompile Include="game\dungeon\dungeon_renderer.cpp" />
     <ClCompile Include="game\overworld\overworld.cpp" />
     <ClCompile Include="game\overworld\overworld_renderer.cpp" />
+    <ClCompile Include="game\audio_manager.cpp" />
     <ClCompile Include="game\game_app.cpp" />
     <ClCompile Include="game\save_manager.cpp" />
     <ClCompile Include="game\serialization.cpp" />
@@ -322,6 +323,7 @@
     <ClInclude Include="game\overworld\overworld_cell.h" />
     <ClInclude Include="game\overworld\overworld_location.h" />
     <ClInclude Include="game\overworld\overworld_renderer.h" />
+    <ClInclude Include="game\audio_manager.h" />
     <ClInclude Include="game\game_app.h" />
     <ClInclude Include="game\game_mode.h" />
     <ClInclude Include="game\grid_position.h" />

@@ -26,6 +26,7 @@
 #include "game/data/encounter_manager.h"
 #include "game/crafting/crafting_system.h"
 #include "game/ui/combat_log.h"
+#include "game/animation/animation_manager.h"
 
 class GameStateMachine;
 class InputManager;
@@ -133,6 +134,15 @@ private:
 	bool m_showInventory = false;
 
 	void renderInventoryWindow() noexcept;
+	void renderSaveLoadWindow() noexcept;
+	void triggerDamageFlash() noexcept;
+	void checkOpenGLLeaks() noexcept;
+	void playStepSound() noexcept;
+	void playAttackSound() noexcept;
+	void playSpellSound(const std::string& element) noexcept;
+	void playMonsterDeathSound() noexcept;
+	void playPickupSound() noexcept;
+	void playMusicForLocation(const std::string& location) noexcept;
 
 	static constexpr std::string_view GRID_ACTION_NAMES[] =
 	{
@@ -218,4 +228,32 @@ private:
 	bool m_showTargetingPreview = false;
 	void updateTargetingPreview() noexcept;
 	void renderAoeGridOverlay() noexcept;
+
+	// Damage flash (step 337)
+	float m_damageFlashTimer = 0.0f;
+
+	// Auto-save (step 345)
+	bool m_autoSaveEnabled = true;
+
+	// Save slots (step 346)
+	int32_t m_currentSaveSlot = 0;
+	bool m_showSaveLoad = false;
+
+	// Volume settings (step 370)
+	float m_musicVolume = 1.0f;
+	float m_sfxVolume = 1.0f;
+
+	// Background music tracking (step 364-370)
+	std::string m_currentMusicTrack;
+
+	// Animation manager (steps 335, 336, 338)
+	AnimationManager m_animManager;
+	void checkMonsterDeaths() noexcept;
+
+	void spawnAttackAnimation(const glm::vec3& worldPos) noexcept;
+	void spawnSpellAnimation(const glm::vec3& worldPos, std::string_view element) noexcept;
+	void spawnDeathAnimation(const glm::vec3& worldPos) noexcept;
+
+	// Tracks monster IDs that already had death animation spawned
+	std::vector<uint32_t> m_deadMonsterIds;
 };

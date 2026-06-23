@@ -296,6 +296,55 @@ inline void from_json(const json& j, Character::FoodBuff& buff)
 	j.at("remainingTurns").get_to(buff.remainingTurns);
 }
 
+// ---- QuestStatus ----
+inline void to_json(json& j, QuestStatus s)
+{
+	j = static_cast<uint8_t>(s);
+}
+
+inline void from_json(const json& j, QuestStatus& s)
+{
+	s = static_cast<QuestStatus>(j.get<uint8_t>());
+}
+
+// ---- ActiveEffect ----
+inline void to_json(json& j, const ActiveEffect& e)
+{
+	j = json{
+		{"defId", e.defId},
+		{"sourceName", e.sourceName},
+		{"remainingTurns", e.remainingTurns},
+		{"ticksUntilNext", e.ticksUntilNext}
+	};
+}
+
+inline void from_json(const json& j, ActiveEffect& e)
+{
+	j.at("defId").get_to(e.defId);
+	j.at("sourceName").get_to(e.sourceName);
+	j.at("remainingTurns").get_to(e.remainingTurns);
+	j.at("ticksUntilNext").get_to(e.ticksUntilNext);
+}
+
+// ---- QuestEntry ----
+inline void to_json(json& j, const QuestEntry& q)
+{
+	j = json{
+		{"questId", q.questId},
+		{"status", q.status},
+		{"currentObjective", q.currentObjective},
+		{"objectiveProgress", q.objectiveProgress}
+	};
+}
+
+inline void from_json(const json& j, QuestEntry& q)
+{
+	j.at("questId").get_to(q.questId);
+	j.at("status").get_to(q.status);
+	j.at("currentObjective").get_to(q.currentObjective);
+	j.at("objectiveProgress").get_to(q.objectiveProgress);
+}
+
 // ---- Character (with inventory) ----
 inline void to_json(json& j, const Character& c)
 {
@@ -334,6 +383,7 @@ inline void to_json(json& j, const Character& c)
 		{"damageMax", c.m_damageMax},
 		{"xp", c.m_xp},
 		{"xpForNext", c.m_xpForNext},
+		{"gold", c.m_gold},
 		{"position", c.m_position},
 		{"facing", c.m_facing},
 		{"inventory", std::move(invJson)},
@@ -341,8 +391,11 @@ inline void to_json(json& j, const Character& c)
 		{"unlockedSkills", c.m_unlockedSkills},
 		{"actionSlots", std::move(slotsJson)},
 		{"learnedSpells", c.m_learnedSpells},
+		{"activeEffects", c.m_activeEffects},
 		{"hunger", c.m_hunger},
-		{"activeBuffs", c.m_activeBuffs}
+		{"activeBuffs", c.m_activeBuffs},
+		{"questLog", c.m_questLog},
+		{"reputation", c.m_reputation}
 	};
 }
 
@@ -413,6 +466,20 @@ inline void from_json(const json& j, Character& c)
 		j.at("hunger").get_to(c.m_hunger);
 	}
 
+	if (j.contains("gold"))
+	{
+		j.at("gold").get_to(c.m_gold);
+	}
+
+	if (j.contains("activeEffects"))
+	{
+		c.m_activeEffects.clear();
+		for (const auto& effectJson : j.at("activeEffects"))
+		{
+			c.m_activeEffects.push_back(effectJson.get<ActiveEffect>());
+		}
+	}
+
 	if (j.contains("activeBuffs"))
 	{
 		c.m_activeBuffs.clear();
@@ -420,5 +487,19 @@ inline void from_json(const json& j, Character& c)
 		{
 			c.m_activeBuffs.push_back(buffJson.get<Character::FoodBuff>());
 		}
+	}
+
+	if (j.contains("questLog"))
+	{
+		c.m_questLog.clear();
+		for (const auto& questJson : j.at("questLog"))
+		{
+			c.m_questLog.push_back(questJson.get<QuestEntry>());
+		}
+	}
+
+	if (j.contains("reputation"))
+	{
+		j.at("reputation").get_to(c.m_reputation);
 	}
 }

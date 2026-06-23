@@ -29,6 +29,7 @@ public:
 	void SetUniform(std::string_view name, int32_t value) const noexcept;
 	void SetUniform(std::string_view name, float value) const noexcept;
 	void SetUniform(std::string_view name, const glm::vec3& value) const noexcept;
+	void SetUniform(std::string_view name, const glm::vec4& value) const noexcept;
 	void SetUniform(std::string_view name, const glm::mat4& value) const noexcept;
 
 	[[nodiscard]] explicit operator bool() const noexcept

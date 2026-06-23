@@ -99,6 +99,9 @@
     <ClCompile Include="engine\renderer\texture.cpp">
       <Filter>engine\renderer</Filter>
     </ClCompile>
+    <ClCompile Include="game\audio_manager.cpp">
+      <Filter>game</Filter>
+    </ClCompile>
     <ClCompile Include="game\game_app.cpp">
       <Filter>game</Filter>
     </ClCompile>
@@ -355,6 +358,9 @@
       <Filter>engine\renderer</Filter>
     </ClInclude>
     <ClInclude Include="game\direction.h">
+      <Filter>game</Filter>
+    </ClInclude>
+    <ClInclude Include="game\audio_manager.h">
       <Filter>game</Filter>
     </ClInclude>
     <ClInclude Include="game\game_app.h">

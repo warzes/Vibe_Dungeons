@@ -17,6 +17,7 @@ static void to_json(json& j, const PlayerConfig& c)
 		{"resolutionWidth",     c.resolutionWidth},
 		{"resolutionHeight",    c.resolutionHeight},
 		{"renderHeight",        c.renderHeight},
+		{"retroMode",           c.retroMode},
 		{"fullscreen",          c.fullscreen},
 		{"gridMoveRepeatDelay", c.gridMoveRepeatDelay}
 	};
@@ -30,6 +31,7 @@ static void from_json(const json& j, PlayerConfig& c)
 	j.at("resolutionWidth").get_to(c.resolutionWidth);
 	j.at("resolutionHeight").get_to(c.resolutionHeight);
 	j.at("renderHeight").get_to(c.renderHeight);
+	if (j.contains("retroMode")) { j.at("retroMode").get_to(c.retroMode); }
 	j.at("fullscreen").get_to(c.fullscreen);
 	j.at("gridMoveRepeatDelay").get_to(c.gridMoveRepeatDelay);
 }
@@ -82,6 +84,20 @@ static void from_json(const json& j, PlayerConfig& c)
 			}
 		}
 		return 480;
+	}
+
+	bool GetRetroModeFromConfig() noexcept
+	{
+		auto maybeJson = readJsonFile(configFilePath());
+		if (maybeJson.has_value())
+		{
+			auto& j = *maybeJson;
+			if (j.contains("retroMode") && j["retroMode"].is_boolean())
+			{
+				return j["retroMode"].get<bool>();
+			}
+		}
+		return true;
 	}
 
 // ── SettingsState ─────────────────────────────────────────────────────────
@@ -158,6 +174,12 @@ void SettingsState::Render() noexcept
 	ImGui::TextDisabled("Retro FBO height. Width = height * aspect ratio.");
 
 	ImGui::Checkbox("Fullscreen", &m_config.fullscreen);
+
+	ImGui::Checkbox("Retro Mode (fixed resolution)", &m_config.retroMode);
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("When enabled, renders at the fixed FBO height set above.\nWhen disabled, matches the native window resolution.\nRequires restart to take effect.");
+	}
 
 	ImGui::Separator();
 

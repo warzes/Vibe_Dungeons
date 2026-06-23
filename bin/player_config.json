@@ -4,6 +4,7 @@
   "mouseSensitivity": 0.5,
   "playerName": "Player1",
   "renderHeight": 320,
+  "retroMode": true,
   "resolutionHeight": 720,
   "resolutionWidth": 1280,
   "soundVolume": 0.800000011920929

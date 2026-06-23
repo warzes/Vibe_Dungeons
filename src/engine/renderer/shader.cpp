@@ -88,6 +88,11 @@ void Shader::SetUniform(std::string_view name, const glm::vec3& value) const noe
 	glUniform3fv(GetUniformLocation(name), 1, &value.x);
 }
 
+void Shader::SetUniform(std::string_view name, const glm::vec4& value) const noexcept
+{
+	glUniform4fv(GetUniformLocation(name), 1, &value.x);
+}
+
 void Shader::SetUniform(std::string_view name, const glm::mat4& value) const noexcept
 {
 	glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));

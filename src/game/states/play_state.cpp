@@ -94,6 +94,22 @@ void PlayState::OnEnter() noexcept
 		m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
 		m_renderHeight = GetRenderHeightFromConfig();
 
+		// Load volume settings from config
+		{
+			std::string configBuf = FileReadString("player_config.json");
+			if (!configBuf.empty())
+			{
+				json configJson = json::parse(configBuf, nullptr, false);
+				if (!configJson.is_discarded())
+				{
+					m_musicVolume = configJson.value("musicVolume", 1.0f);
+					m_sfxVolume = configJson.value("sfxVolume", 1.0f);
+					m_audio.SetChannelVolume(AudioChannel::Music, m_musicVolume);
+					m_audio.SetChannelVolume(AudioChannel::SFX, m_sfxVolume);
+				}
+			}
+		}
+
 		// ---- Grid camera ----
 		{
 			GridPosition start = m_dungeon.GetChunk().At(17, 17).IsWalkable()
@@ -150,6 +166,7 @@ void PlayState::OnEnter() noexcept
 		);
 		m_combatHandler.LoadMonsterTextures();
 		m_monsterRenderer.Init();
+		m_animManager.Init(m_resources);
 		m_combatHandler.SpawnDefault();
 		Logger::Info("PlayState: monsters spawned");
 
@@ -210,6 +227,11 @@ void PlayState::OnEnter() noexcept
 			static_cast<float>(m_window.Width()) / static_cast<float>(m_window.Height()),
 			0.1f, 100.0f);
 
+		if (m_autoSaveEnabled)
+		{
+			SaveGame("autosave.json");
+		}
+
 		m_initialized = true;
 		Logger::Info("PlayState (Dungeon Crawler) initialized");
 	}
@@ -232,6 +254,7 @@ void PlayState::OnExit() noexcept
 	m_input.ClearActions();
 	m_input.SetMouseCaptured(false);
 	m_resources.CleanupUnused();
+	checkOpenGLLeaks();
 }
 
 void PlayState::OnPause() noexcept
@@ -356,11 +379,11 @@ void PlayState::HandleEvent(const SDL_Event& event) noexcept
 	{
 		if (event.key.key == SDLK_F5)
 		{
-			SaveGame("save.json");
+			m_showSaveLoad = true;
 		}
 		else if (event.key.key == SDLK_F9)
 		{
-			LoadGame("save.json");
+			m_showSaveLoad = true;
 		}
 		else if (event.key.key == SDLK_M)
 		{
@@ -485,6 +508,10 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		}
 	}
 
+	// Update animations
+	checkMonsterDeaths();
+	m_animManager.Update(static_cast<float>(dt.Seconds()));
+
 	// Update AoE targeting preview (step 141)
 	updateTargetingPreview();
 
@@ -492,6 +519,16 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 	m_camera.UpdateAnimation(static_cast<float>(dt.Seconds()));
 
 	m_audio.Update();
+
+	// Decrement damage flash timer
+	if (m_damageFlashTimer > 0.0f)
+	{
+		m_damageFlashTimer -= static_cast<float>(dt.Seconds());
+		if (m_damageFlashTimer < 0.0f)
+		{
+			m_damageFlashTimer = 0.0f;
+		}
+	}
 }
 
 //=============================================================================
@@ -551,6 +588,12 @@ void PlayState::doGridAction(std::string_view name) noexcept
 	// Sync character state with camera after every grid action
 	m_character.GetPosition() = m_camera.GetGridPosition();
 	m_character.SetFacing(m_camera.Facing());
+
+	// Step sound for movement (step 366)
+	if (isMovementAction(name))
+	{
+		playStepSound();
+	}
 
 	// Check for traps when moving onto a new cell (step 289, 293)
 	if (isMovementAction(name))
@@ -930,6 +973,11 @@ void PlayState::processAttack() noexcept
 			m_itemHandler.SpawnDefault();
 
 			m_turnManager.SetGameMode(GameMode::TurnWaiting);
+
+			if (m_autoSaveEnabled)
+			{
+				SaveGame("autosave.json");
+			}
 		}
 		return;
 	}
@@ -975,6 +1023,11 @@ void PlayState::processAttack() noexcept
 			m_itemHandler.SpawnDefault();
 
 			m_turnManager.SetGameMode(GameMode::TurnWaiting);
+
+			if (m_autoSaveEnabled)
+			{
+				SaveGame("autosave.json");
+			}
 		}
 		return;
 	}
@@ -1030,6 +1083,10 @@ void PlayState::processAttack() noexcept
 	if (target)
 	{
 		m_combatHandler.PerformCombat();
+		playAttackSound();
+		triggerDamageFlash();
+		glm::vec3 targetWorld = Camera::GridToWorld(target->position);
+		spawnAttackAnimation(targetWorld);
 	}
 	else if (processGather())
 	{
@@ -1038,6 +1095,7 @@ void PlayState::processAttack() noexcept
 	else
 	{
 		m_itemHandler.ProcessPickup();
+		playPickupSound();
 	}
 }
 
@@ -1087,6 +1145,49 @@ void PlayState::renderInventoryWindow() noexcept
 
 			ImGui::PushID(i);
 			ImGui::Text("%s", item->name.c_str());
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::BeginTooltip();
+				ImGui::Text("Rarity: ");
+				ImGui::SameLine();
+				switch (item->rarity)
+				{
+					case ItemRarity::Common:    ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), "Common"); break;
+					case ItemRarity::Uncommon:  ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "Uncommon"); break;
+					case ItemRarity::Rare:      ImGui::TextColored(ImVec4(0.3f, 0.5f, 1.0f, 1.0f), "Rare"); break;
+					case ItemRarity::Legendary: ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.0f, 1.0f), "Legendary"); break;
+				}
+				if (item->damageMin > 0 || item->damageMax > 0)
+				{
+					ImGui::Text("Damage: %d-%d", item->damageMin, item->damageMax);
+				}
+				if (item->ac > 0)
+				{
+					ImGui::Text("AC: +%d", item->ac);
+				}
+				if (item->atkBonus > 0)
+				{
+					ImGui::Text("ATK: +%d", item->atkBonus);
+				}
+				if (item->strBonus > 0)  { ImGui::Text("STR: +%d", item->strBonus); }
+				if (item->dexBonus > 0)  { ImGui::Text("DEX: +%d", item->dexBonus); }
+				if (item->conBonus > 0)  { ImGui::Text("CON: +%d", item->conBonus); }
+				if (item->hpBonus > 0)   { ImGui::Text("HP: +%d", item->hpBonus); }
+				if (item->mpBonus > 0)   { ImGui::Text("MP: +%d", item->mpBonus); }
+				if (!item->elementType.empty())
+				{
+					ImGui::Text("Element: %s (%d-%d)",
+						item->elementType.c_str(),
+						item->elementDamageMin,
+						item->elementDamageMax);
+				}
+				if (item->lifeStealPercent > 0)
+				{
+					ImGui::Text("Life Steal: %d%%", item->lifeStealPercent);
+				}
+				ImGui::Text("Value: %d", item->value);
+				ImGui::EndTooltip();
+			}
 
 			// Show spoilage status for food
 			if (item->type == ItemType::Food && item->expirationTurns > 0)
@@ -1364,6 +1465,129 @@ void PlayState::renderInventoryWindow() noexcept
 
 //=============================================================================
 
+void PlayState::triggerDamageFlash() noexcept
+{
+	m_damageFlashTimer = 0.3f;
+}
+
+//=============================================================================
+
+void PlayState::playStepSound() noexcept
+{
+	m_audio.Play("step", AudioChannel::SFX, m_sfxVolume);
+}
+
+//=============================================================================
+
+void PlayState::playAttackSound() noexcept
+{
+	m_audio.Play("attack", AudioChannel::SFX, m_sfxVolume);
+}
+
+//=============================================================================
+
+void PlayState::playSpellSound(const std::string& element) noexcept
+{
+	std::string soundName = "spell_" + element;
+	m_audio.Play(soundName, AudioChannel::SFX, m_sfxVolume);
+}
+
+//=============================================================================
+
+void PlayState::playMonsterDeathSound() noexcept
+{
+	m_audio.Play("monster_death", AudioChannel::SFX, m_sfxVolume);
+}
+
+//=============================================================================
+
+void PlayState::playPickupSound() noexcept
+{
+	m_audio.Play("pickup", AudioChannel::SFX, m_sfxVolume);
+}
+
+//=============================================================================
+
+void PlayState::checkOpenGLLeaks() noexcept
+{
+	GLint texture2D = 0;
+	GLint textureCubeMap = 0;
+	glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture2D);
+	glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &textureCubeMap);
+	Logger::Info("OpenGL leak check: " + std::to_string(texture2D) + " textures bound (2D), "
+		+ std::to_string(textureCubeMap) + " (cube map)");
+}
+
+//=============================================================================
+
+void PlayState::playMusicForLocation(const std::string& location) noexcept
+{
+	if (m_currentMusicTrack == location)
+	{
+		return;
+	}
+	m_audio.StopChannel(AudioChannel::Music);
+	m_currentMusicTrack = location;
+	m_audio.Play(location, AudioChannel::Music, m_musicVolume);
+}
+
+//=============================================================================
+
+void PlayState::checkMonsterDeaths() noexcept
+{
+	std::vector<Monster> monsters = m_monsterManager.All();
+	for (const auto& monster : monsters)
+	{
+		if (!monster.alive)
+		{
+			uint32_t gid = monster.groupId;
+			bool alreadyTracked = false;
+			for (uint32_t id : m_deadMonsterIds)
+			{
+				if (id == gid)
+				{
+					alreadyTracked = true;
+					break;
+				}
+			}
+			if (!alreadyTracked)
+			{
+				m_deadMonsterIds.push_back(gid);
+				glm::vec3 deathPos = Camera::GridToWorld(monster.position);
+				spawnDeathAnimation(deathPos);
+				playMonsterDeathSound();
+			}
+		}
+	}
+}
+
+//=============================================================================
+
+void PlayState::spawnAttackAnimation(const glm::vec3& worldPos) noexcept
+{
+	m_animManager.Spawn(AnimationEffectType::AttackSwing, worldPos, 0.3f, 1.0f);
+}
+
+//=============================================================================
+
+void PlayState::spawnSpellAnimation(const glm::vec3& worldPos, std::string_view element) noexcept
+{
+	AnimationEffectType effectType = AnimationEffectType::SpellFire;
+	if (element == "ice")        effectType = AnimationEffectType::SpellIce;
+	else if (element == "lightning") effectType = AnimationEffectType::SpellLightning;
+	else if (element == "holy")  effectType = AnimationEffectType::SpellHoly;
+	m_animManager.Spawn(effectType, worldPos, 0.5f, 0.7f);
+}
+
+//=============================================================================
+
+void PlayState::spawnDeathAnimation(const glm::vec3& worldPos) noexcept
+{
+	m_animManager.Spawn(AnimationEffectType::DeathDissolve, worldPos, 0.5f, 0.9f);
+}
+
+//=============================================================================
+
 void PlayState::SaveGame(const char* path) noexcept
 {
 	SaveManager::SaveGame(path, m_character, m_dungeon, m_monsterManager, m_itemHandler.Drops(), m_combatLog);
@@ -1566,6 +1790,11 @@ void PlayState::RestartGame() noexcept
 	m_character.GetActiveBuffs().clear();
 
 	m_combatLog.Add("Game restarted.", glm::vec3(0.3f, 0.8f, 1.0f));
+
+	if (m_autoSaveEnabled)
+	{
+		SaveGame("autosave.json");
+	}
 }
 
 //=============================================================================
@@ -1594,6 +1823,19 @@ void PlayState::renderOptionsWindow() noexcept
 
 	float repeatDelay = m_moveRepeatDelay;
 	int rh = m_renderHeight;
+
+	// Volume sliders (step 370)
+	if (ImGui::SliderFloat("Music Volume", &m_musicVolume, 0.0f, 1.0f, "%.2f"))
+	{
+		m_audio.SetChannelVolume(AudioChannel::Music, m_musicVolume);
+	}
+
+	if (ImGui::SliderFloat("SFX Volume", &m_sfxVolume, 0.0f, 1.0f, "%.2f"))
+	{
+		m_audio.SetChannelVolume(AudioChannel::SFX, m_sfxVolume);
+	}
+
+	ImGui::Separator();
 
 	if (ImGui::SliderFloat("Move Repeat Delay", &repeatDelay, 0.05f, 0.5f, "%.2f s"))
 	{
@@ -1625,6 +1867,8 @@ void PlayState::renderOptionsWindow() noexcept
 
 		j["gridMoveRepeatDelay"] = repeatDelay;
 		j["renderHeight"] = rh;
+		j["musicVolume"] = m_musicVolume;
+		j["sfxVolume"] = m_sfxVolume;
 
 		std::string dumped = j.dump(2);
 		if (FileWriteBytes("player_config.json", dumped.data(), dumped.size()))
@@ -1642,6 +1886,71 @@ void PlayState::renderOptionsWindow() noexcept
 	if (ImGui::Button("Cancel"))
 	{
 		m_showOptions = false;
+	}
+
+	ImGui::End();
+}
+
+//=============================================================================
+
+void PlayState::renderSaveLoadWindow() noexcept
+{
+	if (!m_showSaveLoad)
+	{
+		return;
+	}
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const ImVec2 ws = viewport->WorkSize;
+
+	ImGui::SetNextWindowPos(ImVec2(ws.x * 0.5f - 200.0f, ws.y * 0.5f - 150.0f), ImGuiCond_Always, ImVec2(0, 0));
+	ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Always);
+
+	if (!ImGui::Begin("Save / Load", &m_showSaveLoad))
+	{
+		ImGui::End();
+		return;
+	}
+
+	ImGui::Text("Select a save slot (F5 = Save, F9 = Load):");
+	ImGui::Separator();
+
+	for (int32_t slot = 0; slot < 3; ++slot)
+	{
+		std::string slotLabel = "Slot " + std::to_string(slot + 1);
+		std::string savePath = "save_slot_" + std::to_string(slot) + ".json";
+
+		if (slot == m_currentSaveSlot)
+		{
+			slotLabel += " [current]";
+		}
+
+		ImGui::Text("%s", slotLabel.c_str());
+		ImGui::SameLine();
+
+		std::string saveLabel = "Save##" + std::to_string(slot);
+		if (ImGui::Button(saveLabel.c_str()))
+		{
+			m_currentSaveSlot = slot;
+			SaveGame(savePath.c_str());
+			m_showSaveLoad = false;
+		}
+
+		ImGui::SameLine();
+
+		std::string loadLabel = "Load##" + std::to_string(slot);
+		if (ImGui::Button(loadLabel.c_str()))
+		{
+			m_currentSaveSlot = slot;
+			LoadGame(savePath.c_str());
+			m_showSaveLoad = false;
+		}
+	}
+
+	ImGui::Separator();
+	if (ImGui::Button("Cancel"))
+	{
+		m_showSaveLoad = false;
 	}
 
 	ImGui::End();
@@ -1695,6 +2004,9 @@ void PlayState::RenderOverlay(const glm::mat4& viewProj) noexcept
 	// Flush overlay AND debug lines
 	m_debugRenderer.SetViewProj(viewProj);
 	m_debugRenderer.Flush(m_camera.ViewMatrix(), m_camera.ProjectionMatrix());
+
+	// Render 3D animations (billboard effects)
+	m_animManager.Render(m_camera);
 }
 
 //=============================================================================
@@ -1741,12 +2053,21 @@ void PlayState::Render() noexcept
 
 	// ---- Hero HUD ----
 	ImGui::SetNextWindowPos(ImVec2(0, 150), ImGuiCond_FirstUseEver, ImVec2(0, 0));
-	ImGui::SetNextWindowSize(ImVec2(260, 110), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(260, 150), ImGuiCond_FirstUseEver);
 	ImGui::Begin("Hero");
+
+	// Class and level on same line
+	std::string clsLvl = "Lvl " + std::to_string(m_character.GetLevel()) + " " + m_character.GetClass();
+	ImGui::Text("%s", clsLvl.c_str());
+
+	// HP bar - RED
 	const float hpFrac = static_cast<float>(m_character.GetHp()) / static_cast<float>(m_character.GetMaxHp());
-	ImGui::Text("%s", m_character.GetName().c_str());
+	ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
 	ImGui::ProgressBar(hpFrac, ImVec2(-1.0f, 0.0f),
 		(std::to_string(m_character.GetHp()) + " / " + std::to_string(m_character.GetMaxHp()) + " HP").c_str());
+	ImGui::PopStyleColor();
+
+	// MP bar - BLUE
 	const float mpFrac = (m_character.GetMaxMp() > 0)
 		? static_cast<float>(m_character.GetMp()) / static_cast<float>(m_character.GetMaxMp())
 		: 0.0f;
@@ -1756,9 +2077,13 @@ void PlayState::Render() noexcept
 			? (std::to_string(m_character.GetMp()) + " / " + std::to_string(m_character.GetMaxMp()) + " MP").c_str()
 			: "No MP"));
 	ImGui::PopStyleColor();
-	ImGui::Text("AC: %d", m_character.GetEquippedAc());
-	ImGui::Text("Attack Bonus: %+d", m_character.GetEquippedAtkBonus());
-	ImGui::Text("Damage: %dd%d", m_character.GetEquippedDamageMin(), m_character.GetEquippedDamageMax());
+
+	// ATK bonus and damage range on same line
+	ImGui::Text("ATK: %+d | DMG: %dd%d",
+		m_character.GetEquippedAtkBonus(),
+		m_character.GetEquippedDamageMin(),
+		m_character.GetEquippedDamageMax());
+	ImGui::Text("Gold: %d", m_character.GetGold());
 	renderHungerIndicator();
 
 	// Step 226: Food buff icons under HP/MP bars
@@ -1784,11 +2109,15 @@ void PlayState::Render() noexcept
 	}
 
 	ImGui::Separator();
+
+	// XP bar - PURPLE
 	const float xpFrac = (m_character.GetXpForNext() > 0)
 		? static_cast<float>(m_character.GetXp()) / static_cast<float>(m_character.GetXpForNext())
 		: 0.0f;
+	ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.6f, 0.2f, 0.8f, 1.0f));
 	ImGui::ProgressBar(xpFrac, ImVec2(-1.0f, 0.0f),
 		(std::to_string(m_character.GetXp()) + " / " + std::to_string(m_character.GetXpForNext()) + " XP").c_str());
+	ImGui::PopStyleColor();
 	ImGui::End();
 
 	// ---- Monster in front ----
@@ -1845,6 +2174,9 @@ void PlayState::Render() noexcept
 
 	// ===== Options window (toggle with F2) =====
 	renderOptionsWindow();
+
+	// ===== Save/Load window (F5/F9) =====
+	renderSaveLoadWindow();
 
 	// ===== Hotbar (always visible) =====
 	renderHotbar();
@@ -1994,9 +2326,12 @@ void PlayState::Render() noexcept
 			ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
 				"Your hero has fallen!");
 			ImGui::Separator();
+			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "(Lost half your gold!)");
+			ImGui::Separator();
 			if (ImGui::Button("Restart"))
 			{
-				RestartGame();
+				m_character.SetGold(m_character.GetGold() / 2);
+				m_machine.ReplaceState("Overworld");
 				ImGui::CloseCurrentPopup();
 			}
 			ImGui::SameLine();
@@ -2006,6 +2341,23 @@ void PlayState::Render() noexcept
 			}
 			ImGui::EndPopup();
 		}
+	}
+
+	// ---- Damage flash overlay (step 337) ----
+	if (m_damageFlashTimer > 0.0f)
+	{
+		ImDrawList* drawList = ImGui::GetForegroundDrawList();
+		float alpha = m_damageFlashTimer / 0.3f;
+		uint32_t flashColor = IM_COL32(255, 0, 0, static_cast<int32_t>(alpha * 80));
+
+		// Top border
+		drawList->AddRectFilled(ImVec2(0, 0), ImVec2(ws.x, 8.0f), flashColor);
+		// Bottom border
+		drawList->AddRectFilled(ImVec2(0, ws.y - 8.0f), ImVec2(ws.x, ws.y), flashColor);
+		// Left border
+		drawList->AddRectFilled(ImVec2(0, 0), ImVec2(8.0f, ws.y), flashColor);
+		// Right border
+		drawList->AddRectFilled(ImVec2(ws.x - 8.0f, 0), ImVec2(ws.x, ws.y), flashColor);
 	}
 }
 
@@ -2346,7 +2698,8 @@ void PlayState::renderEquipmentWindow() noexcept
 			}
 
 			ImGui::SameLine();
-			if (ImGui::SmallButton("Unequip"))
+			std::string uneqLabel = "Unequip " + item->name;
+			if (ImGui::SmallButton(uneqLabel.c_str()))
 			{
 				std::optional<Item> unequipped = eq.Unequip(si.slot);
 				if (unequipped.has_value())
@@ -2361,6 +2714,30 @@ void PlayState::renderEquipmentWindow() noexcept
 		}
 
 		ImGui::PopID();
+	}
+
+	// Equip All button
+	if (ImGui::Button("Equip All"))
+	{
+		Inventory& inv = m_character.GetInventory();
+		for (size_t i = 0; i < inv.Size(); )
+		{
+			Item* item = inv.Get(i);
+			if (item && item->slot != EquipmentSlot::None)
+			{
+				std::optional<Item> prev = eq.Equip(*item);
+				inv.Remove(i);
+				if (prev.has_value())
+				{
+					inv.Add(std::move(prev.value()));
+				}
+				// Don't increment i - items shifted down
+			}
+			else
+			{
+				++i;
+			}
+		}
 	}
 
 	ImGui::Separator();
@@ -2426,6 +2803,11 @@ void PlayState::ProcessSpellAction() noexcept
 	}
 
 	m_spellSystem.ApplySpell(spell, target);
+	playSpellSound(spell.element);
+	for (const auto& hitMon : target.hitMonsters)
+	{
+		spawnSpellAnimation(Camera::GridToWorld(hitMon->position), spell.element);
+	}
 
 	// If this came from a wand, decrement charges or remove the wand
 	if (!m_wandItemSpellId.empty())
@@ -2657,7 +3039,7 @@ void PlayState::renderHungerIndicator() noexcept
 	ImGui::Text("Hunger: ");
 	ImGui::SameLine();
 	float frac = static_cast<float>(hunger) / static_cast<float>(maxHunger);
-	ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(color.x, color.y, color.z, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(1.0f, 0.6f, 0.0f, 1.0f));
 	ImGui::ProgressBar(frac, ImVec2(-1.0f, 0.0f),
 		(std::to_string(hunger) + " / " + std::to_string(maxHunger) + " " + label).c_str());
 	ImGui::PopStyleColor();

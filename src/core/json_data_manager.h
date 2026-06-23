@@ -38,6 +38,7 @@ public:
 	[[nodiscard]] const json& AllResources() const noexcept { return m_resources; }
 	[[nodiscard]] const json& AllRecipes() const noexcept { return m_recipes; }
 	[[nodiscard]] const json& AllCategories() const noexcept { return m_categories; }
+	[[nodiscard]] const json& AllSounds() const noexcept { return m_sounds; }
 
 private:
 	JsonDataManager() = default;
@@ -76,5 +77,6 @@ private:
 	json m_recipes = json::array();
 	std::unordered_map<std::string, size_t> m_recipeIndex;
 	json m_categories = json::array();
+	json m_sounds = json::array();
 	json m_levelTable = json::array();
 };

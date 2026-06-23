@@ -41,7 +41,8 @@ bool JsonDataManager::LoadAll(const char* dataDir)
 		{"encounter_groups.json", "encounters", &m_encounters},
 		{"resources.json", "resources", &m_resources},
 		{"recipes.json", "recipes", &m_recipes},
-		{"categories.json", "categories", &m_categories}
+		{"categories.json", "categories", &m_categories},
+		{"sounds.json", "sounds", &m_sounds}
 	};
 
 	bool allOk = true;

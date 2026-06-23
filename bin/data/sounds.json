@@ -1,0 +1,103 @@
+{
+  "sounds": [
+    {
+      "id": "step",
+      "file": "data/step.ogg",
+      "channel": "SFX",
+      "volume": 0.3
+    },
+    {
+      "id": "hit",
+      "file": "data/hit.ogg",
+      "channel": "SFX",
+      "volume": 0.5
+    },
+    {
+      "id": "crit",
+      "file": "data/crit.ogg",
+      "channel": "SFX",
+      "volume": 0.6
+    },
+    {
+      "id": "miss",
+      "file": "data/miss.ogg",
+      "channel": "SFX",
+      "volume": 0.3
+    },
+    {
+      "id": "die",
+      "file": "data/die.ogg",
+      "channel": "SFX",
+      "volume": 0.5
+    },
+    {
+      "id": "spell_fire",
+      "file": "data/spell_fire.ogg",
+      "channel": "SFX",
+      "volume": 0.6
+    },
+    {
+      "id": "spell_ice",
+      "file": "data/spell_ice.ogg",
+      "channel": "SFX",
+      "volume": 0.6
+    },
+    {
+      "id": "spell_lightning",
+      "file": "data/spell_lightning.ogg",
+      "channel": "SFX",
+      "volume": 0.6
+    },
+    {
+      "id": "spell_holy",
+      "file": "data/spell_holy.ogg",
+      "channel": "SFX",
+      "volume": 0.6
+    },
+    {
+      "id": "pickup",
+      "file": "data/pickup.ogg",
+      "channel": "SFX",
+      "volume": 0.4
+    },
+    {
+      "id": "door",
+      "file": "data/door.ogg",
+      "channel": "SFX",
+      "volume": 0.5
+    },
+    {
+      "id": "trap",
+      "file": "data/trap.ogg",
+      "channel": "SFX",
+      "volume": 0.5
+    },
+    {
+      "id": "level_up",
+      "file": "data/level_up.ogg",
+      "channel": "SFX",
+      "volume": 0.7
+    },
+    {
+      "id": "music_overworld",
+      "file": "data/music_overworld.ogg",
+      "channel": "Music",
+      "volume": 0.5,
+      "loop": true
+    },
+    {
+      "id": "music_dungeon",
+      "file": "data/music_dungeon.ogg",
+      "channel": "Music",
+      "volume": 0.5,
+      "loop": true
+    },
+    {
+      "id": "music_combat",
+      "file": "data/music_combat.ogg",
+      "channel": "Music",
+      "volume": 0.5,
+      "loop": true
+    }
+  ]
+}

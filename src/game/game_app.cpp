@@ -22,7 +22,9 @@ GameApp::GameApp()
 	: m_window(std::make_unique<Window>("Dungeon Crawlers", 1280, 720))
 	, m_glContext(std::make_unique<GLContext>(m_window->Handle()))
 	, m_input(m_window->Handle())
-	, m_renderHeight(GetRenderHeightFromConfig())
+	, m_renderHeight(GetRetroModeFromConfig()
+		? GetRenderHeightFromConfig()
+		: static_cast<int32_t>(m_window->Height()))
 	, m_fbo(
 		static_cast<uint32_t>(static_cast<float>(m_renderHeight) * static_cast<float>(m_window->Width()) / static_cast<float>(m_window->Height())),
 		static_cast<uint32_t>(m_renderHeight)
@@ -351,6 +353,96 @@ void GameApp::initImGui()
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
+
+	// Step 334: retro ImGui style — warm sepia/brown palette with chunky borders
+	{
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.WindowRounding = 0.0f;
+		style.ChildRounding = 0.0f;
+		style.FrameRounding = 1.0f;
+		style.PopupRounding = 0.0f;
+		style.ScrollbarRounding = 2.0f;
+		style.GrabRounding = 1.0f;
+		style.TabRounding = 0.0f;
+		style.WindowBorderSize = 2.0f;
+		style.ChildBorderSize = 2.0f;
+		style.PopupBorderSize = 2.0f;
+		style.FrameBorderSize = 1.0f;
+		style.TabBorderSize = 2.0f;
+		style.WindowPadding = ImVec2(8.0f, 8.0f);
+		style.FramePadding = ImVec2(6.0f, 4.0f);
+		style.ItemSpacing = ImVec2(6.0f, 4.0f);
+		style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
+		style.ScrollbarSize = 14.0f;
+
+		ImVec4 darkBg(0.08f, 0.07f, 0.05f, 1.00f);
+		ImVec4 panelBg(0.14f, 0.12f, 0.08f, 0.94f);
+		ImVec4 border(0.45f, 0.32f, 0.15f, 1.00f);
+		ImVec4 text(0.92f, 0.85f, 0.70f, 1.00f);
+		ImVec4 textDisabled(0.45f, 0.40f, 0.30f, 1.00f);
+		ImVec4 accent(0.75f, 0.55f, 0.20f, 1.00f);
+		ImVec4 hover(0.60f, 0.42f, 0.15f, 1.00f);
+		ImVec4 active(0.80f, 0.60f, 0.25f, 1.00f);
+		ImVec4 header(0.30f, 0.22f, 0.12f, 1.00f);
+		ImVec4 titleBg(0.20f, 0.16f, 0.10f, 1.00f);
+		ImVec4 button(0.35f, 0.25f, 0.12f, 1.00f);
+
+		ImVec4* colors = style.Colors;
+		colors[ImGuiCol_Text] = text;
+		colors[ImGuiCol_TextDisabled] = textDisabled;
+		colors[ImGuiCol_WindowBg] = darkBg;
+		colors[ImGuiCol_ChildBg] = panelBg;
+		colors[ImGuiCol_PopupBg] = panelBg;
+		colors[ImGuiCol_Border] = border;
+		colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+		colors[ImGuiCol_FrameBg] = ImVec4(0.10f, 0.08f, 0.05f, 1.00f);
+		colors[ImGuiCol_FrameBgHovered] = hover;
+		colors[ImGuiCol_FrameBgActive] = active;
+		colors[ImGuiCol_TitleBg] = titleBg;
+		colors[ImGuiCol_TitleBgActive] = titleBg;
+		colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.14f, 0.12f, 0.08f, 0.80f);
+		colors[ImGuiCol_MenuBarBg] = panelBg;
+		colors[ImGuiCol_ScrollbarBg] = panelBg;
+		colors[ImGuiCol_ScrollbarGrab] = button;
+		colors[ImGuiCol_ScrollbarGrabHovered] = hover;
+		colors[ImGuiCol_ScrollbarGrabActive] = active;
+		colors[ImGuiCol_CheckMark] = accent;
+		colors[ImGuiCol_SliderGrab] = accent;
+		colors[ImGuiCol_SliderGrabActive] = active;
+		colors[ImGuiCol_Button] = button;
+		colors[ImGuiCol_ButtonHovered] = hover;
+		colors[ImGuiCol_ButtonActive] = active;
+		colors[ImGuiCol_Header] = header;
+		colors[ImGuiCol_HeaderHovered] = hover;
+		colors[ImGuiCol_HeaderActive] = active;
+		colors[ImGuiCol_Separator] = border;
+		colors[ImGuiCol_SeparatorHovered] = hover;
+		colors[ImGuiCol_SeparatorActive] = active;
+		colors[ImGuiCol_ResizeGrip] = button;
+		colors[ImGuiCol_ResizeGripHovered] = hover;
+		colors[ImGuiCol_ResizeGripActive] = active;
+		colors[ImGuiCol_Tab] = header;
+		colors[ImGuiCol_TabHovered] = hover;
+		colors[ImGuiCol_TabActive] = accent;
+		colors[ImGuiCol_TabUnfocused] = titleBg;
+		colors[ImGuiCol_TabUnfocusedActive] = header;
+
+		colors[ImGuiCol_PlotLines] = accent;
+		colors[ImGuiCol_PlotLinesHovered] = hover;
+		colors[ImGuiCol_PlotHistogram] = accent;
+		colors[ImGuiCol_PlotHistogramHovered] = hover;
+		colors[ImGuiCol_TableHeaderBg] = header;
+		colors[ImGuiCol_TableBorderStrong] = border;
+		colors[ImGuiCol_TableBorderLight] = border;
+		colors[ImGuiCol_TableRowBg] = panelBg;
+		colors[ImGuiCol_TableRowBgAlt] = ImVec4(0.10f, 0.08f, 0.05f, 1.00f);
+		colors[ImGuiCol_TextSelectedBg] = ImVec4(0.45f, 0.32f, 0.15f, 0.50f);
+		colors[ImGuiCol_DragDropTarget] = accent;
+		colors[ImGuiCol_NavHighlight] = accent;
+		colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.75f, 0.55f, 0.20f, 0.80f);
+		colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.08f, 0.07f, 0.05f, 0.60f);
+		colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.08f, 0.07f, 0.05f, 0.70f);
+	}
 
 	ImGuiIO& io = ImGui::GetIO();
 	io.IniFilename = nullptr;

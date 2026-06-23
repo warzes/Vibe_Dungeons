@@ -13,12 +13,14 @@ struct PlayerConfig
 	int32_t resolutionWidth = 1280;
 	int32_t resolutionHeight = 720;
 	int32_t renderHeight = 480;
+	bool retroMode = true;
 	bool fullscreen = false;
 	float gridMoveRepeatDelay = 0.1f;
 };
 
 [[nodiscard]] int32_t GetRenderHeightFromConfig() noexcept;
 [[nodiscard]] float GetGridMoveRepeatDelayFromConfig() noexcept;
+[[nodiscard]] bool GetRetroModeFromConfig() noexcept;
 
 class SettingsState final : public GameState
 {

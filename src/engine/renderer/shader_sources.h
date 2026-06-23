@@ -414,3 +414,60 @@ void main()
 )";
 
 #endif
+
+//=============================================================================
+// Animation billboard shaders (colored quad, no texture)
+//=============================================================================
+
+#if defined(__EMSCRIPTEN__)
+
+static constexpr const char* ANIM_VERT_SRC = R"(#version 300 es
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+
+void main()
+{
+	gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
+}
+)";
+
+static constexpr const char* ANIM_FRAG_SRC = R"(#version 300 es
+precision highp float;
+out vec4 fragColor;
+
+uniform vec4 uColor;
+
+void main()
+{
+	fragColor = uColor;
+}
+)";
+
+#else
+
+static constexpr const char* ANIM_VERT_SRC = R"(#version 330 core
+layout (location = 0) in vec3 aPos;
+
+uniform mat4 uModel;
+uniform mat4 uViewProj;
+
+void main()
+{
+	gl_Position = uViewProj * uModel * vec4(aPos, 1.0);
+}
+)";
+
+static constexpr const char* ANIM_FRAG_SRC = R"(#version 330 core
+out vec4 fragColor;
+
+uniform vec4 uColor;
+
+void main()
+{
+	fragColor = uColor;
+}
+)";
+
+#endif

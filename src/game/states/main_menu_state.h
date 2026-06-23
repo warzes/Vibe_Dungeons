@@ -23,4 +23,7 @@ public:
 
 private:
 	GameStateMachine& m_machine;
+	bool m_showCredits = false;
+	bool m_showLoadSlots = false;
+	int32_t m_selectedSlot = -1;
 };
