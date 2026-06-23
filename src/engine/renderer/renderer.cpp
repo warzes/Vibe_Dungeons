@@ -187,6 +187,13 @@ void Renderer::EndFrame() noexcept
 			GL_UNSIGNED_INT, nullptr,
 			static_cast<int32_t>(batch.instanceCount));
 
+		for (int32_t j = 0; j < 4; ++j)
+		{
+			const uint32_t loc = 3 + static_cast<uint32_t>(j);
+			glDisableVertexAttribArray(loc);
+			glVertexAttribDivisor(loc, 0);
+		}
+
 		batch.mesh->Unbind();
 		Shader::Unbind();
 		Texture::Unbind();

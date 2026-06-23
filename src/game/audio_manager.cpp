@@ -68,6 +68,12 @@ void AudioManager::PlaySound(const std::string& soundId)
 		return;
 	}
 
+	if (!sound->contains("file"))
+	{
+		Logger::Warn(std::string("AudioManager: Sound '") + soundId + "' has no 'file' field");
+		return;
+	}
+
 	const std::string path = (*sound)["file"].get<std::string>();
 
 	if (!m_audio.GetClip(path))
@@ -96,6 +102,12 @@ void AudioManager::PlayMusic(const std::string& musicId)
 	if (!sound)
 	{
 		Logger::Warn(std::string("AudioManager: Music not found: ") + musicId);
+		return;
+	}
+
+	if (!sound->contains("file"))
+	{
+		Logger::Warn(std::string("AudioManager: Music '") + musicId + "' has no 'file' field");
 		return;
 	}
 

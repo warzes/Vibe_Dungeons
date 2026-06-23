@@ -48,21 +48,10 @@ struct CraftingRecipe final
 			}
 		}
 
-		// Support both "result" and "resultItem" keys
-		const json* resJson = nullptr;
 		if (j.contains("result") && j["result"].is_object())
 		{
-			resJson = &j["result"];
-		}
-		else if (j.contains("resultItem") && j["resultItem"].is_object())
-		{
-			resJson = &j["resultItem"];
-		}
-
-		if (resJson)
-		{
-			r.result.itemId = resJson->value("id", std::string());
-			r.result.count = resJson->value("count", 1);
+			r.result.itemId = j["result"].value("id", std::string());
+			r.result.count = j["result"].value("count", 1);
 		}
 
 		return r;

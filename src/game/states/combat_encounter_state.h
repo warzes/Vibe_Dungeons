@@ -104,6 +104,7 @@ private:
 	Material* m_matWall = nullptr;
 	Material* m_matCeiling = nullptr;
 
+	float m_repeatTimer = 0.0f;
 	bool m_initialized = false;
 	bool m_encounterDone = false;
 	bool m_pendingLevelUp = false;

@@ -39,11 +39,15 @@ void Shader::LoadFromSource(std::string_view vertexSource, std::string_view frag
 		glGetProgramiv(m_program, GL_INFO_LOG_LENGTH, &logLength);
 		std::string log(logLength, '\0');
 		glGetProgramInfoLog(m_program, logLength, nullptr, log.data());
+		glDeleteShader(vs);
+		glDeleteShader(fs);
 		glDeleteProgram(m_program);
 		m_program = 0;
 		throw ShaderException("Shader link error: " + log);
 	}
 
+	glDetachShader(m_program, vs);
+	glDetachShader(m_program, fs);
 	glDeleteShader(vs);
 	glDeleteShader(fs);
 

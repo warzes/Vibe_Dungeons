@@ -131,7 +131,7 @@ AudioClip* AudioSystem::LoadOGG(std::string_view path)
 	if (frames <= 0 || !output)
 	{
 		if (output) free(output);
-		Logger::Warn(std::string("AudioSystem: failed to load OGG: ") + path.data());
+		Logger::Warn(std::string("AudioSystem: failed to load OGG: ") + std::string(path));
 		return nullptr;
 	}
 

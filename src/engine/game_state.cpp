@@ -21,7 +21,7 @@ void GameStateMachine::PushState(std::string_view name)
 	}
 	else
 	{
-		Logger::Error(std::string("No factory registered for state: ") + name.data());
+		Logger::Error(std::string("No factory registered for state: ") + std::string(name));
 	}
 }
 
@@ -44,7 +44,7 @@ void GameStateMachine::ReplaceState(std::string_view name)
 	}
 	else
 	{
-		Logger::Error(std::string("No factory registered for state: ") + name.data());
+		Logger::Error(std::string("No factory registered for state: ") + std::string(name));
 	}
 }
 
@@ -138,17 +138,16 @@ void GameStateMachine::applyPush(std::unique_ptr<GameState> state)
 	}
 	catch (...)
 	{
-		Logger::Error(std::string("State OnEnter threw: ") + m_stack.back()->GetName().data());
+		Logger::Error(std::string("State OnEnter threw: ") + std::string(m_stack.back()->GetName()));
 		m_stack.pop_back();
 		m_isPaused = false;
-		// Resume the previous state that was paused
 		if (!m_stack.empty())
 		{
 			m_stack.back()->OnResume();
 		}
 		return;
 	}
-	Logger::Info(std::string("State push: ") + m_stack.back()->GetName().data());
+	Logger::Info(std::string("State push: ") + std::string(m_stack.back()->GetName()));
 }
 
 void GameStateMachine::applyPop() noexcept
@@ -158,7 +157,7 @@ void GameStateMachine::applyPop() noexcept
 		return;
 	}
 	m_stack.back()->OnExit();
-	Logger::Info(std::string("State pop: ") + m_stack.back()->GetName().data());
+	Logger::Info(std::string("State pop: ") + std::string(m_stack.back()->GetName()));
 	m_stack.pop_back();
 	m_isPaused = false;
 	if (!m_stack.empty())
@@ -173,7 +172,7 @@ void GameStateMachine::applyReplace(std::unique_ptr<GameState> state)
 	{
 		m_stack.back()->OnPause();
 		m_stack.back()->OnExit();
-		Logger::Info(std::string("State replace: ") + m_stack.back()->GetName().data());
+		Logger::Info(std::string("State replace: ") + std::string(m_stack.back()->GetName()));
 		m_stack.pop_back();
 	}
 	m_stack.push_back(std::move(state));
@@ -183,7 +182,7 @@ void GameStateMachine::applyReplace(std::unique_ptr<GameState> state)
 	}
 	catch (...)
 	{
-		Logger::Error(std::string("State OnEnter threw: ") + m_stack.back()->GetName().data());
+		Logger::Error(std::string("State OnEnter threw: ") + std::string(m_stack.back()->GetName()));
 		m_stack.pop_back();
 		// Resume whatever state remains below (if any)
 		if (!m_stack.empty())
@@ -192,5 +191,5 @@ void GameStateMachine::applyReplace(std::unique_ptr<GameState> state)
 		}
 		return;
 	}
-	Logger::Info(std::string("State replace with: ") + m_stack.back()->GetName().data());
+	Logger::Info(std::string("State replace with: ") + std::string(m_stack.back()->GetName()));
 }

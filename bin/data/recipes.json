@@ -97,7 +97,7 @@
 			"stationType": "cauldron",
 			"skillReq": 1,
 			"ingredients": [{"id": "herb", "count": 2}, {"id": "water", "count": 1}, {"id": "bottle", "count": 1}],
-			"resultItem": {"id": "healing_potion", "count": 1}
+			"result": {"id": "healing_potion", "count": 1}
 		},
 		{
 			"id": "mana_potion",
@@ -106,7 +106,7 @@
 			"stationType": "cauldron",
 			"skillReq": 3,
 			"ingredients": [{"id": "flower", "count": 3}, {"id": "water", "count": 1}, {"id": "bottle", "count": 1}],
-			"resultItem": {"id": "mana_potion", "count": 1}
+			"result": {"id": "mana_potion", "count": 1}
 		},
 		{
 			"id": "cook_meat",
@@ -115,7 +115,7 @@
 			"stationType": "campfire",
 			"skillReq": 1,
 			"ingredients": [{"id": "meat", "count": 1}, {"id": "spice", "count": 1}],
-			"resultItem": {"id": "cooked_meat", "count": 1}
+			"result": {"id": "cooked_meat", "count": 1}
 		},
 		{
 			"id": "herb_tea",
@@ -124,7 +124,7 @@
 			"stationType": "campfire",
 			"skillReq": 1,
 			"ingredients": [{"id": "herb", "count": 1}, {"id": "water", "count": 1}],
-			"resultItem": {"id": "herb_tea", "count": 1}
+			"result": {"id": "herb_tea", "count": 1}
 		},
 		{
 			"id": "fruit_juice",
@@ -133,7 +133,7 @@
 			"stationType": "campfire",
 			"skillReq": 2,
 			"ingredients": [{"id": "fruit", "count": 2}, {"id": "water", "count": 1}],
-			"resultItem": {"id": "fruit_juice", "count": 1}
+			"result": {"id": "fruit_juice", "count": 1}
 		},
 		{
 			"id": "bread",
@@ -142,7 +142,7 @@
 			"stationType": "campfire",
 			"skillReq": 2,
 			"ingredients": [{"id": "flour", "count": 2}, {"id": "egg", "count": 1}, {"id": "honey", "count": 1}],
-			"resultItem": {"id": "bread", "count": 1}
+			"result": {"id": "bread", "count": 1}
 		},
 		{
 			"id": "fire_bomb",
@@ -151,7 +151,7 @@
 			"stationType": "cauldron",
 			"skillReq": 3,
 			"ingredients": [{"id": "sulfur", "count": 2}, {"id": "essence_fire", "count": 1}, {"id": "bottle", "count": 1}],
-			"resultItem": {"id": "fire_bomb", "count": 1}
+			"result": {"id": "fire_bomb", "count": 1}
 		},
 		{
 			"id": "poison_bomb",
@@ -160,7 +160,7 @@
 			"stationType": "cauldron",
 			"skillReq": 4,
 			"ingredients": [{"id": "sulfur", "count": 2}, {"id": "essence_poison", "count": 1}, {"id": "bottle", "count": 1}],
-			"resultItem": {"id": "poison_bomb", "count": 1}
+			"result": {"id": "poison_bomb", "count": 1}
 		},
 		{
 			"id": "leather_armor",
@@ -169,7 +169,7 @@
 			"stationType": "anvil",
 			"skillReq": 2,
 			"ingredients": [{"id": "leather", "count": 3}],
-			"resultItem": {"id": "leather_armor", "count": 1}
+			"result": {"id": "leather_armor", "count": 1}
 		},
 		{
 			"id": "craft_iron_armor",

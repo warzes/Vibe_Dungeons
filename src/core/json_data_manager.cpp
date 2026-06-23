@@ -145,7 +145,8 @@ static const json& getByIndex(const json& array, const std::unordered_map<std::s
 	{
 		return array[it->second];
 	}
-	return array;
+	static const json s_emptyObject = json::object();
+	return s_emptyObject;
 }
 
 const json& JsonDataManager::GetClassData(const std::string& classId) const

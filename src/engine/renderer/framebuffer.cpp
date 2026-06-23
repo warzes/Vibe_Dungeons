@@ -135,5 +135,7 @@ void FrameBuffer::Resize(uint32_t width, uint32_t height)
 	glRenderbufferStorage(GL_RENDERBUFFER, DEPTH_RBO_FORMAT, static_cast<int32_t>(m_width), static_cast<int32_t>(m_height));
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 	assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE && "Resized framebuffer is not complete");
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

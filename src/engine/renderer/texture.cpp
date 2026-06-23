@@ -46,8 +46,9 @@ void Texture::CreateCheckerboard(
 	m_height = size;
 
 	assert(numSquares > 0 && "numSquares must be positive");
+	assert(size >= numSquares && "size must be >= numSquares");
 
-	const int32_t squareSize = size / numSquares;
+	const int32_t squareSize = std::max(1, size / numSquares);
 	std::vector<uint8_t> pixels(size * size * 4);
 
 	for (int32_t y = 0; y < size; ++y)

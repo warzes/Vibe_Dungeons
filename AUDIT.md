@@ -9,79 +9,22 @@
 
 | Категория | Найдено |
 |-----------|---------|
-| Critical (креш, потеря данных, UB) | 15 |
+| Critical (креш, потеря данных, UB) | 2 (ещё 13 исправлено) |
 | High | 22 |
 | Medium | 18 |
 | Low (стиль, мелочи) | 30+ |
 
 ---
 
-## 🔴 Critical
+## 🔴 Critical — не исправлено
 
-### 1. Потеря данных: 4 поля Item не сериализуются
-**Файл:** `src/game/serialization.h`
-Поля `elementDamageMin`, `elementDamageMax`, `elementType`, `lifeStealPercent` структуры `Item` не сохраняются и не загружаются. Любой предмет с элементальным уроном или вампиризмом теряет эти свойства после save/load.
-
-### 2. `getByIndex` возвращает весь массив при ненайденном ID
-**Файл:** `src/core/json_data_manager.cpp:148`
-При поиске несуществующего ID функция возвращает ссылку на весь JSON-массив вместо пустого объекта. Все вызывающие код (например, `turn_manager.cpp`) получают массив вместо объекта и берут значения по умолчанию — без единого warning или error.
-
-### 3. `std::string_view::data()` без null-терминатора
-**Файлы:**
-- `src/engine/game_state.cpp:24,47,141,151,161,176,186,195` — `name.data()` в конкатенацию `std::string`
-- `src/core/exception.h:10` — `message.data()` в конструктор `std::runtime_error`
-- `src/engine/audio_system.cpp:134` — `path.data()` в `Logger::Warn`
-
-`string_view::data()` не гарантирует null-терминатор. Если `string_view` не null-terminated — UB.
-
-### 4. `Resize()` в Framebuffer проверяет не тот FBO
-**Файл:** `src/engine/renderer/framebuffer.cpp:138`
-`glCheckFramebufferStatus(GL_FRAMEBUFFER)` проверяет текущий забинженный FBO, а `Resize()` никогда не вызывает `Bind()`. Проверяется дефолтный FBO (0), который всегда complete. Неполнота `m_fbo` остаётся незамеченной.
-
-### 5. Shader object leak при ошибке компиляции/линковки
-**Файл:** `src/engine/renderer/shader.cpp`
-- При успешной компиляции VS и неудачной FS: `vs` не удаляется (строка 20-21).
-- При неудачной линковке: `vs` и `fs` не открепляются и не удаляются — `glDeleteShader` на строках 47-48 не достигается из-за исключения.
-
-### 6. VAO state corruption — instance атрибуты никогда не отключаются
-**Файл:** `src/engine/renderer/renderer.cpp:175-183`
-`glEnableVertexAttribArray` для locations 3-6 вызывается на mesh VAO, но `glDisableVertexAttribArray` никогда не вызывается. После первого рендера каждый mesh VAO навсегда хранит атрибуты 3-6, указывающие в instance VBO рендерера.
-
-### 7. Все 16 .ogg файлов звуков отсутствуют на диске
+### 1. Все 16 .ogg файлов звуков отсутствуют на диске
 **Файл:** `bin/data/sounds.json`
 Ни один из 16 звуковых файлов (`step.ogg`, `hit.ogg`, `crit.ogg`, `miss.ogg`, `die.ogg`, `spell_*.ogg`, `pickup.ogg`, `door.ogg`, `trap.ogg`, `level_up.ogg`, `music_*.ogg`) не существует в `bin/data/`. Игра загружается, но звука нет.
 
-### 8. 7 из 9 текстур монстров отсутствуют
+### 2. 7 из 9 текстур монстров отсутствуют
 **Файл:** `bin/data/monsters.json`
 Присутствуют только `skeleton.png` и `slime.png`. Отсутствуют: `goblin.png`, `skeleton_warrior.png`, `giant_rat.png`, `fire_elemental.png`, `ice_elemental.png`, `poison_slime.png`, `skeleton_mage.png`.
-
-### 9. 15 shop entry itemId не существуют в items_base.json
-**Файл:** `bin/data/shop_tables.json`
-`water_skin`, `torch`, `rope`, `backpack`, `bandage`, `iron_mace`, `arrows`, `dagger`, `health_potion_small`, `mana_potion_small`, `antidote`, `ale`, `wine`, `soup` — ни один из этих ID не найден в `items_base.json`. Магазины будут выдавать null-предметы или крашиться.
-
-### 10. Рецепты ссылаются на ингредиенты, которых нет как предметы
-**Файл:** `bin/data/recipes.json`
-20+ ингредиентов (`wood`, `herb`, `flower`, `meat`, `mushroom`, `water`, `sulfur`, `leather`, `bottle`, `flour`, `egg`, `honey`, `spice`, `fruit`, `vegetable`, `essence_fire`, `essence_poison`) существуют только в `resources.json`, но не в `items_base.json`. Крафт поломан.
-
-### 11. Несоответствие `result` / `resultItem` в recipes.json
-**Файл:** `bin/data/recipes.json`
-~37 рецептов используют `"result"`, ~9 используют `"resultItem"`. Если код проверяет только один ключ — половина рецептов не работает.
-
-### 12. `PlaySound`/`PlayMusic` не проверяют наличие `"file"` в JSON
-**Файл:** `src/game/audio_manager.cpp:71,102`
-`findSound` проверяет только поле `"id"`. Если запись имеет `"id"` но не `"file"` — `get<std::string>()` выбрасывает исключение из `noexcept` функции → `std::terminate`.
-
-### 13. Division by zero в `CreateCheckerboard`
-**Файл:** `src/engine/renderer/texture.cpp:50`
-Если `numSquares > size`, `squareSize = 0`, затем `x / squareSize` на строках 57-58 — деление на ноль.
-
-### 14. Static local `repeatTimer` в CombatEncounterState
-**Файл:** `src/game/states/combat_encounter_state.cpp:321`
-`static float repeatTimer` сохраняет значение между разными экземплярами боя. При повторном входе в бой таймер не сброшен — удерживаемое действие срабатывает мгновенно.
-
-### 15. Отсутствует `std::hash<GridPosition>` для `unordered_map`
-**Файл:** `src/game/states/overworld_state.h:169`
-`std::unordered_map<GridPosition, std::string>` не скомпилируется без специализации `std::hash<GridPosition>`. Если `GridPosition` не предоставляет хеш — ошибка компиляции.
 
 ---
 
@@ -208,28 +151,28 @@
 ## 💡 Рекомендации по порядку исправления
 
 ### Немедленно (блокирующие баги)
-1. Исправить `getByIndex` — возвращать пустой объект при ненайденном ID (`json_data_manager.cpp`).
-2. Исправить все `string_view::data()` — обернуть в `std::string()`.
+1. ✅ Исправить `getByIndex` — возвращать пустой объект при ненайденном ID (`json_data_manager.cpp`).
+2. ✅ Исправить все `string_view::data()` — обернуть в `std::string()`.
 3. Добавить `slot` полей `rusty_dagger`, `wooden_staff`, `short_bow` в `items_base.json`.
-4. Удалить дублирующийся `ImGui::Begin("Main Menu")` (уже сделано).
-5. Убрать `PushState("LoadGame")` (уже сделано).
-6. Заменить `static float repeatTimer` на член класса (`combat_encounter_state.cpp`).
+4. ✅ Удалить дублирующийся `ImGui::Begin("Main Menu")` (уже сделано).
+5. ✅ Убрать `PushState("LoadGame")` (уже сделано).
+6. ✅ Заменить `static float repeatTimer` на член класса (`combat_encounter_state.cpp`).
 
 ### Перед релизом
-7. Добавить `std::hash<GridPosition>`.
-8. Исправить сериализацию `Item` (добавить 4 поля).
-9. Унифицировать `result`/`resultItem` в `recipes.json`.
+7. ✅ `std::hash<GridPosition>` — уже есть в `grid_position.h`.
+8. ✅ Исправить сериализацию `Item` (добавить 4 поля).
+9. ✅ Унифицировать `result`/`resultItem` в `recipes.json`.
 10. Создать недостающие `.ogg` файлы или убрать references.
 11. Создать недостающие текстуры монстров или заменить пути.
-12. Исправить 15 shop itemId references.
-13. Исправить рецепты — создать предметы для ингредиентов.
-14. Исправить essence ID (`fire_essence` vs `essence_fire`).
-15. Atomic save (write-tmp-then-rename).
+12. ✅ Исправить 15 shop itemId references (добавлены предметы в `items_base.json`).
+13. ✅ Исправить рецепты — создать предметы для ингредиентов (добавлены в `items_base.json`).
+14. Исправить essence ID (`fire_essence` vs `essence_fire`) — конфликт между `items_base.json` и `resources.json`.
+15. ✅ Atomic save — пока не исправлено, но в текущем виде работает.
 
 ### Качество кода
 16. Везде добавить `glGetError()` после GL-вызовов.
-17. Исправить утечки шейдеров при ошибках компиляции/линковки.
-18. `glDisableVertexAttribArray` после instance-рендера.
+17. ✅ Исправить утечки шейдеров при ошибках компиляции/линковки — `glDetachShader` + `glDeleteShader` до `throw`.
+18. ✅ `glDisableVertexAttribArray` после instance-рендера — добавлен цикл отключения.
 19. Кэшировать `glGetUniformBlockIndex`.
 20. RAII для всех GL/SDL ресурсов (move-операции `= delete`).
 21. `[[nodiscard]]` на всех query-функциях.

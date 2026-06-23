@@ -7,7 +7,7 @@ public:
 		std::string_view message,
 		std::source_location location = std::source_location::current()
 	)
-		: std::runtime_error(message.data())
+		: std::runtime_error(std::string(message))
 		, m_location(location)
 		, m_formatted(std::string(message) + " [" + location.file_name() + ":" + std::to_string(location.line()) + "]")
 	{}

@@ -88,6 +88,10 @@ inline void to_json(json& j, const Item& item)
 		{"conBonus", item.conBonus},
 		{"hpBonus", item.hpBonus},
 		{"mpBonus", item.mpBonus},
+		{"elementDamageMin", item.elementDamageMin},
+		{"elementDamageMax", item.elementDamageMax},
+		{"elementType", item.elementType},
+		{"lifeStealPercent", item.lifeStealPercent},
 		{"spellId", item.spellId},
 		{"charges", item.charges},
 		{"maxCharges", item.maxCharges},
@@ -119,6 +123,10 @@ inline void from_json(const json& j, Item& item)
 	if (j.contains("conBonus")) { j.at("conBonus").get_to(item.conBonus); }
 	if (j.contains("hpBonus")) { j.at("hpBonus").get_to(item.hpBonus); }
 	if (j.contains("mpBonus")) { j.at("mpBonus").get_to(item.mpBonus); }
+	if (j.contains("elementDamageMin")) { j.at("elementDamageMin").get_to(item.elementDamageMin); }
+	if (j.contains("elementDamageMax")) { j.at("elementDamageMax").get_to(item.elementDamageMax); }
+	if (j.contains("elementType")) { j.at("elementType").get_to(item.elementType); }
+	if (j.contains("lifeStealPercent")) { j.at("lifeStealPercent").get_to(item.lifeStealPercent); }
 	if (j.contains("spellId")) { j.at("spellId").get_to(item.spellId); }
 	if (j.contains("charges")) { j.at("charges").get_to(item.charges); }
 	if (j.contains("maxCharges")) { j.at("maxCharges").get_to(item.maxCharges); }

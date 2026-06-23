@@ -15,7 +15,7 @@
         "xp": 100,
         "gold": 50,
         "reputation": 10,
-        "items": ["health_potion_small"]
+        "items": ["healing_potion"]
       }
     },
     {
@@ -48,7 +48,7 @@
         "xp": 75,
         "gold": 30,
         "reputation": 5,
-        "items": ["health_potion_small", "mana_potion_small"]
+        "items": ["healing_potion", "mana_potion"]
       }
     },
     {
@@ -81,7 +81,7 @@
         "xp": 200,
         "gold": 80,
         "reputation": 10,
-        "items": ["mana_potion_small"]
+        "items": ["mana_potion"]
       }
     }
   ]

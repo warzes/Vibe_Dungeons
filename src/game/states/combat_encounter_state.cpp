@@ -318,9 +318,8 @@ void CombatEncounterState::processHeldRepeat(const DeltaTime& dt) noexcept
 	if (heldAction.empty()) return;
 
 	float moveRepeatDelay = 0.1f;
-	static float repeatTimer = 0.0f;
-	repeatTimer += static_cast<float>(dt.Seconds());
-	if (repeatTimer >= moveRepeatDelay)
+	m_repeatTimer += static_cast<float>(dt.Seconds());
+	if (m_repeatTimer >= moveRepeatDelay)
 	{
 		bool movement = (heldAction != "TurnLeft" && heldAction != "TurnRight");
 		if (!movement || isWalkableAction(heldAction))
@@ -328,7 +327,7 @@ void CombatEncounterState::processHeldRepeat(const DeltaTime& dt) noexcept
 			doGridAction(heldAction);
 			m_turnManager.SetGameMode(GameMode::TurnWaiting);
 		}
-		repeatTimer = 0.0f;
+		m_repeatTimer = 0.0f;
 	}
 }
 
