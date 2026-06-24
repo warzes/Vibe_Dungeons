@@ -20,9 +20,12 @@ void Material::SetTexture(const Texture& texture) noexcept
 
 void Material::Bind() const noexcept
 {
-	const Shader& shader = GetShader();
-	shader.Bind();
+	if (!m_shader || !m_texture)
+	{
+		return;
+	}
 
-	GetTexture().Bind(0);
-	shader.SetUniform("uTexture", 0);
+	m_shader->Bind();
+	m_texture->Bind(0);
+	m_shader->SetUniform("uTexture", 0);
 }

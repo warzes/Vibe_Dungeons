@@ -82,7 +82,11 @@ void FrameBuffer::create()
 	glRenderbufferStorage(GL_RENDERBUFFER, DEPTH_RBO_FORMAT, static_cast<int32_t>(m_width), static_cast<int32_t>(m_height));
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, DEPTH_ATTACH_PT, GL_RENDERBUFFER, m_depthRbo);
 
-	assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE && "Framebuffer is not complete");
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		throw std::runtime_error("Framebuffer is not complete");
+	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -136,6 +140,10 @@ void FrameBuffer::Resize(uint32_t width, uint32_t height)
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-	assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE && "Resized framebuffer is not complete");
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		throw std::runtime_error("Resized framebuffer is not complete");
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

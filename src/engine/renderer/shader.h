@@ -25,6 +25,7 @@ public:
 	}
 
 	[[nodiscard]] int32_t GetUniformLocation(std::string_view name) const noexcept;
+	[[nodiscard]] uint32_t GetUniformBlockIndex(std::string_view name) const noexcept;
 
 	void SetUniform(std::string_view name, int32_t value) const noexcept;
 	void SetUniform(std::string_view name, float value) const noexcept;
@@ -40,10 +41,12 @@ public:
 private:
 	uint32_t m_program = 0;
 	mutable std::unordered_map<std::string, int32_t> m_uniformCache;
+	mutable std::unordered_map<std::string, uint32_t> m_blockIndexCache;
 
 	void invalidateCache() noexcept
 	{
 		m_uniformCache.clear();
+		m_blockIndexCache.clear();
 	}
 
 	[[nodiscard]] static uint32_t compileShader(uint32_t type, std::string_view source);

@@ -1,10 +1,39 @@
 ﻿#include "stdafx.h"
 #include "game/states/main_menu_state.h"
 #include "engine/delta_time.h"
+#include "core/json_alias.h"
+#include "core/file_io.h"
+#include "core/logger.h"
 
-MainMenuState::MainMenuState(GameStateMachine& machine) noexcept
+MainMenuState::MainMenuState(GameStateMachine& machine, Character* pendingCharacter) noexcept
 	: m_machine(machine)
+	, m_pendingCharacter(pendingCharacter)
 {}
+
+void MainMenuState::loadGameFromSlot(int32_t slot) noexcept
+{
+	std::string path = std::format("save_slot_{}.json", slot);
+	std::string buffer = FileReadString(path.c_str());
+	if (buffer.empty())
+	{
+		Logger::Warn(std::format("Save slot {} not found", slot));
+		return;
+	}
+
+	json j = json::parse(buffer, nullptr, false);
+	if (j.is_discarded() || !j.contains("character"))
+	{
+		Logger::Warn(std::format("Save slot {} invalid", slot));
+		return;
+	}
+
+	if (m_pendingCharacter)
+	{
+		*m_pendingCharacter = j.at("character").get<Character>();
+	}
+
+	m_machine.ReplaceState("Overworld");
+}
 
 void MainMenuState::OnEnter() noexcept
 {
@@ -61,6 +90,7 @@ void MainMenuState::Render() noexcept
 			{
 				m_selectedSlot = s;
 				m_showLoadSlots = false;
+				loadGameFromSlot(s);
 			}
 		}
 	}

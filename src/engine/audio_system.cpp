@@ -200,11 +200,12 @@ void AudioSystem::Play(std::string_view name, AudioChannel channel, float volume
 	const uint64_t bytes = static_cast<uint64_t>(clip.samples.size()) * sizeof(float);
 	uint64_t& streamPos = (channel == AudioChannel::Music) ? m_musicStreamPos : m_sfxStreamPos;
 
+	bool success = false;
 	if (finalVolume >= 1.0f - 1e-6f && finalVolume <= 1.0f + 1e-6f)
 	{
-		SDL_PutAudioStreamData(stream,
+		success = SDL_PutAudioStreamData(stream,
 			clip.samples.data(),
-			static_cast<int32_t>(bytes));
+			static_cast<int32_t>(bytes)) == 0;
 	}
 	else
 	{
@@ -213,13 +214,16 @@ void AudioSystem::Play(std::string_view name, AudioChannel channel, float volume
 		{
 			m_scratch[i] = clip.samples[i] * finalVolume;
 		}
-		SDL_PutAudioStreamData(stream,
+		success = SDL_PutAudioStreamData(stream,
 			m_scratch.data(),
-			static_cast<int32_t>(bytes));
+			static_cast<int32_t>(bytes)) == 0;
 	}
 
-	streamPos += bytes;
-	m_playing.push_back({std::string(name), channel, streamPos});
+	if (success)
+	{
+		streamPos += bytes;
+		m_playing.push_back({std::string(name), channel, streamPos});
+	}
 }
 
 void AudioSystem::Update() noexcept

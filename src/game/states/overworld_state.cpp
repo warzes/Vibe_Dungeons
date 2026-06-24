@@ -16,24 +16,29 @@
 #include "game/data/shop_manager.h"
 #include "game/data/item_factory.h"
 
-
+#include <numbers>
 //=============================================================================
 
-static const char* TERRAIN_NAMES[] =
+namespace
+{
+
+const char* TERRAIN_NAMES[] =
 {
 	"Grassland", "Forest", "Mountain", "Water", "Road", "Desert"
 };
 
-static const char* TERRAIN_KEY[] =
+const char* TERRAIN_KEY[] =
 {
 	"Grassland", "Forest", "Mountain", "Water", "Road", "Desert", nullptr
 };
 
-static const char* terrainKey(TerrainType t) noexcept
+const char* terrainKey(TerrainType t) noexcept
 {
 	int32_t idx = static_cast<int32_t>(t);
 	return (idx >= 0 && idx < 6) ? TERRAIN_KEY[idx] : nullptr;
 }
+
+} // anonymous namespace
 
 //=============================================================================
 
@@ -73,9 +78,9 @@ Texture* OverworldState::createTerrainPalette() noexcept
 		136, 136, 136, 255,  // 7: Unused
 	};
 
-	auto* tex = new Texture();
+	auto tex = std::make_unique<Texture>();
 	tex->CreateFromRaw(W, H, reinterpret_cast<const uint32_t*>(pixels));
-	return tex;
+	return tex.release();
 }
 
 //=============================================================================
@@ -204,6 +209,10 @@ void OverworldState::triggerRandomEncounter() noexcept
 void OverworldState::advanceDayTime() noexcept
 {
 	m_dayTime = (m_dayTime + 1) % 24;
+	if (m_dayTime == 0)
+	{
+		++m_dayCount;
+	}
 	updateAmbientLight();
 }
 
@@ -254,7 +263,7 @@ void OverworldState::updateAmbientLight() noexcept
 
 //=============================================================================
 
-void OverworldState::processOverworldTurn() noexcept
+bool OverworldState::processOverworldTurn() noexcept
 {
 	// Hunger decreases each step (step 243)
 	m_character.ConsumeHunger(1);
@@ -273,7 +282,10 @@ void OverworldState::processOverworldTurn() noexcept
 	{
 		Logger::Info("Overworld: character died of starvation.");
 		m_machine.ReplaceState("MainMenu");
+		return false; // state was destroyed
 	}
+
+	return true;
 }
 
 //=============================================================================
@@ -556,8 +568,10 @@ void OverworldState::doGridAction(std::string_view name) noexcept
 	// Movement costs a turn: hunger, time, encounters, etc.
 	if (wasMovement)
 	{
-		processOverworldTurn();
-		triggerRandomEncounter();
+		if (processOverworldTurn())
+		{
+			triggerRandomEncounter();
+		}
 	}
 }
 
@@ -919,12 +933,11 @@ void OverworldState::processNpcInteraction() noexcept
 	// If NPC has shop table, refresh inventory on new day
 	if (!npc->shopTableId.empty())
 	{
-		int32_t currentDay = m_dayTime; // approximate
-		if (currentDay != m_lastShopRefreshDay)
+		if (m_dayCount != m_lastShopRefreshDay)
 		{
 			m_shopInventories[npc->shopTableId] =
 				ShopManager::GenerateInventory(npc->shopTableId, static_cast<int32_t>(m_rng()));
-			m_lastShopRefreshDay = currentDay;
+			m_lastShopRefreshDay = m_dayCount;
 		}
 	}
 
@@ -1102,15 +1115,16 @@ void OverworldState::renderTradeWindow() noexcept
 	ImGui::BeginChild("SellPanel", ImVec2(0, 300), true);
 
 	auto& inv = m_character.GetInventory();
-	for (size_t i = 0; i < inv.Size(); ++i)
+	size_t i = 0;
+	while (i < inv.Size())
 	{
 		const Item* item = inv.Get(i);
-		if (!item) continue;
+		if (!item) { ++i; continue; }
 
 		// Can't sell equipped items or quest items
 		// (for simplicity, skip gold items too)
-		if (item->type == ItemType::Gold) continue;
-		if (item->type == ItemType::QuestItem) continue;
+		if (item->type == ItemType::Gold) { ++i; continue; }
+		if (item->type == ItemType::QuestItem) { ++i; continue; }
 
 		int32_t sellPrice = static_cast<int32_t>(std::round(item->value * sellMultiplier));
 		if (sellPrice < 1) sellPrice = 1;
@@ -1125,8 +1139,11 @@ void OverworldState::renderTradeWindow() noexcept
 			m_character.AddGold(sellPrice);
 			inv.Remove(i);
 			Logger::Info("Sold item");
+			ImGui::PopID();
+			continue; // re-check same index after removal
 		}
 		ImGui::PopID();
+		++i;
 	}
 
 	ImGui::EndChild();
@@ -1805,9 +1822,9 @@ void OverworldState::renderCompass() noexcept
 	}
 
 	// Calculate bearing relative to player facing
-	static constexpr float PI = static_cast<float>(M_PI);
-	static constexpr float HALF_PI = static_cast<float>(M_PI_2);
-	static constexpr float TWO_PI = static_cast<float>(M_PI) * 2.0f;
+	static constexpr float PI = static_cast<float>(std::numbers::pi);
+	static constexpr float HALF_PI = static_cast<float>(std::numbers::pi_v<long double> / 2.0L);
+	static constexpr float TWO_PI = static_cast<float>(std::numbers::pi * 2.0);
 
 	int32_t dr = nearest->position.row - playerPos.row;
 	int32_t dc = nearest->position.col - playerPos.col;

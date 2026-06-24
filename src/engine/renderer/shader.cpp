@@ -64,6 +64,19 @@ void Shader::Unbind() noexcept
 	glUseProgram(0);
 }
 
+uint32_t Shader::GetUniformBlockIndex(std::string_view name) const noexcept
+{
+	std::string key(name);
+	auto it = m_blockIndexCache.find(key);
+	if (it != m_blockIndexCache.end())
+	{
+		return it->second;
+	}
+	const uint32_t idx = glGetUniformBlockIndex(m_program, key.c_str());
+	m_blockIndexCache[key] = idx;
+	return idx;
+}
+
 int32_t Shader::GetUniformLocation(std::string_view name) const noexcept
 {
 	std::string key(name);

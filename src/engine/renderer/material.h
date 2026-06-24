@@ -14,16 +14,14 @@ public:
 
 	void Bind() const noexcept;
 
-	[[nodiscard]] const Shader& GetShader() const noexcept
+	[[nodiscard]] const Shader* GetShader() const noexcept
 	{
-		assert(m_shader != nullptr && "Material has no shader");
-		return *m_shader;
+		return m_shader;
 	}
 
-	[[nodiscard]] const Texture& GetTexture() const noexcept
+	[[nodiscard]] const Texture* GetTexture() const noexcept
 	{
-		assert(m_texture != nullptr && "Material has no texture");
-		return *m_texture;
+		return m_texture;
 	}
 
 private:

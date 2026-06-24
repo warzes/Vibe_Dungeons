@@ -276,6 +276,15 @@ void DebugRenderer::Flush(const glm::mat4& view, const glm::mat4& projection) no
 			m_vertexData.push_back(line.color.b);
 		}
 
+		// Save GL state
+		GLboolean wasDepthTest = glIsEnabled(GL_DEPTH_TEST);
+		GLint wasVAO = 0;
+		GLint wasVBO = 0;
+		GLint wasProgram = 0;
+		glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &wasVAO);
+		glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &wasVBO);
+		glGetIntegerv(GL_CURRENT_PROGRAM, &wasProgram);
+
 		glDisable(GL_DEPTH_TEST);
 
 		m_shader.Bind();
@@ -290,11 +299,11 @@ void DebugRenderer::Flush(const glm::mat4& view, const glm::mat4& projection) no
 
 		glDrawArrays(GL_LINES, 0, static_cast<int32_t>(m_overlayLines.size() * 2));
 
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindVertexArray(0);
-		Shader::Unbind();
-
-		glEnable(GL_DEPTH_TEST);
+		// Restore GL state
+		if (wasDepthTest) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+		glBindVertexArray(static_cast<GLuint>(wasVAO));
+		glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(wasVBO));
+		glUseProgram(static_cast<GLuint>(wasProgram));
 
 		m_overlayLines.clear();
 	}
@@ -326,6 +335,15 @@ void DebugRenderer::Flush(const glm::mat4& view, const glm::mat4& projection) no
 		m_vertexData.push_back(line.color.b);
 	}
 
+	// Save GL state
+	GLboolean wasDepthTest = glIsEnabled(GL_DEPTH_TEST);
+	GLint wasVAO = 0;
+	GLint wasVBO = 0;
+	GLint wasProgram = 0;
+	glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &wasVAO);
+	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &wasVBO);
+	glGetIntegerv(GL_CURRENT_PROGRAM, &wasProgram);
+
 	glDisable(GL_DEPTH_TEST);
 
 	m_shader.Bind();
@@ -340,11 +358,11 @@ void DebugRenderer::Flush(const glm::mat4& view, const glm::mat4& projection) no
 
 	glDrawArrays(GL_LINES, 0, static_cast<int32_t>(m_lines.size() * 2));
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-	Shader::Unbind();
-
-	glEnable(GL_DEPTH_TEST);
+	// Restore GL state
+	if (wasDepthTest) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+	glBindVertexArray(static_cast<GLuint>(wasVAO));
+	glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(wasVBO));
+	glUseProgram(static_cast<GLuint>(wasProgram));
 
 	m_lines.clear();
 	m_vertexData.clear();

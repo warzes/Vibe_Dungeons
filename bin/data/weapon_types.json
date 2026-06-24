@@ -7,6 +7,8 @@
 		{"id": "spear", "name": "Spear", "damageMin": 1, "damageMax": 6, "range": 2, "hands": 2, "strReq": 1, "dexReq": 1, "baseValue": 10, "tags": ["piercing", "reach"]},
 		{"id": "staff", "name": "Staff", "damageMin": 1, "damageMax": 4, "range": 1, "hands": 2, "strReq": 0, "dexReq": 0, "baseValue": 5, "tags": ["blunt", "magic_focus"]},
 		{"id": "bow", "name": "Bow", "damageMin": 1, "damageMax": 6, "range": 3, "hands": 2, "strReq": 1, "dexReq": 3, "baseValue": 20, "tags": ["piercing", "ranged"]},
-		{"id": "crossbow", "name": "Crossbow", "damageMin": 2, "damageMax": 8, "range": 4, "hands": 2, "strReq": 2, "dexReq": 1, "baseValue": 30, "tags": ["piercing", "ranged", "slow"]}
+		{"id": "crossbow", "name": "Crossbow", "damageMin": 2, "damageMax": 8, "range": 4, "hands": 2, "strReq": 2, "dexReq": 1, "baseValue": 30, "tags": ["piercing", "ranged", "slow"]},
+		{"id": "pickaxe", "name": "Pickaxe", "damageMin": 1, "damageMax": 3, "range": 1, "hands": 1, "strReq": 2, "dexReq": 0, "baseValue": 10, "tags": ["blunt", "mining"]},
+		{"id": "fishing_rod", "name": "Fishing Rod", "damageMin": 0, "damageMax": 1, "range": 2, "hands": 2, "strReq": 0, "dexReq": 1, "baseValue": 8, "tags": ["fishing"]}
 	]
 }

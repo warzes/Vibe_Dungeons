@@ -1,13 +1,10 @@
 /// @ref core
 /// @file glm/glm.cpp
+/// Stray file — glm is used as header-only, do not compile this.
 
-#ifndef GLM_ENABLE_EXPERIMENTAL
-#define GLM_ENABLE_EXPERIMENTAL
+#if defined(__GNUC__) || defined(_MSC_VER)
+#error "This file should not be compiled. glm is used as header-only."
 #endif
-#include <glm/gtx/dual_quaternion.hpp>
-#include <glm/gtc/vec1.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/ext/scalar_int_sized.hpp>
 #include <glm/ext/scalar_uint_sized.hpp>
 #include <glm/glm.hpp>
 

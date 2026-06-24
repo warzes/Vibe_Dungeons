@@ -232,6 +232,10 @@ private:
 	// Damage flash (step 337)
 	float m_damageFlashTimer = 0.0f;
 
+	// Deferred restart (step 346)
+	bool m_pendingRestart = false;
+	int32_t m_pendingGoldLoss = 0;
+
 	// Auto-save (step 345)
 	bool m_autoSaveEnabled = true;
 

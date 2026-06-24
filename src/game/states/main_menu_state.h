@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/game_state.h"
+#include "game/combat/character.h"
 
 class Window;
 class InputManager;
@@ -8,7 +9,7 @@ class InputManager;
 class MainMenuState final : public GameState
 {
 public:
-	explicit MainMenuState(GameStateMachine& machine) noexcept;
+	explicit MainMenuState(GameStateMachine& machine, Character* pendingCharacter = nullptr) noexcept;
 
 	void OnEnter() noexcept override;
 	void OnExit() noexcept override;
@@ -22,7 +23,10 @@ public:
 	}
 
 private:
+	void loadGameFromSlot(int32_t slot) noexcept;
+
 	GameStateMachine& m_machine;
+	Character* m_pendingCharacter;
 	bool m_showCredits = false;
 	bool m_showLoadSlots = false;
 	int32_t m_selectedSlot = -1;

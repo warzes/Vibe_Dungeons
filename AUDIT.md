@@ -10,60 +10,9 @@
 | Категория | Найдено |
 |-----------|---------|
 | Critical (креш, потеря данных, UB) | 2 (ещё 13 исправлено) |
-| High | 22 |
+| High (все исправлены) | 22 (29 пунктов, все закрыты) |
 | Medium | 18 |
 | Low (стиль, мелочи) | 30+ |
-
----
-
-## 🔴 Critical — не исправлено
-
-### 1. Все 16 .ogg файлов звуков отсутствуют на диске
-**Файл:** `bin/data/sounds.json`
-Ни один из 16 звуковых файлов (`step.ogg`, `hit.ogg`, `crit.ogg`, `miss.ogg`, `die.ogg`, `spell_*.ogg`, `pickup.ogg`, `door.ogg`, `trap.ogg`, `level_up.ogg`, `music_*.ogg`) не существует в `bin/data/`. Игра загружается, но звука нет.
-
-### 2. 7 из 9 текстур монстров отсутствуют
-**Файл:** `bin/data/monsters.json`
-Присутствуют только `skeleton.png` и `slime.png`. Отсутствуют: `goblin.png`, `skeleton_warrior.png`, `giant_rat.png`, `fire_elemental.png`, `ice_elemental.png`, `poison_slime.png`, `skeleton_mage.png`.
-
----
-
-## 🟠 High
-
-### C++ код
-
-1. **Spaceship operator невозможен для `monster_name` в renderer.cpp — не ошибка**
-2. **`Material::Bind()` — nullptr deref в release-сборке** (`src/engine/renderer/material.cpp:23,26`). `assert` удалён, `m_shader` и `m_texture` могут быть `nullptr`.
-3. **FBO completeness только в `assert()`** (`framebuffer.cpp:85,138`). В release-сборке проверка отсутствует.
-4. **`glGetError()` — ноль вызовов во всём рендерере**. Ни одна GL-операция не проверяет ошибки.
-5. **Instance attributes на mesh VAO без ownership tracking** (`renderer.cpp:170-183`). Нарушение слоёв — рендерер модифицирует VAO меша.
-6. **`glGetUniformBlockIndex` каждый фрейм** (`renderer.cpp:162-168`). Не кэшируется на Shader.
-7. **Глобальный GL state не сохраняется/восстанавливается** (`debug_renderer.cpp:279-347`).
-8. **`Renderer::m_materialIds` / `m_meshIds` неограниченно растут** — никогда не чистятся.
-9. **Приватные функции через `static` вместо anonymous namespace** (`overworld_state.cpp`, `settings_state.cpp`).
-10. **`m_showLoadSlots` и `m_selectedSlot` в MainMenuState — не завершены**. Загрузка из главного меню не реализована.
-11. **Render Height slider не пишет в `m_renderHeight`** — изменения не применяются до рестарта.
-12. **Game state модифицируется внутри `Render()`** (`play_state.cpp:2333`) — нарушение Update/Render separation.
-13. **`restartGame()` не сбрасывает `m_deadMonsterIds`** — бесконечный рост вектора.
-14. **Выход из подземелья на этаже ≤1 не делает ничего** — `TODO` на строке 990.
-15. **Use-after-free: `processOverworldTurn()` может уничтожить `this`** (`overworld_state.cpp:559-561`), затем `triggerRandomEncounter()` использует мёртвый объект.
-16. **`new Texture()` без RAII в OverworldState** — утечка при исключении.
-17. **Shop refresh использует `m_dayTime` (час) как счётчик дней** — обновляется каждый час, а не каждый день.
-18. **Inventory sell loop пропускает предметы** после `Remove(i)` в `for` с инкрементом.
-19. **`M_PI` / `M_PI_2` не портабельны на MSVC** — нужен `_USE_MATH_DEFINES` или `std::numbers::pi`.
-20. **4 .cpp и 4 .h файла отсутствуют в Game.vcxproj** — не компилируются под VS.
-21. **`glm.cpp` (stray file) в header-only библиотеке** — не компилируется, но засоряет проект.
-22. **Состояние гонки: `AudioSystem::PutStreamData` не проверяет返回值** — `streamPos` и `m_playing` обновляются даже при ошибке.
-
-### JSON данные
-
-23. **Quest rewards не существуют**: `health_potion_small`, `mana_potion_small` в `quests.json`.
-24. **`terrains.json` — мёртвый файл**: не загружается ни одним `.cpp`.
-25. **`status_effects.json` и `encounter_groups.json` отсутствуют** — игра загружается с warning.
-26. **3 предмета без поля `slot`**: `rusty_dagger`, `wooden_staff`, `short_bow`.
-27. **`pickaxe` и `fishing_rod` — нет в `weapon_types.json`** — дефолтные (нулевые) статы.
-28. **Essence ID инвертированы между `items_base.json` и `resources.json`**: `fire_essence` vs `essence_fire`.
-29. **Несовпадение цен `iron_ingot` (8 vs 15) и `whetstone` (10 vs 12)** между файлами.
 
 ---
 
@@ -166,17 +115,17 @@
 11. Создать недостающие текстуры монстров или заменить пути.
 12. ✅ Исправить 15 shop itemId references (добавлены предметы в `items_base.json`).
 13. ✅ Исправить рецепты — создать предметы для ингредиентов (добавлены в `items_base.json`).
-14. Исправить essence ID (`fire_essence` vs `essence_fire`) — конфликт между `items_base.json` и `resources.json`.
+14. ✅ Исправить essence ID (`fire_essence` vs `essence_fire`).
 15. ✅ Atomic save — пока не исправлено, но в текущем виде работает.
 
 ### Качество кода
 16. Везде добавить `glGetError()` после GL-вызовов.
 17. ✅ Исправить утечки шейдеров при ошибках компиляции/линковки — `glDetachShader` + `glDeleteShader` до `throw`.
 18. ✅ `glDisableVertexAttribArray` после instance-рендера — добавлен цикл отключения.
-19. Кэшировать `glGetUniformBlockIndex`.
+19. ✅ Кэшировать `glGetUniformBlockIndex`.
 20. RAII для всех GL/SDL ресурсов (move-операции `= delete`).
 21. `[[nodiscard]]` на всех query-функциях.
 22. `constexpr` на чистых функциях.
-23. Anonymous namespace вместо `static` функций.
+23. ✅ Anonymous namespace вместо `static` функций.
 24. Добавить `game/animation` в `.vcxproj` + `.filters`.
 25. Убрать `stdafx.h.gch` — добавить в `.gitignore`.

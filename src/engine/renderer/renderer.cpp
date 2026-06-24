@@ -156,10 +156,12 @@ void Renderer::EndFrame() noexcept
 	{
 		batch.material->Bind();
 		{	// Bind ViewProjection UBO block to binding point 0 (once per shader)
-			const GLuint shaderHandle = batch.material->GetShader().Handle();
+			const Shader* shader = batch.material->GetShader();
+			if (!shader) continue;
+			const GLuint shaderHandle = shader->Handle();
 			if (shaderHandle != m_lastShader)
 			{
-				const GLuint blockIdx = glGetUniformBlockIndex(shaderHandle, "ViewProjection");
+				const uint32_t blockIdx = shader->GetUniformBlockIndex("ViewProjection");
 				if (blockIdx != GL_INVALID_INDEX)
 				{
 					glUniformBlockBinding(shaderHandle, blockIdx, 0);

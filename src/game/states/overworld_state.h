@@ -74,7 +74,8 @@ private:
 	void triggerRandomEncounter() noexcept;
 
 	// Turn processing (hunger, time, day/night)
-	void processOverworldTurn() noexcept;
+	// Returns false if the state was replaced (this is invalid after)
+	[[nodiscard]] bool processOverworldTurn() noexcept;
 	void advanceDayTime() noexcept;
 	void updateAmbientLight() noexcept;
 
@@ -170,7 +171,8 @@ private:
 
 	// Shop refresh cache
 	std::unordered_map<std::string, std::vector<std::string>> m_shopInventories;
-	int32_t m_lastShopRefreshDay = -1; // day on which shops were last refreshed
+	int32_t m_lastShopRefreshDay = -1; // actual day count on which shops were last refreshed
+	int32_t m_dayCount = 0;            // increments each full day cycle
 
 	static constexpr std::string_view GRID_ACTION_NAMES[] =
 	{

@@ -38,7 +38,7 @@ GameApp::GameApp()
 
 	m_stateMachine.RegisterState("MainMenu", [this]()
 	{
-		return std::make_unique<MainMenuState>(m_stateMachine);
+		return std::make_unique<MainMenuState>(m_stateMachine, &m_pendingCharacter);
 	});
 	m_stateMachine.RegisterState("ClassSelection", [this]()
 	{

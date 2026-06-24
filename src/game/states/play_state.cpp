@@ -453,6 +453,14 @@ void PlayState::Update(const DeltaTime& dt) noexcept
 		return;
 	}
 
+	if (m_pendingRestart)
+	{
+		m_pendingRestart = false;
+		m_character.SetGold(m_pendingGoldLoss);
+		m_machine.ReplaceState("Overworld");
+		return;
+	}
+
 	if (m_turnManager.GetGameMode() == GameMode::GameOver)
 	{
 		// No input processing during GameOver
@@ -987,8 +995,7 @@ void PlayState::processAttack() noexcept
 		if (m_dungeon.GetCurrentFloor() <= 1)
 		{
 			m_combatLog.Add("You exit the dungeon.", glm::vec3(0.3f, 0.8f, 1.0f));
-			// TODO: Transition to overworld
-			m_turnManager.SetGameMode(GameMode::TurnWaiting);
+			m_machine.ReplaceState("Overworld");
 		}
 		else
 		{
@@ -1780,6 +1787,7 @@ void PlayState::RestartGame() noexcept
 	m_moveRepeatDelay = GetGridMoveRepeatDelayFromConfig();
 	m_renderHeight = GetRenderHeightFromConfig();
 
+	m_deadMonsterIds.clear();
 	m_craftingSystem.m_craftingLevel = 1;
 	m_craftingSystem.UnlockAllRecipes();
 
@@ -1846,6 +1854,7 @@ void PlayState::renderOptionsWindow() noexcept
 	{
 		if (rh < 120) { rh = 120; }
 		if (rh > 1080) { rh = 1080; }
+		m_renderHeight = rh;
 	}
 	ImGui::TextDisabled("Retro FBO height. Requires restart.");
 
@@ -2330,8 +2339,8 @@ void PlayState::Render() noexcept
 			ImGui::Separator();
 			if (ImGui::Button("Restart"))
 			{
-				m_character.SetGold(m_character.GetGold() / 2);
-				m_machine.ReplaceState("Overworld");
+				m_pendingGoldLoss = m_character.GetGold() / 2;
+				m_pendingRestart = true;
 				ImGui::CloseCurrentPopup();
 			}
 			ImGui::SameLine();

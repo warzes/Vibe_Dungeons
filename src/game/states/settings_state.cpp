@@ -7,8 +7,9 @@
 #include "core/file_io.h"
 
 // ── JSON serialization for PlayerConfig ───────────────────────────────────
+// These must be at namespace scope for nlohmann ADL to find them.
 
-static void to_json(json& j, const PlayerConfig& c)
+void to_json(json& j, const PlayerConfig& c)
 {
 	j = json{
 		{"playerName",          c.playerName},
@@ -23,7 +24,7 @@ static void to_json(json& j, const PlayerConfig& c)
 	};
 }
 
-static void from_json(const json& j, PlayerConfig& c)
+void from_json(const json& j, PlayerConfig& c)
 {
 	j.at("playerName").get_to(c.playerName);
 	j.at("mouseSensitivity").get_to(c.mouseSensitivity);
@@ -36,28 +37,33 @@ static void from_json(const json& j, PlayerConfig& c)
 	j.at("gridMoveRepeatDelay").get_to(c.gridMoveRepeatDelay);
 }
 
-	static std::string configFilePath()
-	{
-		return "player_config.json";
-	}
+namespace
+{
 
-	static std::optional<nlohmann::json> readJsonFile(const std::string& path) noexcept
-	{
-		std::string contents = FileReadString(path.c_str());
-		if (contents.empty())
-		{
-			return std::nullopt;
-		}
-		return nlohmann::json::parse(contents, nullptr, false);
-	}
+std::string configFilePath()
+{
+	return "player_config.json";
+}
 
-	static bool writeJsonFile(const std::string& path, const nlohmann::json& j) noexcept
+std::optional<nlohmann::json> readJsonFile(const std::string& path) noexcept
+{
+	std::string contents = FileReadString(path.c_str());
+	if (contents.empty())
 	{
-		const std::string contents = j.dump(2);
-		return FileWriteBytes(path.c_str(), contents.data(), contents.size());
+		return std::nullopt;
 	}
+	return nlohmann::json::parse(contents, nullptr, false);
+}
 
-	float GetGridMoveRepeatDelayFromConfig() noexcept
+bool writeJsonFile(const std::string& path, const nlohmann::json& j) noexcept
+{
+	const std::string contents = j.dump(2);
+	return FileWriteBytes(path.c_str(), contents.data(), contents.size());
+}
+
+} // anonymous namespace
+
+float GetGridMoveRepeatDelayFromConfig() noexcept
 	{
 		auto maybeJson = readJsonFile(configFilePath());
 		if (maybeJson.has_value())
