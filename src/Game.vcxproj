@@ -191,6 +191,7 @@
     <ClCompile Include="engine\renderer\texture.cpp" />
     <ClCompile Include="engine\resource_manager.cpp" />
     <ClCompile Include="engine\window.cpp" />
+    <ClCompile Include="game\animation\animation_manager.cpp" />
     <ClCompile Include="game\combat\character.cpp" />
     <ClCompile Include="game\combat\combat_handler.cpp" />
     <ClCompile Include="game\combat\combat_system.cpp" />
@@ -213,6 +214,9 @@
     <ClCompile Include="game\data\item_stat_calculator.cpp" />
     <ClCompile Include="game\data\material_generator.cpp" />
     <ClCompile Include="game\data\monster_factory.cpp" />
+    <ClCompile Include="game\data\npc_manager.cpp" />
+    <ClCompile Include="game\data\quest_manager.cpp" />
+    <ClCompile Include="game\data\shop_manager.cpp" />
     <ClCompile Include="game\data\skill_manager.cpp" />
     <ClCompile Include="game\data\spell_manager.cpp" />
     <ClCompile Include="game\dungeon\dungeon.cpp" />
@@ -283,6 +287,7 @@
     <ClInclude Include="engine\renderer\texture.h" />
     <ClInclude Include="engine\resource_manager.h" />
     <ClInclude Include="engine\window.h" />
+    <ClInclude Include="game\animation\animation_manager.h" />
     <ClInclude Include="game\combat\action.h" />
     <ClInclude Include="game\combat\character.h" />
     <ClInclude Include="game\combat\combat_handler.h" />
@@ -311,6 +316,9 @@
     <ClInclude Include="game\data\item_stat_calculator.h" />
     <ClInclude Include="game\data\material_generator.h" />
     <ClInclude Include="game\data\monster_factory.h" />
+    <ClInclude Include="game\data\npc_manager.h" />
+    <ClInclude Include="game\data\quest_manager.h" />
+    <ClInclude Include="game\data\shop_manager.h" />
     <ClInclude Include="game\data\skill_manager.h" />
     <ClInclude Include="game\data\spell_manager.h" />
     <ClInclude Include="game\direction.h" />

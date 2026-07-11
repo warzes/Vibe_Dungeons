@@ -184,7 +184,13 @@ bool SaveManager::SlotExists(int32_t slot) noexcept
 		return false;
 	}
 
-	FILE* f = fopen(SlotPath(slot).c_str(), "rb");
+
+	FILE* f = nullptr;
+#if defined(_MSC_VER)
+	auto err = fopen_s(&f, SlotPath(slot).c_str(), "rb");
+#else
+	f = fopen(SlotPath(slot).c_str(), "rb");
+#endif
 	if (!f)
 	{
 		return false;
